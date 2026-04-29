@@ -1,0 +1,18 @@
+---
+alwaysApply: true
+---
+
+# Spec Kit Project Rule
+
+- When working with `speckit` commands such as `speckit.specify`, `speckit.constitution`, `speckit.clarify`, `speckit.plan`, or `speckit.tasks`, first load and follow the `speckit-project-context` skill.
+- Before `speckit.constitution`, `speckit.clarify`, `speckit.specify`, or `speckit.plan`, also load and follow the `specify-prompt-engineer` skill to transform rough user text into a structured command-ready prompt.
+- Treat `README.md` and the project files in `docs/` as the current product context.
+- If `docs/`, the constitution, and generated spec artifacts disagree, surface the conflict and resolve it explicitly before proceeding.
+- For frontend or `Next.js` planning, also consider `.agents/skills/vercel-react-best-practices` and `.agents/skills/vercel-composition-patterns`.
+- For AI UI or AI product flows, also consider `.agents/skills/ai-elements` and `.agents/skills/ai-sdk`.
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan:
+`specs/002-linkedin-job-bot/plan.md`
+<!-- SPECKIT END -->

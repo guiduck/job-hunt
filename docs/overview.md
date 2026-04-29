@@ -1,44 +1,133 @@
 # Visao Geral
 
-Projeto pessoal para prospeccao de freelas de website.
+`Scrapper Freelance API` e uma plataforma pessoal para descobrir, organizar e operar
+oportunidades em dois trilhos de primeira classe:
 
-## Ideia
+- `freelance`: empresas, negocios ou contatos que podem virar cliente
+- `job`: vagas de emprego aderentes ao perfil e ao posicionamento profissional
 
-Encontrar pequenos negocios que:
+O produto nao deve tratar um trilho como adaptacao do outro. Na interface, os dois trilhos devem se
+comportar como dois apps independentes dentro da mesma casca visual:
 
-- aparecem em buscas locais
-- tem contato publico
-- nao tem website proprio
-- podem virar cliente de servico web
+- modo `Full-time`: app para buscar vagas, revisar publicacoes do LinkedIn, preparar candidatura e
+  acompanhar resposta/entrevista
+- modo `Freelance`: app para prospectar clientes, analisar site, gerar demo/prompt Lovable e
+  preparar mensagens comerciais
 
-## O que o sistema deve fazer
+Mesmo que o backend compartilhe entidades e infraestrutura, a experiencia do usuario nao deve
+misturar os dois modos. Nao deve existir uma lista principal com vagas de emprego e prospects
+freelance juntos.
 
-Em ordem:
+## Prioridade atual
 
-1. descobrir leads
-2. salvar e agrupar leads
-3. acompanhar o contato comercial
-4. gerar material de proposta com IA
+A primeira utilidade real do app sera o fluxo `job`.
 
-## Escopo atual
+Antes de priorizar prospeccao freelance, o sistema deve ajudar o usuario a encontrar vagas e
+publicacoes no LinkedIn em que empresas deixam email disponivel e usam keywords relevantes ao
+perfil profissional do usuario. Essas keywords podem ser configuradas manualmente no inicio e,
+depois, extraidas do curriculo.
 
-Agora o foco e:
+O bot de oportunidades freelance continua planejado, mas entra depois que o fluxo de busca de
+emprego, revisao de vagas e envio de email com curriculo estiver funcionando.
 
-- scraper de empresas
-- banco de leads
-- classificacao inicial
-- base pronta para email e CRM
+## Objetivo do produto
 
-## O que vem depois
+Construir uma base operacional que permita:
 
-- mini CRM com leads `cold`, `warm` e `hot`
-- envio de emails
-- historico de resposta, clique e interesse
-- area de IA para gerar prompt completo para `Lovable`
+1. descobrir vagas e publicacoes de emprego com keywords relevantes
+2. salvar tudo como dados estruturados e reaproveitaveis
+3. revisar oportunidades em um fluxo manual estilo CRM
+4. enviar templates de email com curriculo anexado, em massa ou um a um
+5. evoluir depois para prospeccao freelance, IA, analytics e sugestoes geograficas
 
-## Principios
+## Capacidade principal
 
-- `qualidade antes de volume`
-- `dados estruturados desde o inicio`
-- `revisao manual antes de automatizar demais`
-- `arquitetura simples para deploy`
+O sistema precisa cobrir estas capacidades ao longo da evolucao:
+
+- descoberta especializada de oportunidades
+- armazenamento estruturado com evidencia da captura
+- revisao e qualificacao manual em fluxo de operacao
+- outreach humano assistido por templates, email e curriculo anexado
+- geracao futura de prompts e artefatos com IA
+
+## Interface alvo
+
+A web deve ter um seletor global no header para alternar entre `Full-time` e `Freelance`. O modo
+ativo escopa toda a aplicacao:
+
+- dashboard
+- campanhas
+- leads/oportunidades
+- templates
+- configuracoes
+- pagina de detalhe
+
+`Full-time` deve usar linguagem de vagas, empresas, cargos, emails de recrutamento, keywords,
+curriculo e candidatura. `Freelance` deve usar linguagem de negocios, nichos, site, score, demo,
+prompt Lovable, WhatsApp e follow-up.
+
+Essa separacao e requisito de produto, nao apenas filtro visual.
+
+## Fluxo operacional de referencia
+
+As imagens de referencia mostram principalmente um fluxo de prospeccao `Freelance`:
+
+1. descobrir e listar leads em uma visao operacional
+2. filtrar por campanha, temperatura e status
+3. abrir uma oportunidade e revisar contexto, origem e contato
+4. gerar ou selecionar template de mensagem
+5. aprovar envio individual ou em massa
+6. registrar resposta, candidatura, entrevista ou descarte
+
+Esse fluxo reforca que o produto nao e apenas um scraper. Ele evolui para uma mesa de operacao
+com CRM leve, campanhas, templates, prompts e outreach assistido.
+
+Para `Full-time`, o mesmo nivel de detalhe visual deve existir, mas com outro fluxo:
+
+1. buscar publicacoes/vagas no LinkedIn por keywords
+2. salvar vagas com empresa, cargo, email, link, keywords e evidencia
+3. revisar a vaga em pagina de detalhe propria
+4. selecionar curriculo e template de candidatura
+5. aprovar envio individual ou em massa
+6. acompanhar resposta, entrevista, rejeicao ou descarte
+
+## Fase atual
+
+O foco imediato ainda e construir a base de operacao:
+
+- API em `FastAPI`
+- banco em `PostgreSQL`
+- jobs longos fora do processo HTTP
+- modelo de dados preparado para `freelance` e `job`
+- fluxo `job` priorizado no produto
+- documentacao pronta para orientar implementacao sem drift
+
+## Principios que guiam desenvolvimento
+
+Esta documentacao assume os principios do `constitution`:
+
+- `dual opportunity search`: `freelance` e `job` sao fluxos de primeira classe
+- `specialized discovery`: busca por nicho, localidade e evidencias, nao scraping generico
+- `structured records`: tudo que entrar deve ser reutilizavel por CRM, outreach e IA
+- `human-reviewed outreach`: automacao de envio so depois de regras claras
+- `compatible architecture`: scraping, enrichment e outreach rodam fora da API
+
+## O que isso significa na pratica
+
+Durante o desenvolvimento:
+
+- prefira extensoes aditivas ao modelo de dados em vez de reestruturacoes bruscas
+- preserve compatibilidade de contratos e nomes sempre que possivel
+- capture `source_query`, sinais, evidencias e notas desde a origem
+- trate painel, campanhas, templates e IA como evolucoes naturais do mesmo sistema
+
+## Mapa rapido dos docs
+
+- `docs/architecture.md`: componentes, fronteiras e deploy
+- `docs/product-modes.md`: separacao obrigatoria entre modo `Full-time` e modo `Freelance`
+- `docs/domain-model.md`: entidades, campos e enums principais
+- `docs/bot-1-job-search.md`: escopo do primeiro bot de busca de emprego
+- `docs/bot-1-scraper.md`: escopo posterior do bot de prospeccao freelance
+- `docs/search-improvements.md`: estrategia de busca especializada
+- `docs/roadmap.md`: fases do produto
+- `docs/action-plan.md`: ordem recomendada de implementacao

@@ -1,34 +1,140 @@
-# Bot 1 - Scraper
+# Bot 2 - Prospeccao Freelance
 
 ## Objetivo
 
-Encontrar pequenas empresas locais com chance de contratar um website.
+Implementar o bot de descoberta especializado para capturar oportunidades `freelance` com chance
+real de virar contato comercial.
 
-## Lead ideal
+Este bot continua importante, mas agora vem depois do primeiro fluxo de busca de empregos. A base
+de dados deve continuar preparada para ele desde o inicio.
+
+Na web, esse fluxo pertence exclusivamente ao modo `Freelance`. Ele deve ser tratado como um app de
+prospeccao comercial, separado do modo `Full-time`.
+
+## Perfil de oportunidade ideal
 
 - pequeno negocio local
-- sem website identificado
-- com email publico
-- com telefone ou outro contato util
+- nicho aderente a servicos oferecidos
+- sem website claro ou com presenca digital fraca
+- com email publico, telefone ou outro canal util
+- com evidencia suficiente para justificar a captura
 
-## Fluxo
+## Entrada esperada
 
-1. buscar por nicho e cidade
-2. coletar empresas
-3. detectar website
-4. capturar email e telefone
-5. deduplicar
-6. salvar no banco
+O bot deve receber ao menos:
+
+- nicho
+- cidade, bairro ou regiao
+- escopo geografico ou de mercado
+- tipo de oportunidade alvo, inicialmente `freelance`
+
+## Fluxo recomendado
+
+1. gerar queries especializadas por nicho e geografia
+2. coletar candidatos a oportunidade
+3. detectar website e classificar `website_status`
+4. capturar email, telefone e links uteis
+5. registrar a `source_query` e a evidencia principal
+6. deduplicar
+7. calcular score inicial
+8. salvar no banco
+
+## UI esperada no modo `Freelance`
+
+O modo `Freelance` deve seguir de perto as imagens de referencia.
+
+Telas esperadas:
+
+- `Dashboard`: metricas de leads, contactados, convertidos, receita potencial, demos e prompts
+- `Campanhas`: campanhas por nicho, mercado, pais, estado e cidade
+- `Leads`: tabela somente de negocios/prospects comerciais
+- `Detalhe do lead`: pagina propria com score, analise de site, demo URL, prompt Lovable e mensagens
+- `Templates`: templates somente de primeiro contato e follow-up comercial
+- `Configuracoes`: dados do vendedor, WhatsApp, preco, parcelas e oferta
+
+Nao mostrar no modo `Freelance`:
+
+- vagas full-time
+- curriculo anexado
+- status de candidatura
+- templates de candidatura
+- entrevistas
+- keywords de curriculo como campo principal
 
 ## Regras iniciais
 
-- se houver website no perfil, nao priorizar
-- se houver so rede social, ainda pode ser lead
-- se houver email publico, sobe prioridade
-- se houver duvida sobre website, marcar para revisao
+- se houver website claro e funcional, reduzir prioridade
+- se houver apenas rede social, ainda pode ser oportunidade
+- se houver email publico, subir prioridade
+- se houver duvida sobre website, marcar `suspected`
+- nao salvar oportunidade sem contexto minimo de origem
 
-## Resultado minimo
+## Evidencias minimas para persistir
 
-- leads salvos no `PostgreSQL`
+Cada oportunidade salva deve carregar pelo menos:
+
+- consulta que originou a captura
+- fonte principal ou link de origem
+- sinal que justificou a entrada, como ausencia de website ou contato publico
+
+## Pagina de detalhe freelance
+
+Cada lead `freelance` deve ter uma pagina ou drawer detalhado.
+
+Conteudo minimo:
+
+- nome do negocio
+- telefone
+- email
+- website
+- cidade/endereco
+- nicho
+- nota Google
+- quantidade de avaliacoes
+- Google Maps/source URL
+- analise do site
+- score mobile
+- score desktop
+- responsivo
+- plataformas detectadas
+- se tem anuncios
+- se usa linktree
+- motivo da classificacao
+- score circular
+- status comercial
+
+Acoes:
+
+- alterar status comercial
+- salvar `demo_url`
+- gerar mega prompt Lovable
+- copiar prompt
+- gerar mensagem de `1o Contato`
+- gerar mensagem de `Follow-up`
+- escolher template automatico
+- copiar mensagem
+- enviar por email
+- enviar por WhatsApp
+- editar/aprovar mensagem
+
+## Mega prompt Lovable
+
+O modo `Freelance` deve ter um modal especifico para gerar o mega prompt Lovable a partir do lead.
+
+Requisitos:
+
+- abrir pela pagina de detalhe do lead
+- variantes `Completo`/`Blueprint`, `Generico` e `Compacto`
+- chips de design e contexto
+- contador de caracteres
+- area grande monoespacada
+- botao `Copiar Prompt`
+- salvar como artefato versionavel no futuro
+
+## Resultado minimo esperado
+
+- oportunidades salvas no `PostgreSQL`
+- `opportunity_type` preenchido
 - score inicial
-- status inicial para CRM
+- status inicial de revisao para CRM
+- base pronta para enriquecimento e outreach futuro
