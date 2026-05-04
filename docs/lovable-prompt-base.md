@@ -3,7 +3,10 @@
 Este arquivo serve como base para gerar prompts de landing page no `Lovable`.
 
 Ele foi derivado do exemplo real usado no fluxo de leads e deve ser preenchido por lead ou por
-campanha. Ajuste apenas o que for necessario para o nicho, localidade e contexto comercial.
+campanha. Ajuste apenas o que for necessario para o nicho, localidade e contexto comercial. Quando o
+lead vier de Google Maps ou da busca manual por nicho/cidade, use os dados reais capturados: nome do
+negocio, nicho, localizacao, telefone, email, nota/reviews, website atual, problema identificado e
+concorrente local de referencia quando houver.
 
 ## Quando usar
 
@@ -13,6 +16,7 @@ Use esta base quando houver:
 - contexto suficiente do negocio
 - uma oferta clara
 - intencao de gerar uma landing page demo para outreach
+- evidencia de oportunidade, como ausencia de site, rede social usada como site ou site fraco
 
 ## Regras gerais
 
@@ -42,6 +46,9 @@ Accent Color: [ACCENT_COLOR]
 Contact: Phone: [PHONE_CLICK_TO_CALL] (click-to-call)
 Phone: [PHONE_DISPLAY]
 Google Rating: [GOOGLE_RATING]
+Website Status: [NO_WEBSITE_OR_SOCIAL_ONLY_OR_WEAK_SITE]
+Observed Opportunity: [WHY_THIS_BUSINESS_NEEDS_A_SITE]
+Competitor Reference: [OPTIONAL_COMPETITOR_WITH_BETTER_SITE]
 
 =========================================================
 PAGE GOAL

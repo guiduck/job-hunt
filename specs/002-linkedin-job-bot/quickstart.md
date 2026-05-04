@@ -42,6 +42,17 @@ evidence fields.
    python -m app.main
    ```
 
+## Reset Local Storage
+
+Use this only when you want a clean local database:
+
+```bash
+docker compose down -v
+docker compose up -d
+cd apps/api
+alembic upgrade head
+```
+
 ## Validation Flow
 
 ### 1. Confirm fallback keywords
@@ -65,6 +76,23 @@ Expected result:
 
 - HTTP `202`
 - response includes `id`, `status`, `requested_keywords`, `candidate_limit=50`, and zeroed counts
+
+Example response:
+
+```json
+{
+  "id": "11111111-1111-1111-1111-111111111111",
+  "status": "pending",
+  "requested_keywords": ["reactjs", "typescript", "nextjs", "nodejs"],
+  "source_name": "LinkedIn",
+  "candidate_limit": 50,
+  "inspected_count": 0,
+  "accepted_count": 0,
+  "rejected_count": 0,
+  "duplicate_count": 0,
+  "cap_reached": false
+}
+```
 
 ### 3. Inspect run status
 
@@ -115,6 +143,22 @@ Each accepted opportunity must include:
 - matched keywords
 - job stage
 - dedupe key
+
+Example accepted opportunity:
+
+```json
+{
+  "opportunity_type": "job",
+  "company_name": "Example Co",
+  "title": "Frontend Engineer",
+  "job_description": "We use React, TypeScript, and Next.js.",
+  "contact_channel_value": "jobs@example.com",
+  "source_query": "reactjs typescript email",
+  "source_evidence": "Email jobs@example.com with your resume.",
+  "matched_keywords": ["reactjs", "typescript"],
+  "job_stage": "new"
+}
+```
 
 ### 6. Review all job opportunities
 

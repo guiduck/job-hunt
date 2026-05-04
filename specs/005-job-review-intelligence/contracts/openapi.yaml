@@ -1,0 +1,591 @@
+openapi: 3.1.0
+info:
+  title: Scrapper Freelance API - Job Review Intelligence
+  version: 0.4.0
+  description: API contract additions for review-ready Full-time job opportunities, candidate analysis visibility, and score/review filters.
+paths:
+  /opportunities:
+    get:
+      summary: List opportunities with Full-time review filters
+      parameters:
+        - in: query
+          name: opportunity_type
+          schema:
+            type: string
+            enum: [job, freelance]
+        - in: query
+          name: min_score
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+        - in: query
+          name: matched_keyword
+          schema:
+            type: string
+        - in: query
+          name: keyword
+          description: Text search over matched and missing keywords.
+          schema:
+            type: string
+        - in: query
+          name: contact_available
+          schema:
+            type: boolean
+        - in: query
+          name: contact_channel_type
+          schema:
+            $ref: "#/components/schemas/ContactChannelType"
+        - in: query
+          name: job_stage
+          schema:
+            $ref: "#/components/schemas/JobStage"
+        - in: query
+          name: review_status
+          schema:
+            $ref: "#/components/schemas/JobReviewStatus"
+        - in: query
+          name: provider_status
+          schema:
+            $ref: "#/components/schemas/ProviderStatus"
+        - in: query
+          name: analysis_status
+          schema:
+            $ref: "#/components/schemas/CandidateAnalysisStatus"
+        - in: query
+          name: source_query
+          schema:
+            type: string
+        - in: query
+          name: run_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: campaign_id
+          description: Optional future campaign linkage; ignored or empty when records have no campaign.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Opportunities filtered by requested criteria
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OpportunityListItem"
+  /opportunities/{opportunity_id}:
+    get:
+      summary: Get opportunity detail with review profile
+      parameters:
+        - $ref: "#/components/parameters/OpportunityId"
+      responses:
+        "200":
+          description: Opportunity detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Opportunity"
+        "404":
+          description: Opportunity not found
+    patch:
+      summary: Update operator review fields for an opportunity
+      parameters:
+        - $ref: "#/components/parameters/OpportunityId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpportunityUpdate"
+      responses:
+        "200":
+          description: Updated opportunity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Opportunity"
+        "404":
+          description: Opportunity not found
+  /job-search-runs:
+    get:
+      summary: List LinkedIn Job Search runs with analysis summary
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: "#/components/schemas/JobSearchRunStatus"
+        - in: query
+          name: provider_status
+          schema:
+            $ref: "#/components/schemas/ProviderStatus"
+        - in: query
+          name: analysis_status
+          schema:
+            $ref: "#/components/schemas/CandidateAnalysisStatus"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Runs ordered by newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobSearchRun"
+  /job-search-runs/{run_id}:
+    get:
+      summary: Get run status, provider state, counters, and analysis summary
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Run detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobSearchRun"
+        "404":
+          description: Run not found
+  /job-search-runs/{run_id}/candidates:
+    get:
+      summary: List inspected candidates with analysis status and score factors
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - in: query
+          name: outcome
+          schema:
+            $ref: "#/components/schemas/JobCandidateOutcome"
+        - in: query
+          name: collection_source_type
+          schema:
+            $ref: "#/components/schemas/LinkedInCollectionSourceType"
+        - in: query
+          name: analysis_status
+          schema:
+            $ref: "#/components/schemas/CandidateAnalysisStatus"
+        - in: query
+          name: min_score
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+      responses:
+        "200":
+          description: Candidate outcomes persisted by the worker
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobSearchCandidate"
+        "404":
+          description: Run not found
+  /job-search-runs/{run_id}/opportunities:
+    get:
+      summary: List accepted review-ready job opportunities created from a run
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Accepted job opportunities linked to accepted candidates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Opportunity"
+        "404":
+          description: Run not found
+components:
+  parameters:
+    OpportunityId:
+      in: path
+      name: opportunity_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RunId:
+      in: path
+      name: run_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    JobReviewStatus:
+      type: string
+      enum: [unreviewed, reviewing, saved, ignored]
+    CandidateAnalysisStatus:
+      type: string
+      enum: [deterministic_only, ai_assisted, fallback, failed, skipped]
+    JobSearchRunStatus:
+      type: string
+      enum: [pending, running, completed, completed_no_results, failed]
+    JobCandidateOutcome:
+      type: string
+      enum:
+        - accepted
+        - rejected_no_contact
+        - rejected_weak_match
+        - rejected_missing_evidence
+        - duplicate
+        - failed_parse
+        - failed_provider
+        - blocked_source
+        - inaccessible_source
+        - empty_source
+    ProviderStatus:
+      type: string
+      enum: [not_started, collected, partial, blocked, inaccessible, empty, failed]
+    LinkedInCollectionSourceType:
+      type: string
+      enum: [automatic_publication_search, provided_url, provided_public_content]
+    ContactChannelType:
+      type: string
+      enum: [email, linkedin, other_public_contact]
+    JobStage:
+      type: string
+      enum: [new, saved, applied, responded, interview, rejected, ignored]
+    ScoreFactors:
+      type: object
+      additionalProperties: true
+      properties:
+        positive:
+          type: array
+          items:
+            type: string
+        negative:
+          type: array
+          items:
+            type: string
+        matched_keywords:
+          type: array
+          items:
+            type: string
+        missing_keywords:
+          type: array
+          items:
+            type: string
+        evidence_refs:
+          type: array
+          items:
+            type: string
+        historical_adjustment:
+          type: integer
+          minimum: -100
+          maximum: 100
+    HistoricalSimilaritySignals:
+      type: object
+      additionalProperties: true
+      properties:
+        comparable_count:
+          type: integer
+          minimum: 0
+        positive_outcomes:
+          type: array
+          items:
+            type: string
+        negative_outcomes:
+          type: array
+          items:
+            type: string
+        adjustment:
+          type: integer
+          minimum: -100
+          maximum: 100
+    JobReviewProfile:
+      type: object
+      required:
+        - review_status
+        - match_score
+        - score_explanation
+        - analysis_status
+      properties:
+        review_status:
+          $ref: "#/components/schemas/JobReviewStatus"
+        match_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        score_explanation:
+          type: string
+        score_factors:
+          $ref: "#/components/schemas/ScoreFactors"
+        analysis_status:
+          $ref: "#/components/schemas/CandidateAnalysisStatus"
+        analysis_confidence:
+          type: string
+        analysis_error_code:
+          type: string
+        analysis_error_message:
+          type: string
+        normalized_company_name:
+          type: string
+        normalized_role_title:
+          type: string
+        detected_seniority:
+          type: string
+        detected_modality:
+          type: string
+        detected_location:
+          type: string
+        missing_keywords:
+          type: array
+          items:
+            type: string
+        historical_similarity_signals:
+          $ref: "#/components/schemas/HistoricalSimilaritySignals"
+    JobDetail:
+      type: object
+      required:
+        - id
+        - opportunity_id
+        - contact_channel_value
+        - matched_keywords
+        - job_stage
+      properties:
+        id:
+          type: string
+          format: uuid
+        opportunity_id:
+          type: string
+          format: uuid
+        company_name:
+          type: string
+        role_title:
+          type: string
+        post_headline:
+          type: string
+        job_description:
+          type: string
+        contact_channel_type:
+          $ref: "#/components/schemas/ContactChannelType"
+        contact_channel_value:
+          type: string
+        contact_email:
+          type: string
+        application_url:
+          type: string
+        linkedin_url:
+          type: string
+        poster_profile_url:
+          type: string
+        contact_priority:
+          type: string
+          enum: [primary, secondary]
+        hiring_intent_term:
+          type: string
+        collection_source_type:
+          type: string
+        matched_keywords:
+          type: array
+          items:
+            type: string
+        dedupe_key:
+          type: string
+        job_stage:
+          $ref: "#/components/schemas/JobStage"
+        review_profile:
+          $ref: "#/components/schemas/JobReviewProfile"
+    Opportunity:
+      type: object
+      required:
+        - id
+        - opportunity_type
+        - source_evidence
+        - captured_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        opportunity_type:
+          type: string
+          enum: [job, freelance]
+        title:
+          type: string
+        organization_name:
+          type: string
+        source_name:
+          type: string
+        source_url:
+          type: string
+        source_query:
+          type: string
+        source_evidence:
+          type: string
+        operator_notes:
+          type: string
+        captured_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        job_detail:
+          $ref: "#/components/schemas/JobDetail"
+    OpportunityListItem:
+      allOf:
+        - $ref: "#/components/schemas/Opportunity"
+    OpportunityUpdate:
+      type: object
+      properties:
+        job_stage:
+          $ref: "#/components/schemas/JobStage"
+        review_status:
+          $ref: "#/components/schemas/JobReviewStatus"
+        operator_notes:
+          type: string
+    JobSearchRun:
+      type: object
+      required:
+        - id
+        - status
+        - requested_keywords
+        - candidate_limit
+        - inspected_count
+        - accepted_count
+        - rejected_count
+        - duplicate_count
+        - cap_reached
+        - provider_status
+        - analysis_status
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/JobSearchRunStatus"
+        requested_keywords:
+          type: array
+          items:
+            type: string
+        candidate_limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+        inspected_count:
+          type: integer
+        accepted_count:
+          type: integer
+        rejected_count:
+          type: integer
+        duplicate_count:
+          type: integer
+        cap_reached:
+          type: boolean
+        provider_status:
+          $ref: "#/components/schemas/ProviderStatus"
+        provider_error_code:
+          type: string
+        provider_error_message:
+          type: string
+        analysis_enabled:
+          type: boolean
+        analysis_status:
+          $ref: "#/components/schemas/CandidateAnalysisStatus"
+        analysis_error_code:
+          type: string
+        analysis_error_message:
+          type: string
+        deterministic_only_count:
+          type: integer
+          minimum: 0
+        ai_assisted_count:
+          type: integer
+          minimum: 0
+        analysis_fallback_count:
+          type: integer
+          minimum: 0
+        analysis_failed_count:
+          type: integer
+          minimum: 0
+        analysis_skipped_count:
+          type: integer
+          minimum: 0
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    JobSearchCandidate:
+      type: object
+      required:
+        - id
+        - run_id
+        - outcome
+        - source_query
+        - matched_keywords
+        - analysis_status
+      properties:
+        id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        opportunity_id:
+          type: string
+          format: uuid
+        outcome:
+          $ref: "#/components/schemas/JobCandidateOutcome"
+        company_name:
+          type: string
+        role_title:
+          type: string
+        post_headline:
+          type: string
+        job_description:
+          type: string
+        contact_channel_type:
+          $ref: "#/components/schemas/ContactChannelType"
+        contact_channel_value:
+          type: string
+        provider_status:
+          $ref: "#/components/schemas/ProviderStatus"
+        provider_error_code:
+          type: string
+        source_url:
+          type: string
+        source_query:
+          type: string
+        source_evidence:
+          type: string
+        matched_keywords:
+          type: array
+          items:
+            type: string
+        raw_excerpt:
+          type: string
+        dedupe_key:
+          type: string
+        rejection_reason:
+          type: string
+        review_profile:
+          $ref: "#/components/schemas/JobReviewProfile"
+        inspected_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time

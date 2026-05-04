@@ -1,0 +1,23 @@
+[project]
+name = "scrapper-freelance-worker"
+version = "0.1.0"
+description = "Worker for automated LinkedIn job search run processing."
+requires-python = ">=3.11"
+dependencies = [
+  "google-api-python-client",
+  "google-auth-httplib2",
+  "google-auth-oauthlib",
+  "httpx",
+  "psycopg[binary]",
+  "pydantic-settings",
+  "sqlalchemy>=2",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

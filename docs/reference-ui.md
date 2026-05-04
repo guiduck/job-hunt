@@ -137,7 +137,7 @@ Cards de acao:
 - configurar keywords
 - rodar busca LinkedIn
 - revisar novas vagas
-- preparar emails com curriculo
+- preparar e enviar emails reais com curriculo apos preview
 
 Nao mostrar:
 
@@ -333,7 +333,7 @@ Estados de candidatura:
 Acoes por linha:
 
 - `Abrir detalhe`
-- `Preparar email`
+- `Preparar/enviar email`
 - `Salvar vaga`
 - `Ignorar`
 
@@ -437,8 +437,9 @@ Acoes obrigatorias:
 - salvar notas
 - selecionar curriculo
 - gerar/preparar email de candidatura
-- copiar email
-- marcar como enviado
+- revisar preview
+- enviar email pelo provider configurado
+- registrar evento de envio
 - registrar resposta
 - registrar entrevista
 - ignorar vaga
@@ -520,6 +521,8 @@ Conteudo do prompt:
 
 - deve ser gerado a partir dos dados do lead freelance
 - deve usar nome, nicho, localidade, telefone, avaliacao, sinais e analise
+- deve usar contexto Google Maps quando disponivel: website ausente, rede social como site, site
+  fraco, nota/reviews e concorrente de referencia
 - deve pedir landing page completa no Lovable
 - deve seguir templates de alta conversao
 - deve ter variantes versionaveis

@@ -20,7 +20,13 @@ freelance juntos.
 
 ## Prioridade atual
 
-A primeira utilidade real do app sera o fluxo `job`.
+A primeira utilidade real do app e o fluxo `job`, agora operado localmente pela extensao Plasmo e
+pelo coletor Playwright como fallback.
+
+Antes de transformar esse MVP local em produto publicado, a prioridade tecnica passa a ser login de
+usuario com email/senha e ownership dos dados. Curriculos, templates, Gmail conectado, vagas, runs,
+settings e historico devem pertencer ao usuario autenticado. Nao ha times/workspaces no primeiro
+ciclo; assinaturas futuras tambem pertencem ao usuario.
 
 Antes de priorizar prospeccao freelance, o sistema deve ajudar o usuario a encontrar vagas e
 publicacoes no LinkedIn em que empresas deixam email disponivel e usam keywords relevantes ao
@@ -28,7 +34,10 @@ perfil profissional do usuario. Essas keywords podem ser configuradas manualment
 depois, extraidas do curriculo.
 
 O bot de oportunidades freelance continua planejado, mas entra depois que o fluxo de busca de
-emprego, revisao de vagas e envio de email com curriculo estiver funcionando.
+emprego, revisao de vagas e envio real de email com curriculo estiver funcionando. O modo
+`Freelance` deve seguir o metodo de prospeccao por Google Maps/nicho/localidade documentado nas
+referencias: encontrar negocios sem site, com apenas rede social ou com site fraco, gerar prompt/demo
+Lovable e preparar primeiro contato/follow-up.
 
 ## Objetivo do produto
 
@@ -37,8 +46,9 @@ Construir uma base operacional que permita:
 1. descobrir vagas e publicacoes de emprego com keywords relevantes
 2. salvar tudo como dados estruturados e reaproveitaveis
 3. revisar oportunidades em um fluxo manual estilo CRM
-4. enviar templates de email com curriculo anexado, em massa ou um a um
-5. evoluir depois para prospeccao freelance, IA, analytics e sugestoes geograficas
+4. enviar emails reais com template e curriculo anexado, em massa ou um a um, apos aprovacao humana
+5. isolar os dados por usuario antes de deploy
+6. evoluir depois para prospeccao freelance via Google Maps, IA, analytics e sugestoes geograficas
 
 ## Capacidade principal
 
@@ -47,7 +57,7 @@ O sistema precisa cobrir estas capacidades ao longo da evolucao:
 - descoberta especializada de oportunidades
 - armazenamento estruturado com evidencia da captura
 - revisao e qualificacao manual em fluxo de operacao
-- outreach humano assistido por templates, email e curriculo anexado
+- outreach humano assistido por templates, email real, curriculo anexado e eventos auditaveis
 - geracao futura de prompts e artefatos com IA
 
 ## Interface alvo
@@ -76,7 +86,7 @@ As imagens de referencia mostram principalmente um fluxo de prospeccao `Freelanc
 2. filtrar por campanha, temperatura e status
 3. abrir uma oportunidade e revisar contexto, origem e contato
 4. gerar ou selecionar template de mensagem
-5. aprovar envio individual ou em massa
+5. aprovar envio real individual ou em massa por provedor configurado
 6. registrar resposta, candidatura, entrevista ou descarte
 
 Esse fluxo reforca que o produto nao e apenas um scraper. Ele evolui para uma mesa de operacao
@@ -97,7 +107,9 @@ O foco imediato ainda e construir a base de operacao:
 
 - API em `FastAPI`
 - banco em `PostgreSQL`
+- login de usuario por email/senha antes de deploy compartilhado
 - jobs longos fora do processo HTTP
+- extensao Plasmo como primeira interface operacional local para o modo `Full-time`
 - modelo de dados preparado para `freelance` e `job`
 - fluxo `job` priorizado no produto
 - documentacao pronta para orientar implementacao sem drift
@@ -126,6 +138,7 @@ Durante o desenvolvimento:
 - `docs/architecture.md`: componentes, fronteiras e deploy
 - `docs/product-modes.md`: separacao obrigatoria entre modo `Full-time` e modo `Freelance`
 - `docs/domain-model.md`: entidades, campos e enums principais
+- `docs/auth-and-ownership.md`: usuarios, login, ownership e assinatura futura
 - `docs/bot-1-job-search.md`: escopo do primeiro bot de busca de emprego
 - `docs/bot-1-scraper.md`: escopo posterior do bot de prospeccao freelance
 - `docs/search-improvements.md`: estrategia de busca especializada

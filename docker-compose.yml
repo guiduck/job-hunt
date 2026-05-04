@@ -1,0 +1,93 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: opportunity_desk_postgres
+    env_file:
+      - .env.local
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-scrapper_freelance}
+      POSTGRES_USER: ${POSTGRES_USER:-scrapper}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scrapper}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scrapper} -d ${POSTGRES_DB:-scrapper_freelance}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: python:3.12-slim
+    container_name: opportunity_desk_api
+    working_dir: /app/apps/api
+    env_file:
+      - .env.local
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-scrapper}:${POSTGRES_PASSWORD:-scrapper}@postgres:5432/${POSTGRES_DB:-scrapper_freelance}
+      RESUME_STORAGE_BACKEND: ${RESUME_STORAGE_BACKEND:-local_fs}
+      RESUME_STORAGE_DIR: ${RESUME_STORAGE_DIR:-/app/.local/resumes}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-gmail}
+      GMAIL_OAUTH_CLIENT_CONFIG_JSON: ${GMAIL_OAUTH_CLIENT_CONFIG_JSON:-}
+      GMAIL_OAUTH_CLIENT_SECRETS_FILE: ${GMAIL_OAUTH_CLIENT_SECRETS_FILE:-/app/.local/gmail/client_secret.json}
+      GMAIL_OAUTH_SCOPES: ${GMAIL_OAUTH_SCOPES:-https://www.googleapis.com/auth/gmail.send}
+      AUTH_SESSION_TTL_HOURS: ${AUTH_SESSION_TTL_HOURS:-12}
+      AUTH_TOKEN_BYTES: ${AUTH_TOKEN_BYTES:-32}
+      PASSWORD_RESET_TOKEN_TTL_MINUTES: ${PASSWORD_RESET_TOKEN_TTL_MINUTES:-30}
+      DEFAULT_LOCAL_USER_EMAIL: ${DEFAULT_LOCAL_USER_EMAIL:-local@example.com}
+      DEFAULT_LOCAL_USER_DISPLAY_NAME: ${DEFAULT_LOCAL_USER_DISPLAY_NAME:-Local Operator}
+    command: >
+      sh -c "pip install -e . &&
+             alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "${API_PORT:-8000}:8000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    image: python:3.12-slim
+    container_name: opportunity_desk_linkedin_job_worker
+    working_dir: /app/apps/worker
+    env_file:
+      - .env.local
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-scrapper}:${POSTGRES_PASSWORD:-scrapper}@postgres:5432/${POSTGRES_DB:-scrapper_freelance}
+      WORKER_POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:-5}
+      WORKER_RUN_ONCE: ${WORKER_RUN_ONCE:-false}
+      WORKER_MAX_RUNS_PER_LOOP: ${WORKER_MAX_RUNS_PER_LOOP:-1}
+      WORKER_MARK_STALE_RUNNING_ON_STARTUP: ${WORKER_MARK_STALE_RUNNING_ON_STARTUP:-true}
+      RESUME_STORAGE_BACKEND: ${RESUME_STORAGE_BACKEND:-local_fs}
+      RESUME_STORAGE_DIR: ${RESUME_STORAGE_DIR:-/app/.local/resumes}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-gmail}
+      EMAIL_SEND_POLL_INTERVAL_SECONDS: ${EMAIL_SEND_POLL_INTERVAL_SECONDS:-5}
+      GMAIL_OAUTH_CLIENT_CONFIG_JSON: ${GMAIL_OAUTH_CLIENT_CONFIG_JSON:-}
+      GMAIL_OAUTH_CLIENT_SECRETS_FILE: ${GMAIL_OAUTH_CLIENT_SECRETS_FILE:-/app/.local/gmail/client_secret.json}
+      GMAIL_OAUTH_SCOPES: ${GMAIL_OAUTH_SCOPES:-https://www.googleapis.com/auth/gmail.send}
+      DEFAULT_LOCAL_USER_EMAIL: ${DEFAULT_LOCAL_USER_EMAIL:-local@example.com}
+    command: >
+      sh -c "pip install -e . &&
+             python -m app.main"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

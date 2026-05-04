@@ -46,7 +46,7 @@ Keywords mockadas iniciais:
 6. salvar a oportunidade como `opportunity_type=job`
 7. listar no painel em uma aba ou modo `Full-time Job`
 8. permitir revisao individual antes de envio
-9. permitir selecao em massa para envio de email com curriculo anexado
+9. permitir selecao em massa para envio real de email com curriculo anexado, com aprovacao humana
 
 ## UI esperada no modo `Full-time`
 
@@ -60,6 +60,7 @@ Telas esperadas:
 - `Detalhe da vaga`: pagina propria para revisar evidencia e preparar candidatura
 - `Templates`: templates somente de candidatura e follow-up de emprego
 - `Configuracoes`: perfil profissional, curriculo, keywords e preferencias de vaga
+- `Envios`: historico tecnico e operacional de emails enviados, falhas e pendencias
 
 Nao mostrar no modo `Full-time`:
 
@@ -130,15 +131,21 @@ Acoes:
 
 ## Envio de email
 
-O envio deve ser humano-assistido.
+O envio deve ser humano-assistido, mas nao apenas um link para Gmail. O operador deve conseguir
+clicar em `Enviar email` em uma vaga, revisar o preview e confirmar o envio real pelo provedor
+configurado.
 
 O sistema deve permitir:
 
 - selecionar uma oportunidade e revisar o email antes de enviar
 - selecionar varias oportunidades e preparar envio em massa
+- criar preview/draft com assunto, corpo, destinatario e curriculo selecionado
+- permitir editar o texto antes de enviar
 - anexar o curriculo do usuario
 - registrar qual template foi usado
 - registrar quando o email foi enviado
+- registrar evento tecnico por tentativa: `queued`, `sent`, `failed` ou `skipped`
+- impedir reenvio acidental para a mesma oportunidade sem confirmacao
 
 Templates do modo `Full-time` devem usar variaveis como:
 
@@ -150,15 +157,148 @@ Templates do modo `Full-time` devem usar variaveis como:
 - `{{operator_name}}`
 - `{{operator_email}}`
 
-Automacao total deve ficar para depois, quando houver regras de qualidade, limite e compliance.
+Provider recomendado para o proximo recorte:
+
+- Gmail API/OAuth como caminho preferencial para conta pessoal do operador
+- SMTP apenas como fallback posterior
+- nenhum segredo sensivel deve ser embutido na extensao Plasmo
+- a extensao chama a API; a API/worker/provider executa o envio
+
+Automacao total sem revisao deve ficar para depois, quando houver regras de qualidade, limite e
+compliance. Envio em massa pode existir antes disso, desde que seja uma acao explicita, revisavel,
+limitada e auditavel.
 
 ## Fora de escopo inicial
 
 - parsing automatico completo de curriculo
 - scraping agressivo ou fora das regras da plataforma
 - envio automatico sem revisao
-- classificacao com IA sem base de dados suficiente
 - bot de prospeccao freelance
+
+## Uso recomendado de IA
+
+O uso de keywords e termos de busca nao deve ser visto como solucao final de inteligencia, mas como
+base rastreavel para coleta. A IA entra melhor depois que o provider ja trouxe texto publico ou fonte
+fornecida pelo usuario.
+
+Papel recomendado da IA no fluxo `Full-time`:
+
+- receber o texto publico, `source_query`, URL e metadados do provider
+- extrair empresa, cargo, senioridade, modalidade, localidade e contato com mais nuance
+- identificar se o texto realmente representa vaga, convite de candidatura ou apenas conteudo fraco
+- calcular um score de aderencia explicavel com base em keywords, cargo, stack e evidencias
+- devolver JSON estruturado validado contra os schemas existentes
+- preservar o parser/normalizer deterministico como fallback quando IA estiver desativada ou falhar
+
+Nao usar IA para burlar login, rate limit, paywall ou controles de acesso do LinkedIn. O fetch deve
+continuar deterministico, auditavel e limitado a dados publicos ou fornecidos pelo usuario.
+
+## Limites da primeira automacao
+
+O primeiro esqueleto automatizado deve ser pequeno e rastreavel:
+
+- disparado pelo backend, mas executado fora do processo HTTP
+- limitado a 50 candidatos inspecionados por run
+- restrito a dados publicos ou fornecidos pelo usuario
+- sem fabricar oportunidades quando LinkedIn estiver indisponivel, bloqueado ou com rate limit
+- salvando somente vagas com email ou canal publico de contato
+- registrando empresa, cargo/headline, descricao quando disponivel, contato, query, fonte, keywords e evidencia em campos estruturados
+
+## Provider real de busca LinkedIn
+
+A primeira versao real do provider deve tentar buscar publicacoes publicas do LinkedIn usando termos
+de intencao de contratacao combinados com as keywords do usuario.
+
+Termos iniciais:
+
+- `hiring`
+- `contratando`
+- `contratamos`
+
+Exemplos de queries:
+
+- `hiring reactjs`
+- `contratando typescript`
+- `contratamos nodejs`
+
+Para validacao local, o mesmo fluxo tambem aceita URL do LinkedIn ou conteudo publico colado pelo
+usuario. Essas entradas nao pulam as regras de qualidade: cada candidato ainda precisa passar por
+parser, normalizer, evidencia, contato e deduplicacao. Limites futuros devem vir de plano/assinatura
+ou regra operacional, nao de env global fixa.
+
+Contato aceito:
+
+- email publico, sempre como primeira preferencia
+- convite explicito de contato pelo LinkedIn quando o texto pedir DM, direct message, inbox, message
+  me/us, reach out, envio de CV/resume via LinkedIn, me chame, envie mensagem, fale comigo ou frase
+  equivalente em ingles/portugues, sempre com link do perfil do autor
+
+Nao aceitar apenas um link de perfil solto como contato. Tambem nao fabricar oportunidades quando a
+busca publica estiver bloqueada, inacessivel, vazia ou com rate limit; registrar o estado na run ou
+no candidato.
+
+## Estado tecnico atual
+
+Ja existe implementacao inicial para:
+
+- provider/fetcher em `apps/worker/app/services/linkedin_search_provider.py`
+- query builder com `hiring`, `contratando`, `contratamos` + keywords
+- suporte a URL/conteudo publico fornecido pelo usuario para validacao local
+- parser e normalizer com email publico como prioridade
+- aceite de convite explicito de contato no LinkedIn quando houver `poster_profile_url`
+- metadados de provider na API: source type, provider status, hiring intent term, contact priority e profile URL
+- testes automatizados para provider, parser, normalizer, API contracts, persistencia, deduplicacao e falhas
+- worker consumir runs `pending` direto do PostgreSQL
+- worker gravar candidatos/oportunidades sem chamada manual intermediaria
+- persistencia dos `collection_inputs` para consumo assincrono
+- lifecycle e metricas de run com `pending -> running -> completed/completed_no_results/failed`
+- recuperacao de runs `running` stale como `failed/stale`, sem retry automatico
+- Docker Compose com PostgreSQL, API e worker compartilhando banco
+- container names neutros no Compose: API compartilhada, worker especifico de vagas LinkedIn, futuro worker freelance separado
+- review intelligence para oportunidades aceitas: score 0-100, explicacao, fatores, keywords ausentes, campos normalizados, `review_status` e `analysis_status`
+- filtros operacionais para a lista `Full-time`: score minimo, keyword, contato disponivel, `review_status`, `job_stage`, provider, analysis status e run
+- atualizacao de `review_status` e notas sem sobrescrever evidencia, source data ou campos de analise
+- ajuste historico inicial de score com base em outcomes comparaveis como `saved`, `responded`, `interview`, `rejected` e `ignored`
+- Compose validado com API, worker e Postgres rodando localmente
+- coletor local autenticado em `tools/linkedin_browser_collector.py`, usando Playwright com perfil persistente em `.local/` para abrir LinkedIn logado, buscar publicacoes recentes (`sortBy=date_posted`), rolar resultados e enviar posts capturados para a API como `authenticated_browser_search`
+- runs com `collection_source_types=["authenticated_browser_search"]` reaproveitam o parser, normalizer, dedupe e review scoring existentes sem disparar busca publica anonima em paralelo
+
+Ainda falta calibrar a busca publica com respostas reais do LinkedIn, incluindo bloqueios, login walls
+e rate limits; quando LinkedIn retorna tela de login, o provider agora deve marcar o caso como bloqueado/login requerido, nao como candidato sem contato. Tambem falta transformar a revisao em fluxo de candidatura: curriculos, templates,
+preview de email, envio humano-assistido e tracking de resposta/entrevista.
+
+## Como testar coleta autenticada local
+
+1. Suba API, worker e banco:
+
+   ```bash
+   docker compose up -d
+   ```
+
+2. Instale Playwright no Python local, se ainda nao estiver instalado:
+
+   ```bash
+   python -m pip install playwright
+   python -m playwright install chromium
+   ```
+
+3. Rode o coletor em modo visivel:
+
+   ```bash
+   python tools/linkedin_browser_collector.py --keywords "hiring typescript" --max-posts 20 --max-scrolls 5
+   ```
+
+4. Na primeira execucao, faca login no navegador aberto pelo Playwright. O perfil fica em `.local/linkedin-playwright-profile/`, ignorado pelo Git.
+
+5. Depois consulte a run criada:
+
+   ```bash
+   curl http://localhost:8000/job-search-runs/<run_id>/candidates
+   curl http://localhost:8000/job-search-runs/<run_id>/opportunities
+   ```
+
+O recorte de coleta e review ja existe. O proximo recorte operacional deve implementar templates,
+curriculos, preview, envio real individual e base para envio em massa na extensao/API.
 
 ## Resultado minimo esperado
 
@@ -166,4 +306,4 @@ Automacao total deve ficar para depois, quando houver regras de qualidade, limit
 - keywords e evidencias preservadas
 - emails encontrados visiveis para revisao
 - templates de email prontos para uso manual
-- suporte a envio individual ou em massa com curriculo anexado
+- suporte a envio individual ou em massa com curriculo anexado e eventos auditaveis

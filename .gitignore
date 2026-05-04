@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# JavaScript / browser extension
+node_modules/
+.plasmo/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment and logs
+.env
+.env.*
+!.env.example
+*.log
+
+# Local browser/session state for authenticated collectors
+.local/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/

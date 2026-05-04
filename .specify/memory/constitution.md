@@ -1,30 +1,31 @@
 <!--
 Sync Impact Report
-- Version change: template -> 1.0.0
+- Version change: 1.0.0 -> 1.1.0
 - Modified principles:
-  - [PRINCIPLE_1_NAME] -> I. Dual Opportunity Search
-  - [PRINCIPLE_2_NAME] -> II. Specialized, Evidence-Backed Discovery
-  - [PRINCIPLE_3_NAME] -> III. Structured Opportunity Records
-  - [PRINCIPLE_4_NAME] -> IV. Human-Reviewed Multi-Channel Outreach
-  - [PRINCIPLE_5_NAME] -> V. Compatible Architecture and Operator Workflow
-- Added sections:
-  - Additional Constraints
-  - Development Workflow
-- Removed sections:
-  - Placeholder-only constitution tokens
+  - IV. Human-Reviewed Multi-Channel Outreach (clarified approved send and bulk send rules)
+  - V. Compatible Architecture and Operator Workflow (added browser extension as first-class operator UI)
+- Added constraints:
+  - Email sending must be provider-backed, evented, rate-limited, and auditable.
+  - The Chrome/Plasmo extension is now an accepted local-first interface for authenticated browser workflows.
+  - Freelance Google Maps discovery remains a first-class future lane and must follow niche/location evidence rules.
 - Templates requiring updates:
   - ✅ reviewed .specify/templates/plan-template.md
   - ✅ reviewed .specify/templates/spec-template.md
   - ✅ reviewed .specify/templates/tasks-template.md
   - ✅ reviewed .cursor/skills/speckit-constitution/SKILL.md
-  - ✅ updated README.md
   - ✅ updated docs/overview.md
   - ✅ updated docs/architecture.md
   - ✅ updated docs/domain-model.md
   - ✅ updated docs/action-plan.md
+  - ✅ updated docs/roadmap.md
+  - ✅ updated docs/product-modes.md
+  - ✅ updated docs/bot-1-job-search.md
+  - ✅ updated docs/bot-1-scraper.md
+  - ✅ updated docs/handoff.md
+  - ✅ updated docs/next-spec-prompt.md
 - Follow-up TODOs:
-  - Define research-backed niche catalog and area opportunity dataset in a dedicated spec
-  - Define compliance and delivery rules for automated email and WhatsApp sending before scale
+  - Specify provider details for email sending (Gmail OAuth/API first, SMTP fallback if needed).
+  - Specify Google Maps freelance discovery after Full-time email sending is usable.
 -->
 # Scrapper Freelance API Constitution
 
@@ -49,14 +50,18 @@ source evidence, and operator notes.
 
 ### IV. Human-Reviewed Multi-Channel Outreach
 Email and WhatsApp outreach MUST support human review before sending until the project has
-explicit compliance, rate-limit, and quality rules. Outreach content MUST be grounded in the
-user's CV, offered services, saved templates, and verified opportunity context.
+explicit compliance, rate-limit, and quality rules. The system MAY send an email after the
+operator explicitly approves an individual or bulk action, but sending MUST be provider-backed,
+evented, auditable, rate-limited, and reversible at the workflow level. Outreach content MUST be
+grounded in the user's CV, offered services, saved templates, and verified opportunity context.
 
 ### V. Compatible Architecture and Operator Workflow
 Long-running search, enrichment, and outreach jobs MUST stay outside the HTTP API process. The
 system SHOULD evolve toward a CRM-like operator workflow with dashboards, campaigns, leads,
-templates, settings, and AI prompt generation similar to the provided references, while preserving
-existing project patterns and documentation.
+templates, settings, and AI prompt generation similar to the provided references. A Chrome/Plasmo
+extension is now an accepted local-first operator interface for authenticated browser workflows,
+while a future web dashboard MAY reuse the same API contracts. Existing project patterns and
+documentation MUST remain aligned.
 
 ## Additional Constraints
 
@@ -68,8 +73,13 @@ existing project patterns and documentation.
   churches/ministries, psychologists, therapists, and doctors/medical clinics.
 - The system SHOULD allow future Google Maps integration and SHOULD keep map-related data models
   compatible with that direction.
+- The future `Freelance` lane SHOULD support Google Maps based niche/location discovery, including
+  business website detection, weak-site signals, public contacts, review metadata, and prompt/demo
+  context for Lovable.
 - Only public or user-provided data SHOULD be used for prospecting, and platform-specific
   constraints for scraping and messaging MUST be reviewed before scale.
+- Email sending MUST not happen directly inside request handlers. HTTP APIs MAY create drafts,
+  approvals, and send jobs; workers or provider adapters MUST perform the actual send.
 
 ## Development Workflow
 
@@ -90,4 +100,4 @@ This constitution supersedes ad hoc implementation choices for project direction
 be explicit, documented, and synced with affected templates or docs. Every significant spec, plan,
 or implementation review SHOULD check alignment with these principles before proceeding.
 
-**Version**: 1.0.0 | **Ratified**: 2026-04-22 | **Last Amended**: 2026-04-22
+**Version**: 1.1.0 | **Ratified**: 2026-04-22 | **Last Amended**: 2026-05-02

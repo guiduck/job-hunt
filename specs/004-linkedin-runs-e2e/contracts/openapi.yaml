@@ -1,0 +1,566 @@
+openapi: 3.1.0
+info:
+  title: Scrapper Freelance API - LinkedIn Runs End-to-End
+  version: 0.3.0
+  description: API contract for creating LinkedIn Job Search runs, observing worker-processed candidates, and listing accepted job opportunities.
+paths:
+  /job-search-runs:
+    post:
+      summary: Create a LinkedIn Job Search run for asynchronous worker processing
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobSearchRunCreate"
+      responses:
+        "202":
+          description: Run accepted and pending worker processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobSearchRun"
+              examples:
+                pendingRun:
+                  $ref: "#/components/examples/PendingRun"
+    get:
+      summary: List LinkedIn Job Search runs
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: "#/components/schemas/JobSearchRunStatus"
+        - in: query
+          name: provider_status
+          schema:
+            $ref: "#/components/schemas/ProviderStatus"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Runs ordered by newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobSearchRun"
+  /job-search-runs/{run_id}:
+    get:
+      summary: Get run status, counters, provider state, and lifecycle timestamps
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Run detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobSearchRun"
+              examples:
+                completedRun:
+                  $ref: "#/components/examples/CompletedRun"
+                staleRun:
+                  $ref: "#/components/examples/StaleFailedRun"
+        "404":
+          description: Run not found
+  /job-search-runs/{run_id}/candidates:
+    get:
+      summary: List inspected candidates for a run
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - in: query
+          name: outcome
+          schema:
+            $ref: "#/components/schemas/JobCandidateOutcome"
+        - in: query
+          name: collection_source_type
+          schema:
+            $ref: "#/components/schemas/LinkedInCollectionSourceType"
+      responses:
+        "200":
+          description: Candidate outcomes persisted by the worker
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobSearchCandidate"
+              examples:
+                candidates:
+                  $ref: "#/components/examples/CandidateList"
+        "404":
+          description: Run not found
+  /job-search-runs/{run_id}/opportunities:
+    get:
+      summary: List accepted job opportunities created from a run
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Accepted job opportunities linked to accepted candidates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Opportunity"
+        "404":
+          description: Run not found
+  /opportunities:
+    get:
+      summary: List opportunities, including accepted LinkedIn job opportunities
+      parameters:
+        - in: query
+          name: opportunity_type
+          schema:
+            type: string
+            enum: [job, freelance]
+        - in: query
+          name: contact_channel
+          schema:
+            type: string
+        - in: query
+          name: matched_keyword
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Opportunities filtered by requested criteria
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OpportunityListItem"
+components:
+  parameters:
+    RunId:
+      in: path
+      name: run_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    JobSearchRunStatus:
+      type: string
+      enum: [pending, running, completed, completed_no_results, failed]
+    JobCandidateOutcome:
+      type: string
+      enum:
+        - accepted
+        - rejected_no_contact
+        - rejected_weak_match
+        - rejected_missing_evidence
+        - duplicate
+        - failed_parse
+        - failed_provider
+        - blocked_source
+        - inaccessible_source
+        - empty_source
+    ProviderStatus:
+      type: string
+      enum: [not_started, collected, partial, blocked, inaccessible, empty, failed]
+    LinkedInCollectionSourceType:
+      type: string
+      enum: [automatic_publication_search, provided_url, provided_public_content]
+    ContactChannelType:
+      type: string
+      enum: [email, linkedin, other_public_contact]
+    ContactPriority:
+      type: string
+      enum: [primary, secondary]
+    LinkedInCollectionInput:
+      type: object
+      required: [source_type]
+      properties:
+        source_type:
+          $ref: "#/components/schemas/LinkedInCollectionSourceType"
+        source_url:
+          type: string
+        provided_text:
+          type: string
+        label:
+          type: string
+    JobSearchRunCreate:
+      type: object
+      properties:
+        keyword_set_id:
+          type: string
+          format: uuid
+        keywords:
+          type: array
+          items:
+            type: string
+        hiring_intent_terms:
+          type: array
+          default: [hiring, contratando, contratamos]
+          items:
+            type: string
+        collection_source_types:
+          type: array
+          default: [automatic_publication_search]
+          items:
+            $ref: "#/components/schemas/LinkedInCollectionSourceType"
+        collection_inputs:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkedInCollectionInput"
+        candidate_limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 50
+    JobSearchRun:
+      type: object
+      required:
+        - id
+        - status
+        - requested_keywords
+        - source_name
+        - candidate_limit
+        - inspected_count
+        - accepted_count
+        - rejected_count
+        - duplicate_count
+        - cap_reached
+        - provider_status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/JobSearchRunStatus"
+        keyword_set_id:
+          type: string
+          format: uuid
+        requested_keywords:
+          type: array
+          items:
+            type: string
+        hiring_intent_terms:
+          type: array
+          items:
+            type: string
+        collection_source_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkedInCollectionSourceType"
+        collection_inputs:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/LinkedInCollectionInput"
+              - type: object
+                required: [id, run_id, created_at]
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  run_id:
+                    type: string
+                    format: uuid
+                  created_at:
+                    type: string
+                    format: date-time
+        provided_source_count:
+          type: integer
+          minimum: 0
+        source_name:
+          type: string
+          default: LinkedIn
+        candidate_limit:
+          type: integer
+          maximum: 50
+        inspected_count:
+          type: integer
+          minimum: 0
+        accepted_count:
+          type: integer
+          minimum: 0
+        rejected_count:
+          type: integer
+          minimum: 0
+        duplicate_count:
+          type: integer
+          minimum: 0
+        cap_reached:
+          type: boolean
+        provider_status:
+          $ref: "#/components/schemas/ProviderStatus"
+        provider_error_code:
+          type: string
+        provider_error_message:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        error_message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    JobSearchCandidate:
+      type: object
+      required:
+        - id
+        - run_id
+        - outcome
+        - source_query
+        - matched_keywords
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        opportunity_id:
+          type: string
+          format: uuid
+        outcome:
+          $ref: "#/components/schemas/JobCandidateOutcome"
+        company_name:
+          type: string
+        role_title:
+          type: string
+        post_headline:
+          type: string
+        job_description:
+          type: string
+        contact_channel_type:
+          $ref: "#/components/schemas/ContactChannelType"
+        contact_channel_value:
+          type: string
+        collection_source_type:
+          $ref: "#/components/schemas/LinkedInCollectionSourceType"
+        hiring_intent_term:
+          type: string
+        provider_name:
+          type: string
+        provider_status:
+          $ref: "#/components/schemas/ProviderStatus"
+        provider_error_code:
+          type: string
+        poster_profile_url:
+          type: string
+        contact_priority:
+          $ref: "#/components/schemas/ContactPriority"
+        source_url:
+          type: string
+        source_query:
+          type: string
+        source_evidence:
+          type: string
+        matched_keywords:
+          type: array
+          items:
+            type: string
+        raw_excerpt:
+          type: string
+        dedupe_key:
+          type: string
+        rejection_reason:
+          type: string
+        inspected_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+    JobDetail:
+      type: object
+      required: [id, opportunity_id, contact_channel_value, matched_keywords]
+      properties:
+        id:
+          type: string
+          format: uuid
+        opportunity_id:
+          type: string
+          format: uuid
+        company_name:
+          type: string
+        role_title:
+          type: string
+        post_headline:
+          type: string
+        job_description:
+          type: string
+        contact_channel_type:
+          $ref: "#/components/schemas/ContactChannelType"
+        contact_channel_value:
+          type: string
+        contact_email:
+          type: string
+        application_url:
+          type: string
+        linkedin_url:
+          type: string
+        poster_profile_url:
+          type: string
+        contact_priority:
+          $ref: "#/components/schemas/ContactPriority"
+        hiring_intent_term:
+          type: string
+        collection_source_type:
+          $ref: "#/components/schemas/LinkedInCollectionSourceType"
+        matched_keywords:
+          type: array
+          items:
+            type: string
+        dedupe_key:
+          type: string
+        job_stage:
+          type: string
+          enum: [new, saved, applied, responded, interview, rejected, ignored]
+    Opportunity:
+      type: object
+      required: [id, opportunity_type, source_evidence, captured_at, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        opportunity_type:
+          type: string
+          enum: [job, freelance]
+        title:
+          type: string
+        organization_name:
+          type: string
+        source_name:
+          type: string
+        source_url:
+          type: string
+        source_query:
+          type: string
+        source_evidence:
+          type: string
+        operator_notes:
+          type: string
+        captured_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        job_detail:
+          $ref: "#/components/schemas/JobDetail"
+    OpportunityListItem:
+      allOf:
+        - $ref: "#/components/schemas/Opportunity"
+  examples:
+    PendingRun:
+      summary: Run created by API and waiting for worker
+      value:
+        id: "11111111-1111-1111-1111-111111111111"
+        status: pending
+        requested_keywords: [typescript]
+        hiring_intent_terms: [hiring, contratando, contratamos]
+        collection_source_types: [provided_public_content]
+        collection_inputs:
+          - id: "55555555-5555-5555-5555-555555555555"
+            run_id: "11111111-1111-1111-1111-111111111111"
+            source_type: provided_public_content
+            source_url: "https://www.linkedin.com/feed/update/example"
+            provided_text: "We're hiring a TypeScript Developer. Email jobs@example.com"
+            label: manual-linkedin-post
+            created_at: "2026-04-30T23:00:00Z"
+        provided_source_count: 1
+        source_name: LinkedIn
+        candidate_limit: 50
+        inspected_count: 0
+        accepted_count: 0
+        rejected_count: 0
+        duplicate_count: 0
+        cap_reached: false
+        provider_status: not_started
+        created_at: "2026-04-30T23:00:00Z"
+        updated_at: "2026-04-30T23:00:00Z"
+    CompletedRun:
+      summary: Worker-processed run with accepted opportunity
+      value:
+        id: "11111111-1111-1111-1111-111111111111"
+        status: completed
+        requested_keywords: [typescript]
+        hiring_intent_terms: [hiring, contratando, contratamos]
+        collection_source_types: [provided_public_content]
+        collection_inputs:
+          - id: "55555555-5555-5555-5555-555555555555"
+            run_id: "11111111-1111-1111-1111-111111111111"
+            source_type: provided_public_content
+            source_url: "https://www.linkedin.com/feed/update/example"
+            provided_text: "We're hiring a TypeScript Developer. Email jobs@example.com"
+            label: manual-linkedin-post
+            created_at: "2026-04-30T23:00:00Z"
+        provided_source_count: 1
+        source_name: LinkedIn
+        candidate_limit: 50
+        inspected_count: 1
+        accepted_count: 1
+        rejected_count: 0
+        duplicate_count: 0
+        cap_reached: false
+        provider_status: collected
+        started_at: "2026-04-30T23:00:05Z"
+        completed_at: "2026-04-30T23:00:06Z"
+        created_at: "2026-04-30T23:00:00Z"
+        updated_at: "2026-04-30T23:00:06Z"
+    StaleFailedRun:
+      summary: Stale running run marked failed after worker restart
+      value:
+        id: "44444444-4444-4444-4444-444444444444"
+        status: failed
+        requested_keywords: [reactjs]
+        source_name: LinkedIn
+        candidate_limit: 50
+        inspected_count: 0
+        accepted_count: 0
+        rejected_count: 0
+        duplicate_count: 0
+        cap_reached: false
+        provider_status: failed
+        provider_error_code: stale_running
+        provider_error_message: Run was left running before worker startup and was not retried automatically.
+        error_message: Run was left running before worker startup and was not retried automatically.
+        started_at: "2026-04-30T22:50:00Z"
+        completed_at: "2026-04-30T23:00:00Z"
+        created_at: "2026-04-30T22:49:55Z"
+        updated_at: "2026-04-30T23:00:00Z"
+    CandidateList:
+      summary: Accepted candidate persisted by worker
+      value:
+        - id: "22222222-2222-2222-2222-222222222222"
+          run_id: "11111111-1111-1111-1111-111111111111"
+          opportunity_id: "33333333-3333-3333-3333-333333333333"
+          outcome: accepted
+          company_name: Example Co
+          role_title: TypeScript Developer
+          contact_channel_type: email
+          contact_channel_value: jobs@example.com
+          collection_source_type: provided_public_content
+          provider_name: user_provided
+          provider_status: collected
+          source_query: manual-linkedin-post
+          source_evidence: We're hiring a TypeScript Developer. Email jobs@example.com
+          matched_keywords: [typescript]
+          dedupe_key: "example co|typescript developer|typescript|jobs@example.com"
+          inspected_at: "2026-04-30T23:00:06Z"
+          created_at: "2026-04-30T23:00:06Z"

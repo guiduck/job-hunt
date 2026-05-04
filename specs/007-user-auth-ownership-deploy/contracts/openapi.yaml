@@ -1,0 +1,467 @@
+openapi: 3.1.0
+info:
+  title: User Auth Ownership Deploy API
+  version: 0.1.0
+  description: Contract additions for email/password auth, browser-session access, password reset, and owner-scoped Full-time workflow routes.
+servers:
+  - url: http://localhost:8000
+    description: Local API
+  - url: https://api.example.com
+    description: Published API placeholder
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+
+  /auth/register:
+    post:
+      summary: Register a user account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User registered and logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionResponse"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      summary: Log in with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login succeeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      summary: Revoke the current session
+      responses:
+        "204":
+          description: Session revoked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/me:
+    get:
+      summary: Return the current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/password-reset/request:
+    post:
+      summary: Request a password reset
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetRequest"
+      responses:
+        "202":
+          description: Request accepted without revealing whether the email exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetAccepted"
+
+  /auth/password-reset/confirm:
+    post:
+      summary: Set a new password with a reset token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordResetConfirmRequest"
+      responses:
+        "200":
+          description: Password changed and user logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionResponse"
+        "400":
+          description: Reset token invalid, expired, or already used
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /user-settings:
+    get:
+      summary: Get current user's settings
+      responses:
+        "200":
+          description: Current user's settings
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      summary: Update current user's settings
+      responses:
+        "200":
+          description: Updated settings
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /user-settings/resumes:
+    get:
+      summary: List current user's resumes
+      responses:
+        "200":
+          description: Current user's resumes only
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Create current user's resume metadata
+      responses:
+        "201":
+          description: Resume created for current user
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /user-settings/resumes/{resume_id}/file:
+    get:
+      summary: Download a current-user-owned resume
+      parameters:
+        - $ref: "#/components/parameters/ResumeId"
+      responses:
+        "200":
+          description: Resume file bytes
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Resume not found for current user
+
+  /email-templates:
+    get:
+      summary: List current user's email templates
+      responses:
+        "200":
+          description: Current user's templates only
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Create a current-user-owned email template
+      responses:
+        "201":
+          description: Template created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /opportunities:
+    get:
+      summary: List current user's opportunities
+      responses:
+        "200":
+          description: Current user's opportunities only
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /opportunities/{opportunity_id}:
+    get:
+      summary: Get a current-user-owned opportunity
+      parameters:
+        - $ref: "#/components/parameters/OpportunityId"
+      responses:
+        "200":
+          description: Opportunity belongs to current user
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Opportunity not found for current user
+    patch:
+      summary: Update a current-user-owned opportunity
+      parameters:
+        - $ref: "#/components/parameters/OpportunityId"
+      responses:
+        "200":
+          description: Opportunity updated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Opportunity not found for current user
+
+  /job-search-runs:
+    get:
+      summary: List current user's job search runs
+      responses:
+        "200":
+          description: Current user's runs only
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Create a current-user-owned job search run
+      responses:
+        "201":
+          description: Run created for current user
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /sending/provider-account:
+    get:
+      summary: Get current user's sending provider account status
+      responses:
+        "200":
+          description: Provider status without secrets or tokens
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderAccountStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /sending/google-oauth/start:
+    get:
+      summary: Start Gmail OAuth for current user
+      responses:
+        "200":
+          description: OAuth start URL
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [auth_url]
+                properties:
+                  auth_url:
+                    type: string
+                    format: uri
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /email-drafts:
+    post:
+      summary: Create a current-user-owned email draft
+      description: Opportunity, template, and resume references must all belong to the current user.
+      responses:
+        "201":
+          description: Draft created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Referenced owner-scoped resource not found
+
+  /email-drafts/{draft_id}/approve-send:
+    post:
+      summary: Approve a current-user-owned draft for worker delivery
+      parameters:
+        - $ref: "#/components/parameters/DraftId"
+      responses:
+        "201":
+          description: Send request created for current user
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Draft not found for current user
+
+  /bulk-email/preview:
+    post:
+      summary: Preview a current-user-owned bulk email batch
+      description: All selected opportunities, template, and resume must belong to the current user.
+      responses:
+        "201":
+          description: Bulk preview created
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "400":
+          description: Selection contains invalid or cross-owner resources
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-session-token
+
+  parameters:
+    OpportunityId:
+      name: opportunity_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ResumeId:
+      name: resume_id
+      in: path
+      required: true
+      schema:
+        type: string
+    DraftId:
+      name: draft_id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Login required or session invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, display_name]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthSessionResponse:
+      type: object
+      required: [access_token, token_type, user]
+      properties:
+        access_token:
+          type: string
+          description: Opaque bearer token intended for browser-session storage.
+        token_type:
+          type: string
+          enum: [bearer]
+        user:
+          $ref: "#/components/schemas/User"
+
+    User:
+      type: object
+      required: [id, email, display_name, subscription_status, subscription_plan, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+        subscription_status:
+          type: string
+        subscription_plan:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    PasswordResetAccepted:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [accepted]
+
+    PasswordResetConfirmRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token:
+          type: string
+        password:
+          type: string
+          minLength: 8
+
+    ProviderAccountStatus:
+      type: object
+      required: [provider_name, auth_status]
+      properties:
+        provider_name:
+          type: string
+          enum: [gmail]
+        display_email:
+          type: string
+          format: email
+          nullable: true
+        auth_status:
+          type: string
+          enum: [not_configured, authorization_required, authorized, expired, failed]
+        last_checked_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string

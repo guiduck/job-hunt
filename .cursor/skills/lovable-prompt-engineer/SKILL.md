@@ -23,6 +23,7 @@ Before producing the final prompt, gather the relevant context from:
 - `references/lovable-template/prompt-template-1.md`
 - `references/lovable-template/prompt-template-2.md`
 - `references/lovable-template/prompt-template-3.md`
+- `references/guia/Guia completo - Ganhe dolar na gringa por Harlley Bastos (1).pdf` when the prompt is for freelance prospecting, Google Maps leads, local businesses, email outreach, or demo creation.
 - `references/images/` - inspect all available reference images, including `image.png`, `image-2.png` through `image-26.png`, and `image.-16png.png`.
 - `README.md` when product context, setup, or positioning is needed.
 
@@ -40,6 +41,12 @@ The generated prompt should:
 4. Incorporate the visual direction from `references/images/`.
 5. Preserve Lovable-friendly specificity: sections, components, states, data, interactions, CTAs, responsive behavior, and implementation requirements.
 6. Ask Lovable for complete, production-ready code unless the user requests a planning-only prompt.
+
+For `Freelance` lead prompts generated from Google Maps or manual prospecting, the prompt should also
+use the lead's business name, niche, city, Google rating/review count, phone/email, website status,
+observed weakness, competitor reference when available, and the outreach/demo goal from the guide.
+Treat "no website", "Facebook/Instagram as website", and "weak website" as different conversion
+angles.
 
 ## Visual Reference Handling
 
@@ -97,6 +104,8 @@ CORE FEATURES
 =========================================================
 
 [List feature requirements grounded in docs/. Include workflows, data entities, filters, actions, status transitions, and user feedback.]
+For freelance local-business demos, include Google Maps/source context, website weakness, review
+signals, services, local SEO angle, and the CTA/channel intended for outreach.
 
 =========================================================
 DESIGN SYSTEM

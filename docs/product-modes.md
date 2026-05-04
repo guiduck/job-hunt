@@ -52,6 +52,7 @@ Quando `Full-time` esta ativo:
 - `Leads` ou `Oportunidades` mostra empresas/vagas capturadas a partir de publicacoes do LinkedIn
 - `Templates` mostra templates de candidatura e follow-up de emprego
 - `Configuracoes` mostra perfil profissional, curriculo, keywords e preferencias de vaga
+- acoes de email enviam pela API/provider configurado apos preview e aprovacao
 
 Quando `Freelance` esta ativo:
 
@@ -60,6 +61,7 @@ Quando `Freelance` esta ativo:
 - `Leads` mostra negocios/prospects capturados para contato comercial
 - `Templates` mostra mensagens de primeiro contato e follow-up comercial
 - `Configuracoes` mostra dados do vendedor, preco, WhatsApp, oferta e preferencias de prospeccao
+- a descoberta principal planejada vem de Google Maps por nicho e localidade
 
 ## Navegacao compartilhada, conteudo separado
 
@@ -169,7 +171,7 @@ Fluxo principal:
 4. revisar empresa, cargo, email, link e evidencia
 5. selecionar curriculo
 6. gerar ou selecionar template de candidatura
-7. aprovar envio individual ou em massa
+7. aprovar envio real individual ou em massa
 8. acompanhar resposta, entrevista, rejeicao ou ignorado
 
 Telas obrigatorias:
@@ -180,6 +182,7 @@ Telas obrigatorias:
 - detalhe da vaga
 - templates de candidatura
 - configuracoes de perfil/curriculo/keywords
+- historico de envios e falhas por destinatario
 
 ## Freelance como app independente
 
@@ -187,6 +190,7 @@ O modo `Freelance` deve ser um sistema para prospeccao de clientes.
 
 Origem principal dos leads:
 
+- resultados do Google Maps por nicho e localidade
 - negocios por nicho e localidade
 - negocios sem site claro
 - negocios com site fraco
@@ -197,7 +201,7 @@ Fluxo principal:
 
 1. criar campanha por nicho, mercado e localidade
 2. prospectar leads
-3. revisar negocio, contato, site, score e evidencias
+3. revisar negocio, contato, Google Maps/source URL, site, score e evidencias
 4. salvar ou gerar URL de demo
 5. gerar mega prompt Lovable para criar demo
 6. gerar mensagem de primeiro contato ou follow-up
@@ -225,4 +229,7 @@ Todo prompt futuro para Lovable deve declarar explicitamente:
 - `Full-time` nao deve mostrar recursos de demo/prompt Lovable como acao principal
 - `Freelance` deve ter pagina de detalhe com score, demo URL, botao de gerar mega prompt Lovable e gerador de mensagem
 - templates de vaga e templates freelance sao colecoes separadas
+- o prompt Lovable de `Freelance` deve seguir os templates de referencia: dados do negocio, nicho,
+  localizacao, contato, avaliacao, pesquisa de concorrentes, estrutura da landing page, CTAs,
+  mobile-first, SEO/acessibilidade e regras de conversao
 - os dados podem compartilhar backend, mas nao devem parecer um unico CRM misturado

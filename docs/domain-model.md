@@ -9,6 +9,47 @@ sem perder contexto, origem e possibilidade de operacao em CRM.
 O objetivo nao e guardar apenas contato bruto. O objetivo e guardar uma oportunidade reutilizavel
 por revisao, outreach, IA e analytics.
 
+## Usuarios e ownership
+
+Antes do primeiro deploy real, o sistema deve sair do modelo single-operator local e passar a ter
+usuarios individuais autenticados por email e senha.
+
+Nao ha times/workspaces no ciclo atual. Cada usuario tem seus proprios dados e uma assinatura futura
+propria.
+
+### `users`
+
+Campos recomendados:
+
+- `id`
+- `email`
+- `password_hash`
+- `display_name`
+- `subscription_status`
+- `subscription_plan`
+- `created_at`
+- `updated_at`
+
+O campo `email` deve ser unico. `password_hash` deve ser gerado com algoritmo apropriado; senha em
+texto puro nunca deve ser persistida.
+
+### Regra de ownership
+
+Adicionar `user_id` aos registros operacionais que pertencem a um usuario:
+
+- settings
+- curriculos
+- templates editaveis/criados pelo usuario
+- provider Gmail e token OAuth
+- runs de busca
+- oportunidades/vagas/leads
+- drafts, send requests, bulk batches e outreach events
+- campanhas futuras
+- prompts/artefatos futuros
+
+Templates padrao da aplicacao podem existir como seed/system templates, mas qualquer template editado
+ou criado pelo usuario deve pertencer ao usuario.
+
 ## Separacao por modo
 
 O backend pode compartilhar tabelas e infraestrutura, mas a experiencia do produto deve separar os
@@ -31,6 +72,7 @@ Tabela central para oportunidades capturadas.
 Campos recomendados:
 
 - `id`
+- `user_id`
 - `campaign_id`
 - `opportunity_type`
 - `market_scope`
@@ -57,6 +99,7 @@ Campos recomendados:
 - `crm_stage`
 - `demo_url`
 - `resume_attachment_id`
+- `last_outreach_event_id`
 - `operator_notes`
 - `captured_at`
 - `updated_at`
@@ -82,6 +125,7 @@ Historico de acoes humanas e comerciais relacionadas a oportunidade.
 Campos recomendados:
 
 - `id`
+- `user_id`
 - `lead_id`
 - `interaction_type`
 - `channel`
@@ -107,6 +151,7 @@ Agrupamento operacional para rodada de prospeccao.
 Campos recomendados:
 
 - `id`
+- `user_id`
 - `name`
 - `channel`
 - `target_niche`
@@ -127,6 +172,7 @@ Templates reutilizaveis para outreach por contexto.
 Campos recomendados:
 
 - `id`
+- `user_id`
 - `name`
 - `channel`
 - `message_stage`
@@ -134,10 +180,14 @@ Campos recomendados:
 - `content`
 - `variables_schema`
 - `is_active`
+- `mode`
+- `subject_template`
+- `body_template`
 - `created_at`
 
 Templates iniciais devem priorizar email de candidatura para vagas encontradas, com variaveis como
-empresa, cargo, keywords encontradas e breve apresentacao do usuario.
+empresa, cargo, autor da publicacao, keywords encontradas, link da vaga e breve apresentacao do
+usuario. A tela `Templates` deve permitir criar, editar, ativar/desativar e testar preview.
 
 Templates tambem devem ser escopados por modo:
 
@@ -153,12 +203,63 @@ Arquivos de curriculo disponiveis para envio.
 Campos recomendados:
 
 - `id`
+- `user_id`
 - `display_name`
 - `file_url`
 - `file_name`
 - `mime_type`
+- `file_content`
 - `is_default`
 - `created_at`
+
+No recorte atual, o PDF pode ficar diretamente no PostgreSQL em `file_content` para simplificar o
+MVP. Quando houver volume maior, mover os bytes para R2/S3/GCS e manter no banco apenas metadata,
+`storage_backend`, chave do objeto e relacoes.
+
+### `email_accounts`
+
+Conta ou provedor autorizado para envio.
+
+Campos recomendados:
+
+- `id`
+- `user_id`
+- `provider_name`
+- `display_email`
+- `display_name`
+- `auth_status`
+- `send_limit_per_day`
+- `token_json`
+- `token_updated_at`
+- `created_at`
+- `updated_at`
+
+O provedor preferencial para o primeiro recorte e Gmail API/OAuth, porque o usuario quer um botao
+que envie email real a partir do proprio contexto. SMTP pode existir como fallback posterior, mas
+credenciais sensiveis nao devem ficar na extensao.
+
+`send_limit_per_day` deve ser opcional. Limites futuros devem vir da assinatura do usuario, nao de
+variavel global. O token OAuth concedido pelo usuario fica em `token_json`; o
+client secret do app Google vem de secret do ambiente e nao deve ser exposto em schemas de resposta.
+
+### `email_drafts`
+
+Preview revisavel antes do envio.
+
+Campos recomendados:
+
+- `id`
+- `user_id`
+- `lead_id`
+- `template_id`
+- `resume_attachment_id`
+- `to_email`
+- `subject`
+- `body`
+- `status`
+- `created_by`
+- `created_at`
+- `updated_at`
 
 ### `outreach_events`
 
@@ -167,14 +268,24 @@ Eventos tecnicos de envio de email.
 Campos recomendados:
 
 - `id`
+- `user_id`
 - `lead_id`
 - `channel`
 - `event_type`
 - `provider_name`
 - `provider_message_id`
 - `resume_attachment_id`
+- `template_id`
+- `draft_id`
+- `recipient_email`
+- `subject`
+- `status`
+- `error_message`
 - `payload`
 - `occurred_at`
+
+Eventos de email devem ser criados para `queued`, `sent`, `failed`, `skipped_duplicate` e
+`skipped_missing_contact`, permitindo envio individual, envio em massa e auditoria posterior.
 
 ### `whatsapp_events`
 
@@ -216,6 +327,23 @@ Exemplos de uso:
 Na primeira experiencia, `prompt_artifacts` e uma capacidade do modo `Freelance`. O modo
 `Full-time` pode usar IA no futuro para melhorar emails ou resumir vagas, mas nao deve exibir
 `Gerar Prompt Lovable` como acao primaria.
+
+### Dados adicionais para Google Maps freelance
+
+Quando o modo `Freelance` implementar descoberta por Google Maps, os registros devem preservar:
+
+- nome do negocio
+- nicho
+- cidade, estado/regiao e pais
+- endereco
+- telefone
+- email publico quando encontrado
+- URL do Google Maps ou identificador da fonte
+- nota Google e quantidade de avaliacoes
+- `website_url`, quando existir
+- `website_status`: sem site, rede social como site, site fraco, site bom ou incerto
+- sinais do problema: sem HTTPS, nao responsivo, lento, antigo, sem CTA, apenas Facebook/Instagram
+- concorrente de referencia, quando usado no argumento comercial
 
 ## Enums recomendados
 
@@ -265,6 +393,15 @@ Estados especificos para o fluxo de emprego:
 - `freelance_first_contact`
 - `freelance_follow_up`
 
+### `email_draft_status`
+
+- `draft`
+- `approved`
+- `queued`
+- `sent`
+- `failed`
+- `cancelled`
+
 ### `website_status`
 
 - `confirmed`
@@ -283,7 +420,8 @@ Estados especificos para o fluxo de emprego:
 - filtrar oportunidades por trilho, nicho, geografia e score
 - filtrar vagas por keywords encontradas, email disponivel e `job_stage`
 - filtrar oportunidades por campanha, temperatura e status
-- enviar email de candidatura com curriculo anexado
+- preparar preview e enviar email real de candidatura com curriculo anexado
+- enviar emails em massa com dedupe, preview, aprovacao humana e registro de evento por destinatario
 - registrar resposta, entrevista, rejeicao ou follow-up
 - revisar se uma empresa realmente nao tem site
 - registrar contatos, respostas e mudancas de estagio
@@ -291,6 +429,7 @@ Estados especificos para o fluxo de emprego:
 - gerar e versionar prompt para `Lovable`
 - preparar contexto para email, WhatsApp e IA
 - medir qualidade da busca por `source_query`, nicho e localidade
+- descobrir leads freelance via Google Maps por nicho/localidade e classificar ausencia/fraqueza de site
 
 ## Requisitos de UI derivados do modelo
 
@@ -300,3 +439,6 @@ Estados especificos para o fluxo de emprego:
 - A pagina de detalhe deve renderizar componentes diferentes por modo.
 - Acoes em massa devem respeitar o modo ativo.
 - Dashboards devem agregar metricas por modo, nunca em uma unica visao misturada.
+- Templates e envios devem ser sempre escopados por modo.
+- A extensao Plasmo pode operar o modo `Full-time`, mas deve consumir os mesmos contratos que uma
+  futura web.

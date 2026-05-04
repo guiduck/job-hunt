@@ -33,6 +33,36 @@ Para vagas, variar:
 - remoto, hibrido ou presencial
 - regiao, quando fizer sentido
 
+## Papel de IA na busca
+
+A busca deve continuar separando duas responsabilidades:
+
+- provider deterministico: monta queries, respeita limites, busca dados publicos ou fornecidos pelo
+  usuario e registra `source_query`, fonte, status e evidencia
+- analise inteligente: interpreta o texto coletado, extrai campos, estima aderencia e explica por que
+  o candidato deve ou nao virar oportunidade
+
+Isso evita depender de uma lista infinita de strings para entender nuance, sem abrir mao de
+rastreabilidade. Keywords e termos de intencao continuam uteis para descobrir fontes e limitar custo;
+IA pode ser usada depois para reduzir ruido, detectar cargos equivalentes, distinguir vaga real de
+post generico e preencher o formato dos schemas com mais qualidade.
+
+Para manter compatibilidade, a primeira camada de IA deve ser opcional, configuravel e com fallback
+para parser/normalizer deterministico.
+
+## Review intelligence implementado
+
+A camada inicial de revisao para vagas `Full-time` ja existe no backend/worker:
+
+- oportunidades `job` aceitas recebem `review_status`, `match_score`, `score_explanation`, fatores de score, keywords ausentes e sinais historicos
+- candidatos e runs expõem `analysis_status` para distinguir analise deterministica, IA assistida, fallback, falha ou skip
+- a IA continua opcional e desativada por padrao; saida invalida cai para fallback deterministico
+- filtros de API permitem revisar vagas por score minimo, keyword, contato disponivel, status de revisao, stage, provider, analysis status e run
+
+O proximo passo de produto deve usar esses campos para preparar candidaturas humanas: escolher
+curriculo/template, gerar preview de email, enviar email real pelo provider configurado apos
+aprovacao, registrar evento de envio e acompanhar respostas sem automatizar envio irrestrito.
+
 Exemplos de dimensoes a combinar:
 
 - nichos de servicos
@@ -89,3 +119,4 @@ Toda melhoria de busca precisa manter rastreabilidade suficiente para responder:
 - medir taxa real de oportunidades sem website
 - comparar qualidade entre cidades ou bairros
 - ajustar score com base em resultado real, nao em achismo
+- comparar resultados com e sem analise de IA antes de depender dela em producao

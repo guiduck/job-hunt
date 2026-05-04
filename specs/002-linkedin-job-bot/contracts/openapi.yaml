@@ -388,3 +388,40 @@ components:
           enum: [new, saved, applied, responded, interview, rejected, ignored]
         operator_notes:
           type: string
+  examples:
+    JobSearchRunAccepted:
+      summary: Accepted job-search run response
+      value:
+        id: "11111111-1111-1111-1111-111111111111"
+        status: pending
+        requested_keywords: [reactjs, typescript, nextjs, nodejs]
+        source_name: LinkedIn
+        candidate_limit: 50
+        inspected_count: 0
+        accepted_count: 0
+        rejected_count: 0
+        duplicate_count: 0
+        cap_reached: false
+        created_at: "2026-04-30T18:00:00Z"
+        updated_at: "2026-04-30T18:00:00Z"
+    JobOpportunityWithContact:
+      summary: Accepted LinkedIn job opportunity
+      value:
+        id: "22222222-2222-2222-2222-222222222222"
+        opportunity_type: job
+        company_name: Example Co
+        title: Frontend Engineer
+        post_headline: Hiring React Developer
+        job_description: We use React, TypeScript, and Next.js.
+        contact_channel_type: email
+        contact_channel_value: jobs@example.com
+        contact_email: jobs@example.com
+        source_name: LinkedIn
+        source_url: "https://www.linkedin.com/jobs/view/example"
+        source_query: "reactjs typescript email"
+        source_evidence: "Email jobs@example.com with your resume."
+        matched_keywords: [reactjs, typescript]
+        dedupe_key: "example co|frontend engineer|reactjs,typescript|jobs@example.com"
+        job_stage: new
+        created_at: "2026-04-30T18:00:00Z"
+        updated_at: "2026-04-30T18:00:00Z"

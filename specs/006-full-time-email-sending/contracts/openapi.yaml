@@ -1,0 +1,723 @@
+openapi: 3.1.0
+info:
+  title: Scrapper Freelance API - Full-time Email Sending
+  version: 0.6.0
+  description: API contract additions for Full-time templates, user settings, resumes, previews, Gmail/OAuth send approvals, bulk send foundation, and outreach history. Implementation uses additive routes and keeps Gmail secrets/tokens out of response schemas and extension-facing contracts.
+paths:
+  /user-settings:
+    get:
+      summary: Get operator settings used for Full-time email previews
+      responses:
+        "200":
+          description: Current operator settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSettings"
+    patch:
+      summary: Update operator settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserSettingsUpdate"
+      responses:
+        "200":
+          description: Updated operator settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSettings"
+  /user-settings/resumes:
+    get:
+      summary: List uploaded resumes
+      responses:
+        "200":
+          description: Resumes ordered by newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResumeAttachment"
+    post:
+      summary: Create resume metadata for a locally stored CV
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResumeCreate"
+      responses:
+        "201":
+          description: Resume metadata created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeAttachment"
+  /user-settings/resumes/{resume_id}:
+    patch:
+      summary: Update resume display metadata or availability
+      parameters:
+        - $ref: "#/components/parameters/ResumeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResumeUpdate"
+      responses:
+        "200":
+          description: Updated resume
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeAttachment"
+        "404":
+          description: Resume not found
+  /email-templates:
+    get:
+      summary: List mode-scoped email templates
+      parameters:
+        - in: query
+          name: mode
+          schema:
+            $ref: "#/components/schemas/TemplateMode"
+          required: true
+        - in: query
+          name: template_kind
+          schema:
+            $ref: "#/components/schemas/TemplateKind"
+        - in: query
+          name: active_only
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Templates matching filters
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmailTemplate"
+    post:
+      summary: Create a Full-time email template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailTemplateCreate"
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailTemplate"
+  /email-templates/{template_id}:
+    get:
+      summary: Get an email template
+      parameters:
+        - $ref: "#/components/parameters/TemplateId"
+      responses:
+        "200":
+          description: Template detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailTemplate"
+        "404":
+          description: Template not found
+    patch:
+      summary: Update an email template
+      parameters:
+        - $ref: "#/components/parameters/TemplateId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailTemplateUpdate"
+      responses:
+        "200":
+          description: Updated template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailTemplate"
+        "404":
+          description: Template not found
+  /email-templates/{template_id}/preview:
+    post:
+      summary: Preview a template with opportunity and user settings data
+      parameters:
+        - $ref: "#/components/parameters/TemplateId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplatePreviewRequest"
+      responses:
+        "200":
+          description: Rendered preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenderedPreview"
+  /sending/provider-account:
+    get:
+      summary: Get Gmail/OAuth provider account status
+      responses:
+        "200":
+          description: Provider status without secrets or tokens
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendingProviderAccount"
+  /email-drafts:
+    post:
+      summary: Create an editable email draft preview for one job opportunity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailDraftCreate"
+      responses:
+        "201":
+          description: Draft created with rendered content and warnings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailDraft"
+        "400":
+          description: Invalid opportunity, template, recipient, or template mode
+  /email-drafts/{draft_id}:
+    patch:
+      summary: Edit draft subject, body, recipient, or selected resume
+      parameters:
+        - $ref: "#/components/parameters/DraftId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailDraftUpdate"
+      responses:
+        "200":
+          description: Updated draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailDraft"
+        "404":
+          description: Draft not found
+  /email-drafts/{draft_id}/approve-send:
+    post:
+      summary: Approve a draft for real Gmail/OAuth sending
+      parameters:
+        - $ref: "#/components/parameters/DraftId"
+      responses:
+        "202":
+          description: Send request queued or blocked with explicit status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendRequest"
+        "400":
+          description: Invalid recipient, unauthorized provider, or duplicate job application
+  /bulk-email/preview:
+    post:
+      summary: Preview a bulk send batch for selected Full-time job opportunities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkPreviewRequest"
+      responses:
+        "200":
+          description: Bulk preview summary with sendable, skipped, and blocked outcomes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkSendBatch"
+  /bulk-email/{batch_id}/approve:
+    post:
+      summary: Approve a previewed bulk send batch
+      parameters:
+        - $ref: "#/components/parameters/BatchId"
+      responses:
+        "202":
+          description: Batch approved and send requests queued for sendable recipients
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkSendBatch"
+        "400":
+          description: Batch cannot be approved
+  /opportunities/{opportunity_id}/email-history:
+    get:
+      summary: Get email outreach history for a job opportunity
+      parameters:
+        - $ref: "#/components/parameters/OpportunityId"
+      responses:
+        "200":
+          description: Email history ordered newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OutreachEvent"
+        "404":
+          description: Opportunity not found
+components:
+  parameters:
+    OpportunityId:
+      in: path
+      name: opportunity_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TemplateId:
+      in: path
+      name: template_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ResumeId:
+      in: path
+      name: resume_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    DraftId:
+      in: path
+      name: draft_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    BatchId:
+      in: path
+      name: batch_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    TemplateMode:
+      type: string
+      enum: [full_time]
+    TemplateKind:
+      type: string
+      enum: [job_application, job_follow_up]
+    DraftStatus:
+      type: string
+      enum: [draft, approved, queued, sent, failed, cancelled]
+    SendRequestStatus:
+      type: string
+      enum: [approved, queued, sending, sent, failed, cancelled, skipped_duplicate, skipped_missing_contact, skipped_invalid_contact]
+    BulkBatchStatus:
+      type: string
+      enum: [previewed, approved, queued, completed, completed_with_failures, cancelled]
+    ProviderAuthStatus:
+      type: string
+      enum: [not_configured, authorization_required, authorized, expired, failed]
+    UserSettings:
+      type: object
+      required: [id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        operator_name:
+          type: string
+        operator_email:
+          type: string
+          format: email
+        default_mode:
+          type: string
+          enum: [full_time]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    UserSettingsUpdate:
+      type: object
+      properties:
+        operator_name:
+          type: string
+        operator_email:
+          type: string
+          format: email
+    ResumeCreate:
+      type: object
+      required: [display_name, file_name, file_path, mime_type]
+      properties:
+        display_name:
+          type: string
+        file_name:
+          type: string
+        file_path:
+          type: string
+          description: Backend-controlled local path or storage key; never supplied by extension for arbitrary filesystem access in production.
+        mime_type:
+          type: string
+        file_size_bytes:
+          type: integer
+          minimum: 0
+        sha256:
+          type: string
+    ResumeUpdate:
+      type: object
+      properties:
+        display_name:
+          type: string
+        is_available:
+          type: boolean
+    ResumeAttachment:
+      allOf:
+        - $ref: "#/components/schemas/ResumeCreate"
+        - type: object
+          required: [id, is_available, uploaded_at, created_at, updated_at]
+          properties:
+            id:
+              type: string
+              format: uuid
+            is_available:
+              type: boolean
+            uploaded_at:
+              type: string
+              format: date-time
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    EmailTemplateCreate:
+      type: object
+      required: [mode, template_kind, name, subject_template, body_template]
+      properties:
+        mode:
+          $ref: "#/components/schemas/TemplateMode"
+        template_kind:
+          $ref: "#/components/schemas/TemplateKind"
+        name:
+          type: string
+        subject_template:
+          type: string
+        body_template:
+          type: string
+        variables_schema:
+          type: object
+          additionalProperties: true
+        is_active:
+          type: boolean
+          default: true
+    EmailTemplateUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        subject_template:
+          type: string
+        body_template:
+          type: string
+        variables_schema:
+          type: object
+          additionalProperties: true
+        is_active:
+          type: boolean
+    EmailTemplate:
+      allOf:
+        - $ref: "#/components/schemas/EmailTemplateCreate"
+        - type: object
+          required: [id, created_at, updated_at]
+          properties:
+            id:
+              type: string
+              format: uuid
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    TemplatePreviewRequest:
+      type: object
+      properties:
+        opportunity_id:
+          type: string
+          format: uuid
+        resume_attachment_id:
+          type: string
+          format: uuid
+          nullable: true
+        sample_values:
+          type: object
+          additionalProperties: true
+    RenderedPreview:
+      type: object
+      required: [subject, body, warnings, rendered_variables]
+      properties:
+        subject:
+          type: string
+        body:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        rendered_variables:
+          type: object
+          additionalProperties: true
+    SendingProviderAccount:
+      type: object
+      required: [provider_name, auth_status]
+      properties:
+        provider_name:
+          type: string
+          enum: [gmail]
+        display_email:
+          type: string
+          format: email
+        display_name:
+          type: string
+        auth_status:
+          $ref: "#/components/schemas/ProviderAuthStatus"
+        send_limit_per_day:
+          type: integer
+          minimum: 1
+        last_checked_at:
+          type: string
+          format: date-time
+    EmailDraftCreate:
+      type: object
+      required: [opportunity_id, template_id]
+      properties:
+        opportunity_id:
+          type: string
+          format: uuid
+        template_id:
+          type: string
+          format: uuid
+        resume_attachment_id:
+          type: string
+          format: uuid
+          nullable: true
+    EmailDraftUpdate:
+      type: object
+      properties:
+        to_email:
+          type: string
+          format: email
+        subject:
+          type: string
+        body:
+          type: string
+        resume_attachment_id:
+          type: string
+          format: uuid
+          nullable: true
+    EmailDraft:
+      type: object
+      required: [id, opportunity_id, template_id, template_kind, to_email, subject, body, warnings, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        opportunity_id:
+          type: string
+          format: uuid
+        template_id:
+          type: string
+          format: uuid
+        template_kind:
+          $ref: "#/components/schemas/TemplateKind"
+        resume_attachment_id:
+          type: string
+          format: uuid
+          nullable: true
+        to_email:
+          type: string
+          format: email
+        subject:
+          type: string
+        body:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          $ref: "#/components/schemas/DraftStatus"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    SendRequest:
+      type: object
+      required: [id, opportunity_id, template_kind, recipient_email, subject_snapshot, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        draft_id:
+          type: string
+          format: uuid
+        opportunity_id:
+          type: string
+          format: uuid
+        template_id:
+          type: string
+          format: uuid
+        template_kind:
+          $ref: "#/components/schemas/TemplateKind"
+        resume_attachment_id:
+          type: string
+          format: uuid
+          nullable: true
+        recipient_email:
+          type: string
+          format: email
+        subject_snapshot:
+          type: string
+        body_snapshot:
+          type: string
+        status:
+          $ref: "#/components/schemas/SendRequestStatus"
+        error_code:
+          type: string
+        error_message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    BulkPreviewRequest:
+      type: object
+      required: [opportunity_ids, template_id]
+      properties:
+        opportunity_ids:
+          type: array
+          maxItems: 25
+          items:
+            type: string
+            format: uuid
+        template_id:
+          type: string
+          format: uuid
+        resume_attachment_id:
+          type: string
+          format: uuid
+          nullable: true
+    BulkSendBatch:
+      type: object
+      required: [id, status, selected_count, sendable_count, skipped_missing_contact_count, skipped_duplicate_count, blocked_invalid_contact_count, limit_blocked_count, items]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/BulkBatchStatus"
+        selected_count:
+          type: integer
+        sendable_count:
+          type: integer
+        skipped_missing_contact_count:
+          type: integer
+        skipped_duplicate_count:
+          type: integer
+        blocked_invalid_contact_count:
+          type: integer
+        limit_blocked_count:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BulkSendItem"
+    BulkSendItem:
+      type: object
+      required: [opportunity_id, outcome]
+      properties:
+        opportunity_id:
+          type: string
+          format: uuid
+        recipient_email:
+          type: string
+          format: email
+        outcome:
+          type: string
+          enum: [sendable, skipped_missing_contact, skipped_duplicate, blocked_invalid_contact, blocked_limit]
+        reason:
+          type: string
+        draft_id:
+          type: string
+          format: uuid
+    OutreachEvent:
+      type: object
+      required: [id, opportunity_id, channel, event_type, recipient_email, status, occurred_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        opportunity_id:
+          type: string
+          format: uuid
+        draft_id:
+          type: string
+          format: uuid
+        send_request_id:
+          type: string
+          format: uuid
+        bulk_batch_id:
+          type: string
+          format: uuid
+        channel:
+          type: string
+          enum: [email]
+        event_type:
+          type: string
+          enum: [queued, sent, failed, skipped_duplicate, skipped_missing_contact, skipped_invalid_contact]
+        provider_name:
+          type: string
+        provider_message_id:
+          type: string
+        recipient_email:
+          type: string
+          format: email
+        template_id:
+          type: string
+          format: uuid
+        template_kind:
+          $ref: "#/components/schemas/TemplateKind"
+        resume_attachment_id:
+          type: string
+          format: uuid
+          nullable: true
+        subject:
+          type: string
+        status:
+          type: string
+        error_message:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time

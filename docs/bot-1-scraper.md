@@ -3,7 +3,7 @@
 ## Objetivo
 
 Implementar o bot de descoberta especializado para capturar oportunidades `freelance` com chance
-real de virar contato comercial.
+real de virar contato comercial, usando Google Maps/nicho/localidade como primeira fonte planejada.
 
 Este bot continua importante, mas agora vem depois do primeiro fluxo de busca de empregos. A base
 de dados deve continuar preparada para ele desde o inicio.
@@ -27,17 +27,35 @@ O bot deve receber ao menos:
 - cidade, bairro ou regiao
 - escopo geografico ou de mercado
 - tipo de oportunidade alvo, inicialmente `freelance`
+- criterio de site desejado: sem site, apenas rede social, site fraco ou qualquer sinal revisavel
 
 ## Fluxo recomendado
 
-1. gerar queries especializadas por nicho e geografia
-2. coletar candidatos a oportunidade
-3. detectar website e classificar `website_status`
-4. capturar email, telefone e links uteis
-5. registrar a `source_query` e a evidencia principal
-6. deduplicar
+1. gerar queries especializadas por nicho e geografia, como `dentist Austin Texas`, `barbershop
+   Denver CO` ou `restaurant Miami`
+2. coletar candidatos do Google Maps ou de fonte manual equivalente
+3. verificar se existe botao/URL de website, se aponta para rede social ou se o site parece fraco
+4. capturar nome do negocio, endereco, telefone, nota, quantidade de reviews, website, email e links
+   uteis quando disponiveis
+5. registrar a `source_query`, `source_url` e evidencia principal
+6. deduplicar por nome, telefone, endereco, website e origem
 7. calcular score inicial
-8. salvar no banco
+8. salvar no banco como `opportunity_type=freelance`
+
+## Metodo manual de referencia
+
+O guia de prospeccao usado como referencia recomenda:
+
+- escolher um nicho e uma cidade antes de buscar
+- pesquisar no Google Maps por `nicho + cidade`
+- rolar a lista de resultados e abrir cada negocio
+- priorizar negocios sem botao `Website`
+- tratar `Website` apontando para Facebook/Instagram como lead bom
+- revisar sites ruins com checklist: nao responsivo, antigo, lento, sem HTTPS, sem CTA, informacao
+  desatualizada ou template generico
+- usar concorrente local com site melhor como argumento comercial quando fizer sentido
+
+Essa logica deve virar scoring/evidencia, nao apenas texto livre.
 
 ## UI esperada no modo `Freelance`
 
@@ -92,6 +110,7 @@ Conteudo minimo:
 - nota Google
 - quantidade de avaliacoes
 - Google Maps/source URL
+- query de origem
 - analise do site
 - score mobile
 - score desktop
@@ -100,6 +119,7 @@ Conteudo minimo:
 - se tem anuncios
 - se usa linktree
 - motivo da classificacao
+- problema identificado: sem site, so rede social, site ruim, site ok mas melhoravel
 - score circular
 - status comercial
 
@@ -130,6 +150,11 @@ Requisitos:
 - area grande monoespacada
 - botao `Copiar Prompt`
 - salvar como artefato versionavel no futuro
+
+O prompt deve seguir o padrao das referencias `references/lovable-template`: dados reais do negocio,
+nicho, localizacao, contato, avaliacao Google, pesquisa de concorrentes, estrutura da landing page,
+design system, CTAs, mobile-first, SEO/acessibilidade e regras de conversao. O prompt gerado pelo
+modo `Freelance` deve adaptar esse formato ao lead capturado, sem misturar linguagem de vagas.
 
 ## Resultado minimo esperado
 

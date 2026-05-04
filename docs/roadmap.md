@@ -11,6 +11,7 @@ Objetivo: criar a base minima que permita captura e persistencia com qualidade.
 
 - ambiente local com `Docker Compose` e `PostgreSQL`
 - API em `FastAPI`
+- usuarios individuais com login por email/senha antes do primeiro deploy real
 - modelo central de oportunidades
 - suporte desde o inicio a `freelance` e `job`
 - persistencia de query, origem e evidencia
@@ -27,9 +28,30 @@ relevantes e email disponivel.
 - captura de empresa, vaga, email, link e evidencia
 - listagem em modo ou aba `Full-time Job`
 
+Estado atual:
+
+- provider/fetcher inicial do LinkedIn foi implementado no worker
+- API ja possui metadados de run/candidato para provider status, source type e contato preferencial
+- parser/normalizer ja aceita email publico como primeira preferencia e convite explicito de contato LinkedIn com link de perfil
+- worker ja consome runs `pending` no PostgreSQL e grava candidatos/oportunidades end-to-end
+- testes automatizados passam para API e worker quando executados separadamente
+- a extensao Plasmo MVP usa a sessao logada do navegador para capturar posts do LinkedIn, criar
+  runs autenticadas, exibir diagnosticos e revisar vagas pela API local
+- limites globais de candidatos por run foram removidos; limites futuros devem ser regras de produto
+  por plano/assinatura
+
+Gate restante desta fase:
+
+- continuar medindo qualidade real: candidatos inspecionados, aceitos, rejeitados, duplicados e falhas
+  por bloqueio/rate limit
+- estabilizar seletores da extensao conforme o DOM real do LinkedIn mudar
+- implementar login de usuario, ownership por `user_id` e backfill dos dados locais antes de deploy
+- estabilizar deploy/configuracao para API, worker, OAuth e banco fora do ambiente local
+
 ## Fase 3. Revisao e envio para vagas
 
-Objetivo: permitir que o usuario revise oportunidades de emprego e envie templates com curriculo.
+Objetivo: permitir que o usuario revise oportunidades de emprego e envie emails reais com templates
+e curriculo.
 
 - lista e filtros por `opportunity_type`
 - filtros por campanha, temperatura e status
@@ -37,15 +59,38 @@ Objetivo: permitir que o usuario revise oportunidades de emprego e envie templat
 - notas do operador
 - visao detalhada da evidencia da captura
 - selecao individual ou em massa
-- envio de email com curriculo anexado
+- envio real de email com curriculo anexado por provider configurado
+- pagina/secao de templates para candidatura e follow-up
+- preview/draft antes do envio
+- botao de envio individual
+- botao de envio em massa com confirmacao, controles de seguranca e eventos por destinatario
 - tracking de resposta, entrevista, rejeicao ou ignorado
+
+Estado atual:
+
+- templates, settings/curriculos, drafts/previews, aprovacao de envio individual, base de bulk send,
+  historico e worker Gmail/OAuth foram implementados
+- tokens OAuth do Gmail ficam no PostgreSQL; PDFs de curriculo enviados ficam no PostgreSQL
+- `.local/` permanece apenas para desenvolvimento local, coletor Playwright, logs e secrets opcionais
+- ainda falta associar settings, curriculos, templates, provider Gmail, runs, vagas e historico a
+  usuarios individuais antes de um deploy compartilhado
+
+Gate restante desta fase:
+
+- adicionar login email/senha e isolamento dos dados por usuario
+- validar OAuth e envio real em ambiente publicado
+- adicionar tracking operacional de resposta, entrevista, rejeicao, ignorado e follow-up
+- aproximar UI do prototipo com dashboard/campanhas/lista/detalhe `Full-time` mais completos
 
 ## Fase 4. Prospeccao freelance
 
-Objetivo: adicionar o bot de busca por clientes freelance, como planejado inicialmente.
+Objetivo: adicionar o bot de busca por clientes freelance via Google Maps/nicho/localidade, como
+planejado inicialmente.
 
-- consultas por nicho, cidade, bairro e mercado
+- consultas por nicho, cidade, bairro e mercado usando Google Maps como primeira fonte planejada
 - deteccao de website com estados revisaveis
+- deteccao de negocio sem site, so com rede social ou com site fraco
+- captura de nota Google, quantidade de reviews, endereco, telefone, website e fonte
 - deduplicacao por nome, contato e origem
 - score inicial
 - salvar URL da demo por lead

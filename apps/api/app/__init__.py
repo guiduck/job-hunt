@@ -1,0 +1,1 @@
+"""Scrapper Freelance API package."""

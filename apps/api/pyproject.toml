@@ -1,0 +1,31 @@
+[project]
+name = "scrapper-freelance-api"
+version = "0.1.0"
+description = "Backend API for local opportunity storage and LinkedIn job search runs."
+requires-python = ">=3.11"
+dependencies = [
+  "alembic",
+  "email-validator",
+  "fastapi",
+  "google-api-python-client",
+  "google-auth-oauthlib",
+  "bcrypt",
+  "psycopg[binary]",
+  "pydantic-settings",
+  "python-multipart",
+  "sqlalchemy>=2",
+  "uvicorn[standard]",
+]
+
+[project.optional-dependencies]
+test = [
+  "httpx",
+  "pytest",
+]
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
