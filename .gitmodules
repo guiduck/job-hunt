@@ -1,3 +1,4 @@
 [submodule "opportunity-desk-pro"]
-	path = opportunity-desk-pro
+	path = references/opportunity-desk-pro
 	url = https://github.com/guiduck/opportunity-desk-pro
+	branch = main

@@ -1,0 +1,40 @@
+{
+  "name": "@scrapper-freelance/extension",
+  "displayName": "Opportunity Desk",
+  "version": "0.1.0",
+  "description": "Local Chrome extension for capturing LinkedIn job posts and reviewing Full-time opportunities.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "plasmo dev --src-path=.",
+    "build": "plasmo build --src-path=.",
+    "package": "plasmo package --src-path=.",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "plasmo": "^0.90.5",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.40",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^6.0.3"
+  },
+  "manifest": {
+    "permissions": [
+      "activeTab",
+      "scripting",
+      "storage",
+      "tabs",
+      "windows"
+    ],
+    "host_permissions": [
+      "http://localhost:8000/*",
+      "https://*.onrender.com/*",
+      "https://www.linkedin.com/*"
+    ]
+  }
+}
