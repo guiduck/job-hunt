@@ -1,4 +1,4 @@
-from app.services.linkedin_candidate_parser import invites_linkedin_dm, parse_candidate
+from app.services.linkedin_candidate_parser import extract_public_email, invites_linkedin_dm, parse_candidate
 
 
 def test_parser_extracts_public_email_and_keywords(sample_linkedin_candidate: dict[str, object]) -> None:
@@ -6,6 +6,15 @@ def test_parser_extracts_public_email_and_keywords(sample_linkedin_candidate: di
     assert parsed["contact_channel_value"] == "jobs@example.com"
     assert parsed["matched_keywords"] == ["typescript"]
     assert parsed["source_evidence"]
+
+
+def test_email_extraction_trims_text_glued_after_common_tld() -> None:
+    assert extract_public_email("Email flint@fourwaysconsulting.comAdam for details") == "flint@fourwaysconsulting.com"
+    assert extract_public_email("Send CV to toolsMastan@dgntechnologies.comhashtag") == "toolsMastan@dgntechnologies.com"
+    assert extract_public_email("Contact majeedk@pronixinc.comor DM me") == "majeedk@pronixinc.com"
+    assert extract_public_email("Use talent@example.com.brApply today") == "talent@example.com.br"
+    assert extract_public_email("OportunidadLaboralalejandra.padilla@ancient.global") == "alejandra.padilla@ancient.global"
+    assert extract_public_email("manu@digitalhr.com.arThanks") == "manu@digitalhr.com.ar"
 
 
 def test_parser_accepts_explicit_linkedin_dm_with_profile() -> None:

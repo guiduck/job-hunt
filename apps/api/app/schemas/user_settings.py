@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 class UserSettingsUpdate(BaseModel):
     operator_name: str | None = None
     operator_email: EmailStr | None = None
+    portfolio_url: str | None = None
 
 
 class UserSettings(BaseModel):
@@ -14,6 +15,7 @@ class UserSettings(BaseModel):
     id: str
     operator_name: str | None = None
     operator_email: EmailStr | None = None
+    portfolio_url: str | None = None
     default_mode: str = "full_time"
     created_at: datetime
     updated_at: datetime

@@ -12,6 +12,7 @@ dependencies = [
   "bcrypt",
   "psycopg[binary]",
   "pydantic-settings",
+  "pypdf",
   "python-multipart",
   "sqlalchemy>=2",
   "uvicorn[standard]",

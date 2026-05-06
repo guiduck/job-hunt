@@ -60,5 +60,7 @@ def test_processes_api_created_pending_run_with_supplied_public_content(db_sessi
     assert run["inspected_count"] == 1
     assert run["accepted_count"] == 1
     assert len(candidates) == 1
+    assert candidates[0]["user_id"] == "user-1"
     assert candidates[0]["outcome"] == "accepted"
     assert len(opportunities) == 1
+    assert opportunities[0]["user_id"] == "user-1"

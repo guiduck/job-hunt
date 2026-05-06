@@ -19,6 +19,7 @@ export function AuthView() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    console.info("[Opportunity Desk] auth form submitted", { mode, email })
     if (mode === "login") {
       await login(email, password)
     } else if (mode === "register") {
@@ -31,38 +32,44 @@ export function AuthView() {
   }
 
   return (
-    <section className="card">
-      <h2 className="card-title">{mode === "register" ? "Create account" : "Log in"}</h2>
-      <p className="empty-state">Sign in to keep Full-time data, resumes, Gmail, and templates scoped to your account.</p>
+    <section className="auth-card">
+      <div className="auth-hero">
+        <span className="auth-badge">Opportunity Desk</span>
+        <h2>{mode === "register" ? "Create your workspace" : "Welcome back"}</h2>
+        <p>Keep LinkedIn jobs, templates, resumes, and Gmail sending scoped to your account.</p>
+      </div>
       <form className="form-stack" onSubmit={(event) => void submit(event)}>
         {mode !== "reset-confirm" ? (
-          <label>
-            Email
+          <label className="field">
+            <span>Email</span>
             <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required />
           </label>
         ) : null}
         {mode === "register" ? (
-          <label>
-            Display name
+          <label className="field">
+            <span>Display name</span>
             <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
           </label>
         ) : null}
         {mode !== "reset-request" ? (
-          <label>
-            {mode === "reset-confirm" ? "New password" : "Password"}
+          <label className="field">
+            <span>{mode === "reset-confirm" ? "New password" : "Password"}</span>
             <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required />
           </label>
         ) : null}
         {mode === "reset-confirm" ? (
-          <label>
-            Reset token
+          <label className="field">
+            <span>Reset token</span>
             <input value={resetToken} onChange={(event) => setResetToken(event.target.value)} required />
           </label>
         ) : null}
         <button className="primary-button" disabled={loading} type="submit">
-          Continue
+          {mode === "login" ? "Log in" : "Continue"}
         </button>
       </form>
+      <p className="message">
+        Google connection is configured after login in Settings. Google sign-in will need a dedicated auth flow before it can replace email login.
+      </p>
       <div className="button-row">
         <button className="link-button" onClick={() => setMode(mode === "login" ? "register" : "login")} type="button">
           {mode === "login" ? "Create account" : "Use existing account"}

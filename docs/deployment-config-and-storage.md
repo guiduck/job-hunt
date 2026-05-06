@@ -93,6 +93,25 @@ inicial. Quando o volume crescer, a evolucao recomendada e:
 3. salvar no banco apenas `storage_backend`, `object_key`, `mime_type`, tamanho e checksum
 4. preservar a API de upload/download para nao quebrar a extensao
 
+## IA / GPT
+
+O recorte de bulk send com IA deve manter chaves e configuracao de modelo apenas no backend/worker.
+A extensao nunca deve conter, receber ou persistir chave da OpenAI/GPT.
+
+Variaveis recomendadas para desenvolvimento local e deploy:
+
+- `OPENAI_API_KEY`: chave da API de IA, configurada em `.env.local` no desenvolvimento ou como secret
+  do ambiente em staging/producao.
+- `AI_EMAIL_MODEL`: modelo usado para gerar assuntos e corpos de email. Preferir um modelo barato e
+  suficiente para textos curtos de candidatura.
+- `JOB_AI_FILTERS_ENABLED`: liga/desliga filtros inteligentes pos-captura no worker.
+- `JOB_AI_FILTER_MODEL_NAME`: modelo usado pelo worker para avaliar filtros de vagas; pode reutilizar
+  um modelo barato enquanto a avaliacao for curta e estruturada.
+
+Em desenvolvimento local, coloque essas variaveis no mesmo caminho de env usado pela API/worker
+(`.env.local` ou arquivo equivalente ja carregado pelo projeto). Em deploy, configure como secret do
+servico backend. Nao configurar essas variaveis no pacote da extensao nem como `PLASMO_PUBLIC_*`.
+
 ## Limites
 
 Limites globais por env foram removidos:
@@ -116,6 +135,9 @@ usuarios e ambientes.
   `https://api.example.com/sending/google-oauth/callback`.
 - Cadastrar essa redirect URI no OAuth client do Google Cloud.
 - Configurar `GMAIL_OAUTH_SUCCESS_REDIRECT_URL` para uma tela do app/extensao ou pagina de sucesso.
+- Para bulk send com IA, configurar `OPENAI_API_KEY` e `AI_EMAIL_MODEL` somente no backend/worker.
+- Para LinkedIn AI filters, configurar `JOB_AI_FILTERS_ENABLED`, `JOB_AI_FILTER_MODEL_NAME` e
+  `OPENAI_API_KEY` somente no backend/worker.
 - Apontar a extensao com `PLASMO_PUBLIC_API_BASE_URL` para a API publicada.
 - Rodar migrations no banco publicado.
 - Validar `/sending/google-oauth/start`, callback, status do provider e um envio real controlado.

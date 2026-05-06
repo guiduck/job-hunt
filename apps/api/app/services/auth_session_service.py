@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -7,9 +7,19 @@ from app.models.user import AuthSession, User
 from app.services.session_token_service import generate_token, hash_token
 
 
+def utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 def create_session(db: Session, user: User) -> tuple[AuthSession, str]:
     token = generate_token()
-    now = datetime.utcnow()
+    now = utc_now()
     session = AuthSession(
         user_id=user.id,
         token_hash=hash_token(token),
@@ -23,9 +33,9 @@ def create_session(db: Session, user: User) -> tuple[AuthSession, str]:
 
 
 def get_session_user(db: Session, token: str) -> User | None:
-    now = datetime.utcnow()
+    now = utc_now()
     session = db.query(AuthSession).filter(AuthSession.token_hash == hash_token(token)).one_or_none()
-    if not session or session.revoked_at is not None or session.expires_at <= now:
+    if not session or session.revoked_at is not None or as_utc(session.expires_at) <= now:
         return None
     session.last_used_at = now
     db.commit()
@@ -36,5 +46,5 @@ def revoke_session(db: Session, token: str) -> None:
     session = db.query(AuthSession).filter(AuthSession.token_hash == hash_token(token)).one_or_none()
     if not session or session.revoked_at is not None:
         return
-    session.revoked_at = datetime.utcnow()
+    session.revoked_at = utc_now()
     db.commit()

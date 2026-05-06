@@ -118,6 +118,21 @@ class OpportunityUpdate(BaseModel):
     operator_notes: str | None = None
 
 
+class OpportunityBulkDeleteRequest(BaseModel):
+    opportunity_ids: list[str] = Field(default_factory=list)
+    send_status: str | None = Field(default=None, pattern="^(sent|unsent)$")
+
+    @model_validator(mode="after")
+    def validate_delete_target(self) -> "OpportunityBulkDeleteRequest":
+        if not self.opportunity_ids and self.send_status is None:
+            raise ValueError("opportunity_ids or send_status is required")
+        return self
+
+
+class OpportunityBulkDeleteResponse(BaseModel):
+    deleted_count: int
+
+
 class Opportunity(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

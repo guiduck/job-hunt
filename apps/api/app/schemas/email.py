@@ -142,7 +142,7 @@ class SendRequest(BaseModel):
     id: str
     draft_id: str | None = None
     opportunity_id: str
-    template_id: str
+    template_id: str | None = None
     template_kind: TemplateKind
     resume_attachment_id: str | None = None
     recipient_email: EmailStr
@@ -156,9 +156,22 @@ class SendRequest(BaseModel):
 
 
 class BulkPreviewRequest(BaseModel):
-    opportunity_ids: list[str] = Field(max_length=25)
+    opportunity_ids: list[str] = Field(max_length=50)
     template_id: str
     resume_attachment_id: str | None = None
+
+
+class BulkAIGenerateRequest(BaseModel):
+    opportunity_ids: list[str] = Field(max_length=50)
+    resume_attachment_id: str | None = None
+    template_id: str | None = None
+
+
+class BulkSendItemUpdate(BaseModel):
+    recipient_email: str | None = None
+    subject: str | None = None
+    body: str | None = None
+    is_skipped: bool | None = None
 
 
 class BulkSendItem(BaseModel):
@@ -167,6 +180,12 @@ class BulkSendItem(BaseModel):
     outcome: str
     reason: str | None = None
     draft_id: str | None = None
+    send_request_id: str | None = None
+    subject: str | None = None
+    body: str | None = None
+    is_skipped: bool = False
+    ai_error_code: str | None = None
+    retryable: bool = False
 
 
 class BulkSendBatch(BaseModel):

@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class JobSearchRunStatus(StrEnum):
@@ -23,6 +23,8 @@ class JobCandidateOutcome(StrEnum):
     BLOCKED_SOURCE = "blocked_source"
     INACCESSIBLE_SOURCE = "inaccessible_source"
     EMPTY_SOURCE = "empty_source"
+    REJECTED_AI_FILTER = "rejected_ai_filter"
+    FAILED_AI_FILTER = "failed_ai_filter"
 
 
 class LinkedInCollectionSourceType(StrEnum):
@@ -48,6 +50,67 @@ class CandidateAnalysisStatus(StrEnum):
     FALLBACK = "fallback"
     FAILED = "failed"
     SKIPPED = "skipped"
+
+
+class AIFilterStatus(StrEnum):
+    PASSED = "passed"
+    REJECTED = "rejected"
+    FALLBACK = "fallback"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class SearchSortOrder(StrEnum):
+    RECENT = "recent"
+    RELEVANT = "relevant"
+
+
+class DetectedWorkMode(StrEnum):
+    REMOTE = "remote"
+    HYBRID = "hybrid"
+    ONSITE = "onsite"
+    PRESENTIAL = "presential"
+    UNKNOWN = "unknown"
+    MIXED = "mixed"
+
+
+class AIFilterSettings(BaseModel):
+    remote_only: bool = False
+    exclude_onsite: bool = False
+    accepted_regions: list[str] = Field(default_factory=list)
+    excluded_regions: list[str] = Field(default_factory=list)
+
+    @field_validator("accepted_regions", "excluded_regions", mode="before")
+    @classmethod
+    def normalize_terms(cls, value: object) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            raw_values = value.replace("\n", ",").split(",")
+        elif isinstance(value, list):
+            raw_values = value
+        else:
+            return []
+        seen: set[str] = set()
+        terms: list[str] = []
+        for item in raw_values:
+            term = str(item).strip()
+            key = term.lower()
+            if term and key not in seen:
+                seen.add(key)
+                terms.append(term)
+        return terms
+
+
+class AIFilterSignals(BaseModel):
+    detected_work_mode: DetectedWorkMode = DetectedWorkMode.UNKNOWN
+    accepted_regions: list[str] = Field(default_factory=list)
+    accepted_countries: list[str] = Field(default_factory=list)
+    accepted_timezones: list[str] = Field(default_factory=list)
+    rejected_regions: list[str] = Field(default_factory=list)
+    candidate_fit_summary: str | None = None
+    missing_or_unclear_requirements: list[str] = Field(default_factory=list)
+    evidence_quotes: list[str] = Field(default_factory=list)
 
 
 class JobReviewStatus(StrEnum):
@@ -98,6 +161,8 @@ class LinkedInCollectionInputRead(LinkedInCollectionInput):
 class JobSearchRunCreate(BaseModel):
     keyword_set_id: str | None = None
     keywords: list[str] | None = None
+    search_query: str | None = None
+    search_sort_order: SearchSortOrder = SearchSortOrder.RECENT
     hiring_intent_terms: list[str] = Field(default_factory=lambda: ["hiring", "contratando", "contratamos"], min_length=1)
     collection_source_types: list[LinkedInCollectionSourceType] = Field(
         default_factory=lambda: [LinkedInCollectionSourceType.AUTOMATIC_PUBLICATION_SEARCH],
@@ -105,6 +170,8 @@ class JobSearchRunCreate(BaseModel):
     )
     collection_inputs: list[LinkedInCollectionInput] = Field(default_factory=list)
     candidate_limit: int | None = Field(default=None, ge=1)
+    ai_filters_enabled: bool = False
+    ai_filter_settings: AIFilterSettings = Field(default_factory=AIFilterSettings)
 
 
 class JobSearchRun(BaseModel):
@@ -114,6 +181,8 @@ class JobSearchRun(BaseModel):
     status: JobSearchRunStatus
     keyword_set_id: str | None = None
     requested_keywords: list[str]
+    search_query: str | None = None
+    search_sort_order: SearchSortOrder = SearchSortOrder.RECENT
     hiring_intent_terms: list[str] = Field(default_factory=list)
     collection_source_types: list[str] = Field(default_factory=list)
     collection_inputs: list[LinkedInCollectionInputRead] = Field(default_factory=list)
@@ -137,6 +206,17 @@ class JobSearchRun(BaseModel):
     analysis_fallback_count: int = 0
     analysis_failed_count: int = 0
     analysis_skipped_count: int = 0
+    ai_filters_enabled: bool = False
+    ai_filter_settings: AIFilterSettings = Field(default_factory=AIFilterSettings)
+    ai_filter_status: AIFilterStatus = AIFilterStatus.SKIPPED
+    ai_filter_error_code: str | None = None
+    ai_filter_error_message: str | None = None
+    ai_filter_inspected_count: int = 0
+    ai_filter_passed_count: int = 0
+    ai_filter_rejected_count: int = 0
+    ai_filter_fallback_count: int = 0
+    ai_filter_failed_count: int = 0
+    ai_filter_skipped_count: int = 0
     started_at: datetime | None = None
     completed_at: datetime | None = None
     error_message: str | None = None
@@ -169,6 +249,15 @@ class JobSearchCandidate(BaseModel):
     source_evidence: str | None = None
     matched_keywords: list[str]
     review_profile: JobReviewProfile | None = None
+    passes_ai_filter: bool | None = None
+    ai_filter_status: AIFilterStatus = AIFilterStatus.SKIPPED
+    ai_filter_reason: str | None = None
+    ai_filter_confidence: float | None = Field(default=None, ge=0, le=1)
+    ai_filter_signals: AIFilterSignals = Field(default_factory=AIFilterSignals)
+    ai_filter_error_code: str | None = None
+    ai_filter_error_message: str | None = None
+    ai_filter_model_name: str | None = None
+    ai_filter_prompt_version: str | None = None
     raw_excerpt: str | None = None
     dedupe_key: str | None = None
     rejection_reason: str | None = None

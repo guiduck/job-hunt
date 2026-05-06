@@ -107,7 +107,11 @@ function dedupeRepeatedName(name: string) {
 }
 
 function cleanText(text: string) {
-  return text.replace(/\s+/g, " ").trim()
+  return text
+    .replace(HASHTAG_PATTERN, " ")
+    .replace(/\bhashtag\b\s*[:;,.]*/giu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 function truncate(text: string, maxLength: number) {

@@ -13,10 +13,11 @@ templates ou pagina de detalhe com o modo `Freelance`.
 ## Oportunidade ideal
 
 - publicacao ou anuncio de vaga no LinkedIn
+- vaga descoberta via Google Jobs ou busca web estruturada, quando houver fonte rastreavel e email publico
 - empresa identificavel
 - cargo aderente ao perfil do usuario
 - keywords relevantes encontradas no texto
-- email ou contato publico disponivel
+- email ou contato publico de candidatura disponivel
 - contexto suficiente para personalizar email com curriculo anexado
 
 ## Entrada esperada
@@ -40,13 +41,14 @@ Keywords mockadas iniciais:
 
 1. carregar keywords do usuario ou fallback mockado
 2. buscar publicacoes e anuncios no LinkedIn
-3. filtrar textos com keywords relevantes
-4. detectar empresa, cargo, email e link da publicacao
-5. registrar a fonte e o trecho que justificou a captura
-6. salvar a oportunidade como `opportunity_type=job`
-7. listar no painel em uma aba ou modo `Full-time Job`
-8. permitir revisao individual antes de envio
-9. permitir selecao em massa para envio real de email com curriculo anexado, com aprovacao humana
+3. em spike futuro, buscar tambem vagas via Google Jobs/SerpApi ou busca web estruturada
+4. filtrar textos com keywords relevantes
+5. detectar empresa, cargo, dominio oficial, email publico e link da publicacao/vaga
+6. registrar a fonte e o trecho que justificou a captura
+7. salvar a oportunidade como `opportunity_type=job`
+8. listar no painel em uma aba ou modo `Full-time Job`
+9. permitir revisao individual antes de envio
+10. permitir selecao em massa para envio real de email com curriculo anexado, com aprovacao humana
 
 ## UI esperada no modo `Full-time`
 
@@ -77,8 +79,9 @@ Cada oportunidade `job` deve guardar:
 
 - empresa
 - cargo ou titulo da publicacao
-- email encontrado, se houver
-- link da publicacao ou vaga
+- email encontrado
+- link da publicacao, vaga, ATS ou pagina usada como evidencia
+- fonte, como `linkedin` ou `google_jobs`
 - keywords encontradas
 - trecho de evidencia
 - status de candidatura
@@ -95,9 +98,10 @@ Conteudo minimo:
 - cargo
 - email encontrado
 - link da vaga ou publicacao
-- fonte
+- fonte, como `linkedin` ou `google_jobs`
 - `source_query`
 - `source_evidence`
+- status de descoberta de contato, quando o email vier de enriquecimento posterior
 - texto/resumo da publicacao
 - keywords encontradas
 - score de aderencia
@@ -173,6 +177,9 @@ limitada e auditavel.
 - parsing automatico completo de curriculo
 - scraping agressivo ou fora das regras da plataforma
 - envio automatico sem revisao
+- enriquecimento automatico irrestrito de emails de empresas
+- salvar vagas Google Jobs sem email como opportunities acionaveis
+- Google Jobs como fonte primaria antes de um spike provar taxa suficiente de emails confiaveis
 - bot de prospeccao freelance
 
 ## Uso recomendado de IA
@@ -192,6 +199,13 @@ Papel recomendado da IA no fluxo `Full-time`:
 
 Nao usar IA para burlar login, rate limit, paywall ou controles de acesso do LinkedIn. O fetch deve
 continuar deterministico, auditavel e limitado a dados publicos ou fornecidos pelo usuario.
+
+Para descoberta de email da empresa, a IA pode atuar como pesquisadora assistida, mas so depois que a
+vaga ja foi capturada por fonte rastreavel. Ela deve procurar sinais publicos em site oficial,
+pagina de carreira, ATS, rodape, pagina de contato e texto da vaga. Emails descobertos por esse
+caminho devem entrar como pendentes de revisao, com URL de evidencia, e nao como contato automaticamente
+confiavel. Se a vaga oferece apenas formulario oficial de candidatura e nao divulga email, o candidato
+deve ser rejeitado para criacao de opportunity, porque o objetivo deste bot e contato facil por email.
 
 ## Limites da primeira automacao
 
@@ -236,6 +250,54 @@ Contato aceito:
 Nao aceitar apenas um link de perfil solto como contato. Tambem nao fabricar oportunidades quando a
 busca publica estiver bloqueada, inacessivel, vazia ou com rate limit; registrar o estado na run ou
 no candidato.
+
+## Spike futuro: Google Jobs + email discovery
+
+Google Jobs pode entrar como segunda fonte do modo `Full-time`, mas apenas se o spike provar que ele
+gera opportunities no mesmo formato acionavel do LinkedIn: vaga aderente, empresa identificada, email
+publico confiavel, evidencia e score.
+
+Nao assumir que a documentacao de `JobPosting` structured data e uma API aberta para consumir Google
+Jobs. Ela documenta como sites publicam dados estruturados para aparecer no Google. Para buscar
+resultados estruturados, o spike deve testar SerpApi `google_jobs` ou busca web estruturada com limite
+baixo.
+
+Fluxo recomendado do spike:
+
+1. operador clica em `Search with Google Jobs` na tela Search
+2. worker consulta SerpApi `google_jobs` ou busca web estruturada usando query, senioridade, remoto e
+   regioes
+3. parser extrai titulo da vaga, empresa, localidade, remoto, URL da vaga/ATS, descricao e evidencia
+4. fetcher visita a pagina de destino e tenta ler JSON-LD `JobPosting`, quando existir
+5. normalizer identifica o dominio oficial da empresa, sem confundir ATS/job board com empresa
+6. email discovery procura contato publico em site oficial, pagina `careers`, `contact`, `about`, rodape,
+   texto da vaga e resultados indexados do dominio
+7. classificador marca email como `recruiting`, `careers`, `hr`, `company_general`, `personal`,
+   `invalid` ou `not_found`
+8. IA/fallback avalia aderencia da vaga ao curriculo/filtros e confianca do contato
+9. apenas candidatos com score suficiente e email aceitavel viram `opportunity`
+
+Filtro remoto:
+
+- usar `jobLocationType=TELECOMMUTE` e `applicantLocationRequirements` quando a pagina expuser
+  `JobPosting`
+- usar campos estruturados retornados pela SerpApi, quando disponiveis
+- usar descricao/titulo/localidade como fallback, com IA/fallback classificando `remote`, `hybrid`,
+  `onsite` ou `unknown`
+- se `Remote only` estiver ligado, rejeitar `hybrid`, `onsite` e `unknown` de baixa confianca
+
+Metricas minimas para decidir se continua:
+
+- quantidade de resultados brutos
+- quantidade de candidatos com empresa e dominio oficial confiavel
+- quantidade com email publico aceitavel
+- quantidade que passou score de aderencia
+- quantidade salva como opportunity
+- tempo/custo por opportunity salva
+- comparacao com LinkedIn para a mesma query
+
+Criterio de descarte: se a maioria dos resultados terminar sem email confiavel, com email generico
+demais, dominio incorreto ou custo alto por opportunity, abandonar o spike e manter apenas LinkedIn.
 
 ## Estado tecnico atual
 
@@ -293,12 +355,14 @@ preview de email, envio humano-assistido e tracking de resposta/entrevista.
 5. Depois consulte a run criada:
 
    ```bash
-   curl http://localhost:8000/job-search-runs/<run_id>/candidates
-   curl http://localhost:8000/job-search-runs/<run_id>/opportunities
+   TOKEN="<TOKEN_DA_EXTENSAO_OU_LOGIN>"
+   curl http://localhost:8000/job-search-runs/<run_id>/candidates -H "Authorization: Bearer $TOKEN"
+   curl http://localhost:8000/job-search-runs/<run_id>/opportunities -H "Authorization: Bearer $TOKEN"
    ```
 
-O recorte de coleta e review ja existe. O proximo recorte operacional deve implementar templates,
-curriculos, preview, envio real individual e base para envio em massa na extensao/API.
+O recorte de coleta, review, templates, curriculos, preview, envio real individual, base de bulk send e
+auth/ownership ja existe. O proximo recorte operacional deve estabilizar validacao pos-auth antes de
+expandir produto.
 
 ## Resultado minimo esperado
 

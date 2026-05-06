@@ -43,13 +43,17 @@ def test_provider_failure_outcomes_create_zero_opportunities(db_session: Session
     ]
 
     for candidate in candidates:
-        record_candidate(db_session, "failure-run", candidate)
+        record_candidate(db_session, "failure-run", "user-1", candidate)
     finalize_run(db_session, "failure-run", candidates)
 
     opportunity_count = db_session.execute(text("SELECT count(*) FROM opportunities")).scalar_one()
     run = db_session.execute(text("SELECT * FROM job_search_runs WHERE id = 'failure-run'")).mappings().one()
+    [recorded_candidate] = db_session.execute(
+        text("SELECT * FROM job_search_candidates WHERE run_id = 'failure-run'")
+    ).mappings().all()
 
     assert opportunity_count == 0
+    assert recorded_candidate["user_id"] == "user-1"
     assert run["status"] == "completed_no_results"
     assert run["provider_status"] == "blocked"
     assert run["rejected_count"] == 1

@@ -101,3 +101,34 @@ def review_profile_payload() -> dict[str, object]:
         "missing_keywords": [],
         "historical_similarity_signals": {"comparable_count": 0, "adjustment": 0},
     }
+
+
+@pytest.fixture()
+def ai_filter_settings_payload() -> dict[str, object]:
+    return {
+        "remote_only": True,
+        "exclude_onsite": True,
+        "accepted_regions": ["LATAM", "Brazil", "Portugal"],
+        "excluded_regions": ["India"],
+    }
+
+
+@pytest.fixture()
+def ai_filter_candidate_payload() -> dict[str, object]:
+    return {
+        "company_name": "Example Co",
+        "role_title": "Remote TypeScript Engineer",
+        "post_headline": "Hiring Remote TypeScript Engineer",
+        "job_description": "Remote role for LATAM candidates using TypeScript.",
+        "contact_channel_type": "email",
+        "contact_channel_value": "jobs@example.com",
+        "source_url": "https://www.linkedin.com/feed/update/example-ai-filter",
+        "source_query": "hiring typescript",
+        "source_evidence": "Remote role for LATAM candidates. Email jobs@example.com.",
+        "matched_keywords": ["typescript"],
+        "passes_ai_filter": True,
+        "ai_filter_status": "passed",
+        "ai_filter_reason": "Remote LATAM role with public contact.",
+        "ai_filter_confidence": 0.91,
+        "ai_filter_signals": {"detected_work_mode": "remote", "accepted_regions": ["LATAM"]},
+    }

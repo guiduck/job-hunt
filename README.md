@@ -50,6 +50,8 @@ selecionar vagas e enviar emails com curriculo anexado, uma web simples passa a 
 
 ## Documentacao
 
+- `AGENTS.md`
+- `CODEX.md`
 - `docs/overview.md`
 - `docs/product-modes.md`
 - `docs/architecture.md`
@@ -80,17 +82,42 @@ EMAIL_PROVIDER=gmail
 GMAIL_OAUTH_CLIENT_CONFIG_JSON=
 GMAIL_OAUTH_CLIENT_SECRETS_FILE=.local/gmail/client_secret.json
 GMAIL_OAUTH_SCOPES=https://www.googleapis.com/auth/gmail.send
+OPENAI_API_KEY=
+AI_EMAIL_MODEL=gpt-4o-mini
 RESUME_STORAGE_BACKEND=local_fs
 RESUME_STORAGE_DIR=.local/resumes
 ```
 
-Em staging/producao, prefira `GMAIL_OAUTH_CLIENT_CONFIG_JSON` como secret do ambiente. O token OAuth
-concedido apos login fica no PostgreSQL em `sending_provider_accounts.token_json`, e PDFs de curriculo
-enviados pelo app ficam em `resume_attachments.file_content`. `.local/` e apenas conveniencia de
-desenvolvimento.
+Em staging/producao, prefira `GMAIL_OAUTH_CLIENT_CONFIG_JSON` e `OPENAI_API_KEY` como secrets do ambiente.
+O token OAuth concedido apos login fica no PostgreSQL em `sending_provider_accounts.token_json`, e PDFs de
+curriculo enviados pelo app ficam em `resume_attachments.file_content`. `.local/` e apenas conveniencia de
+desenvolvimento. A chave da OpenAI fica somente na API/worker; a extensao nunca deve receber nem persistir
+esse segredo.
 
 A extensao Plasmo consulta status/preview/aprovacao pela API, mas nunca recebe client secret, token
 OAuth ou conteudo dos arquivos locais.
+
+## LinkedIn AI Filters
+
+O recorte `008-linkedin-ai-filters` simplifica a busca da extensao para texto/ordenacao e move
+remoto, onsite/hibrido e regioes para filtros opcionais pos-captura no worker. O campo explicito de
+`Exclude keywords` foi removido: a IA deve ler o post como um revisor humano, usar contexto de
+curriculo/perfil quando disponivel, distinguir vaga real de post de pessoa procurando emprego e
+decidir com motivos, confianca e sinais estruturados. O worker tem provider OpenAI compativel,
+validacao estruturada, fallback deterministico e counters por run/candidato.
+
+Validacao focada do recorte de filtros pos-captura:
+
+```bash
+cd apps/api
+python -m pytest tests/unit/test_linkedin_ai_filter_schema.py tests/contract/test_linkedin_ai_filter_contract.py tests/contract/test_linkedin_ai_filter_diagnostics_contract.py tests/integration/test_linkedin_ai_filters_compatibility.py tests/integration/test_linkedin_ai_filter_candidates.py tests/integration/test_linkedin_ai_filter_counters.py tests/integration/test_linkedin_ai_filter_ownership.py
+
+cd ../worker
+python -m pytest tests/unit/test_job_ai_filter.py tests/integration/test_linkedin_ai_filter_pipeline.py tests/integration/test_linkedin_ai_filter_counters.py
+
+cd ../extension
+npm run typecheck
+```
 
 ## Auth e Deploy
 
@@ -102,4 +129,6 @@ autenticado. Use os mesmos nomes de variaveis em todos os ambientes (`DATABASE_U
 
 Estado atual: o recorte de auth/ownership ja existe, mas ainda precisa de hardening final antes de
 uso publicado: atualizar testes legados para bearer auth, revisar contrato OpenAPI, executar smoke de
-dois usuarios, validar OAuth Gmail publicado e aprovar um envio real controlado pelo worker.
+dois usuarios, validar OAuth Gmail publicado, aprovar um envio real controlado pelo worker e validar o
+smoke manual da extensao com LinkedIn AI filters. Esse hardening e a proxima spec recomendada antes
+de iniciar o bot `Freelance` Google Maps/Lovable.

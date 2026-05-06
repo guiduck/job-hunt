@@ -4,9 +4,23 @@ export type LinkedInCapturedPost = {
   sourceUrl: string
 }
 
+export function createLinkedInCapturedPostFixture(overrides: Partial<LinkedInCapturedPost> = {}): LinkedInCapturedPost {
+  return {
+    label: "LinkedIn post #1",
+    providedText: "Example Co is hiring a remote TypeScript developer. Email jobs@example.com",
+    sourceUrl: "https://www.linkedin.com/feed/update/example",
+    ...overrides
+  }
+}
+
 export type CaptureRequest = {
   keywords: string
   region: string
+  aiFiltersEnabled: boolean
+  acceptedRegions: string
+  excludedRegions: string
+  remoteOnly: boolean
+  excludeOnsite: boolean
   sortMode: "recent" | "relevant"
   maxPosts: number
   maxScrolls: number
@@ -43,10 +57,16 @@ export type CaptureDiagnostics = {
     scroll: number
     postsFound: number
     scrollHeight: number
+    postsAdded?: number
+    noProgressCount?: number
+    clickedShowMoreResults?: boolean
+    showMoreButtonLabel?: string
+    stoppedReason?: string
   }>
   skipped: {
     duplicateText: number
     shortText: number
+    filteredOut?: number
   }
   samples: Array<{
     label: string
@@ -62,6 +82,17 @@ export type CaptureVerification = {
   acceptedCount?: number
   rejectedCount?: number
   duplicateCount?: number
+  aiFilterInspectedCount?: number
+  aiFilterPassedCount?: number
+  aiFilterRejectedCount?: number
+  aiFilterFallbackCount?: number
+  aiFilterFailedCount?: number
+  aiFilterSkippedCount?: number
+  aiFilterSamples?: Array<{
+    status: string
+    reason?: string | null
+    confidence?: number | null
+  }>
   candidatesCount?: number
   opportunitiesCount?: number
   message: string

@@ -23,10 +23,26 @@ freelance juntos.
 A primeira utilidade real do app e o fluxo `job`, agora operado localmente pela extensao Plasmo e
 pelo coletor Playwright como fallback.
 
-Antes de transformar esse MVP local em produto publicado, a prioridade tecnica passa a ser login de
-usuario com email/senha e ownership dos dados. Curriculos, templates, Gmail conectado, vagas, runs,
-settings e historico devem pertencer ao usuario autenticado. Nao ha times/workspaces no primeiro
-ciclo; assinaturas futuras tambem pertencem ao usuario.
+O MVP local ja cobre login de usuario, ownership dos dados, captura LinkedIn, revisao de vagas,
+templates, curriculos, Gmail conectado, envio individual e bulk send revisavel. A geracao de emails
+com IA usa curriculo PDF extraido como fonte de verdade, template como referencia de tom/estrutura,
+idioma detectado do post da vaga e aprovacao humana antes de criar requests de envio pelo Gmail.
+
+A busca do LinkedIn esta sendo simplificada: a extensao usa texto e ordenacao para capturar posts
+amplos, enquanto filtros de remoto/onsite e regioes aceitas/excluidas ficam em uma camada opcional
+pos-captura com status, motivos, confianca, sinais e counters persistidos. Nao ha mais campo explicito
+de keywords excluidas; a IA deve avaliar o texto completo com contexto de curriculo/perfil e distinguir
+vaga real de posts de pessoas procurando emprego.
+
+O proximo recorte recomendado e de hardening operacional, nao de produto novo: validar manualmente o
+fluxo `Full-time`, alinhar testes/contratos com auth e campos recentes, melhorar feedback pos-envio e
+confirmar OAuth/envio publicado. Depois disso, o proximo salto de produto volta a ser o modo
+`Freelance` com Google Maps, analise de site e prompts Lovable.
+
+Para IA, chaves de API devem ficar somente no backend/worker via variaveis de ambiente. A extensao
+nao deve armazenar nem receber `OPENAI_API_KEY` ou segredo equivalente.
+
+Nao ha times/workspaces no primeiro ciclo; assinaturas futuras tambem pertencem ao usuario.
 
 Antes de priorizar prospeccao freelance, o sistema deve ajudar o usuario a encontrar vagas e
 publicacoes no LinkedIn em que empresas deixam email disponivel e usam keywords relevantes ao
@@ -46,7 +62,7 @@ Construir uma base operacional que permita:
 1. descobrir vagas e publicacoes de emprego com keywords relevantes
 2. salvar tudo como dados estruturados e reaproveitaveis
 3. revisar oportunidades em um fluxo manual estilo CRM
-4. enviar emails reais com template e curriculo anexado, em massa ou um a um, apos aprovacao humana
+4. enviar emails reais com template e curriculo anexado, em massa ou um a um, apos revisao humana
 5. isolar os dados por usuario antes de deploy
 6. evoluir depois para prospeccao freelance via Google Maps, IA, analytics e sugestoes geograficas
 
@@ -58,7 +74,8 @@ O sistema precisa cobrir estas capacidades ao longo da evolucao:
 - armazenamento estruturado com evidencia da captura
 - revisao e qualificacao manual em fluxo de operacao
 - outreach humano assistido por templates, email real, curriculo anexado e eventos auditaveis
-- geracao futura de prompts e artefatos com IA
+- geracao assistida por IA para mensagens, prompts e artefatos, sempre com revisao humana antes de
+  qualquer envio real
 
 ## Interface alvo
 
@@ -107,7 +124,7 @@ O foco imediato ainda e construir a base de operacao:
 
 - API em `FastAPI`
 - banco em `PostgreSQL`
-- login de usuario por email/senha antes de deploy compartilhado
+- hardening de login email/senha, ownership por usuario e deploy antes de uso compartilhado
 - jobs longos fora do processo HTTP
 - extensao Plasmo como primeira interface operacional local para o modo `Full-time`
 - modelo de dados preparado para `freelance` e `job`

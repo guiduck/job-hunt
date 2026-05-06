@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.job_search_run import (
+    AIFilterStatus,
     JobCandidateOutcome,
     JobSearchCandidate,
     JobSearchRun,
@@ -33,11 +34,16 @@ def create_job_search_run(db: Session, payload: JobSearchRunCreate, user: User |
         status=JobSearchRunStatus.PENDING.value,
         keyword_set_id=payload.keyword_set_id or (keyword_set.id if keyword_set else None),
         requested_keywords=list(keywords),
+        search_query=payload.search_query or " ".join(keywords),
+        search_sort_order=payload.search_sort_order.value,
         hiring_intent_terms=list(payload.hiring_intent_terms),
         collection_source_types=[source_type.value for source_type in payload.collection_source_types],
         provided_source_count=len(payload.collection_inputs),
         candidate_limit=payload.candidate_limit,
         provider_status=ProviderStatus.NOT_STARTED.value,
+        ai_filters_enabled=payload.ai_filters_enabled,
+        ai_filter_settings=payload.ai_filter_settings.model_dump() if payload.ai_filters_enabled else {},
+        ai_filter_status=AIFilterStatus.SKIPPED.value,
     )
     db.add(run)
     for collection_input in payload.collection_inputs:
@@ -62,6 +68,7 @@ def list_job_search_runs(
     limit: int = 20,
     provider_status: str | None = None,
     analysis_status: str | None = None,
+    ai_filter_status: str | None = None,
     user: User | None = None,
 ) -> list[JobSearchRun]:
     statement = select(JobSearchRun).order_by(JobSearchRun.created_at.desc()).limit(limit)
@@ -73,6 +80,8 @@ def list_job_search_runs(
         statement = statement.where(JobSearchRun.provider_status == provider_status)
     if analysis_status:
         statement = statement.where(JobSearchRun.analysis_status == analysis_status)
+    if ai_filter_status:
+        statement = statement.where(JobSearchRun.ai_filter_status == ai_filter_status)
     return list(db.scalars(statement))
 
 
@@ -93,6 +102,7 @@ def list_candidates(
     outcome: str | None = None,
     collection_source_type: str | None = None,
     analysis_status: str | None = None,
+    ai_filter_status: str | None = None,
     min_score: int | None = None,
     user: User | None = None,
 ) -> list[JobSearchCandidate]:
@@ -105,6 +115,8 @@ def list_candidates(
         statement = statement.where(JobSearchCandidate.collection_source_type == collection_source_type)
     if analysis_status:
         statement = statement.where(JobSearchCandidate.analysis_status == analysis_status)
+    if ai_filter_status:
+        statement = statement.where(JobSearchCandidate.ai_filter_status == ai_filter_status)
     if min_score is not None:
         statement = statement.where(JobSearchCandidate.match_score >= min_score)
     return list(db.scalars(statement))
@@ -157,6 +169,8 @@ def reconcile_run_counters(run: JobSearchRun) -> None:
             JobCandidateOutcome.REJECTED_NO_CONTACT.value,
             JobCandidateOutcome.REJECTED_WEAK_MATCH.value,
             JobCandidateOutcome.REJECTED_MISSING_EVIDENCE.value,
+            JobCandidateOutcome.REJECTED_AI_FILTER.value,
+            JobCandidateOutcome.FAILED_AI_FILTER.value,
             JobCandidateOutcome.FAILED_PARSE.value,
             JobCandidateOutcome.FAILED_PROVIDER.value,
             JobCandidateOutcome.BLOCKED_SOURCE.value,
@@ -171,6 +185,28 @@ def reconcile_run_counters(run: JobSearchRun) -> None:
     run.analysis_fallback_count = sum(1 for candidate in candidates if candidate.analysis_status == "fallback")
     run.analysis_failed_count = sum(1 for candidate in candidates if candidate.analysis_status == "failed")
     run.analysis_skipped_count = sum(1 for candidate in candidates if candidate.analysis_status == "skipped")
+    inspected_statuses = {
+        AIFilterStatus.PASSED.value,
+        AIFilterStatus.REJECTED.value,
+        AIFilterStatus.FALLBACK.value,
+        AIFilterStatus.FAILED.value,
+    }
+    run.ai_filter_inspected_count = sum(1 for candidate in candidates if candidate.ai_filter_status in inspected_statuses)
+    run.ai_filter_passed_count = sum(1 for candidate in candidates if candidate.ai_filter_status == AIFilterStatus.PASSED.value)
+    run.ai_filter_rejected_count = sum(1 for candidate in candidates if candidate.ai_filter_status == AIFilterStatus.REJECTED.value)
+    run.ai_filter_fallback_count = sum(1 for candidate in candidates if candidate.ai_filter_status == AIFilterStatus.FALLBACK.value)
+    run.ai_filter_failed_count = sum(1 for candidate in candidates if candidate.ai_filter_status == AIFilterStatus.FAILED.value)
+    run.ai_filter_skipped_count = sum(1 for candidate in candidates if candidate.ai_filter_status == AIFilterStatus.SKIPPED.value)
+    if run.ai_filter_failed_count:
+        run.ai_filter_status = AIFilterStatus.FAILED.value
+    elif run.ai_filter_rejected_count:
+        run.ai_filter_status = AIFilterStatus.REJECTED.value
+    elif run.ai_filter_fallback_count:
+        run.ai_filter_status = AIFilterStatus.FALLBACK.value
+    elif run.ai_filter_passed_count:
+        run.ai_filter_status = AIFilterStatus.PASSED.value
+    else:
+        run.ai_filter_status = AIFilterStatus.SKIPPED.value
     if run.analysis_failed_count:
         run.analysis_status = "failed"
     elif run.analysis_fallback_count:
@@ -235,6 +271,8 @@ def record_candidate(db: Session, run: JobSearchRun, candidate: dict[str, object
     source_query = str(candidate.get("source_query") or " ".join(run.requested_keywords))
     provider_status = str(candidate.get("provider_status") or ProviderStatus.COLLECTED.value)
     review_profile = default_review_profile(matched_keywords=matched_keywords)
+    ai_filter_status = str(candidate.get("ai_filter_status") or AIFilterStatus.FALLBACK.value)
+    passes_ai_filter = candidate.get("passes_ai_filter")
 
     dedupe_key = build_job_dedupe_key(
         str(candidate.get("company_name") or ""),
@@ -266,6 +304,12 @@ def record_candidate(db: Session, run: JobSearchRun, candidate: dict[str, object
     elif not source_evidence:
         outcome = JobCandidateOutcome.REJECTED_MISSING_EVIDENCE.value
         rejection_reason = "Missing source evidence"
+    elif ai_filter_status == AIFilterStatus.REJECTED.value or passes_ai_filter is False:
+        outcome = JobCandidateOutcome.REJECTED_AI_FILTER.value
+        rejection_reason = str(candidate.get("ai_filter_reason") or "Rejected by AI filters")
+    elif ai_filter_status == AIFilterStatus.FAILED.value:
+        outcome = JobCandidateOutcome.FAILED_AI_FILTER.value
+        rejection_reason = str(candidate.get("ai_filter_error_message") or candidate.get("ai_filter_reason") or "AI filter evaluation failed")
     else:
         existing = get_opportunity_by_dedupe_key(db, dedupe_key, user_id=run.user_id)
         if existing is not None:
@@ -341,6 +385,17 @@ def record_candidate(db: Session, run: JobSearchRun, candidate: dict[str, object
         if outcome == JobCandidateOutcome.ACCEPTED.value
         else "skipped",
         analysis_confidence=review_profile.get("analysis_confidence") if outcome == JobCandidateOutcome.ACCEPTED.value else None,
+        passes_ai_filter=passes_ai_filter if isinstance(passes_ai_filter, bool) else None,
+        ai_filter_status=ai_filter_status,
+        ai_filter_reason=str(candidate.get("ai_filter_reason") or "") or None,
+        ai_filter_confidence=candidate.get("ai_filter_confidence")
+        if isinstance(candidate.get("ai_filter_confidence"), int | float)
+        else None,
+        ai_filter_signals=candidate.get("ai_filter_signals") if isinstance(candidate.get("ai_filter_signals"), dict) else {},
+        ai_filter_error_code=str(candidate.get("ai_filter_error_code") or "") or None,
+        ai_filter_error_message=str(candidate.get("ai_filter_error_message") or "") or None,
+        ai_filter_model_name=str(candidate.get("ai_filter_model_name") or "") or None,
+        ai_filter_prompt_version=str(candidate.get("ai_filter_prompt_version") or "") or None,
         normalized_company_name=str(candidate.get("company_name") or "") or None,
         normalized_role_title=str(candidate.get("role_title") or candidate.get("post_headline") or "") or None,
         missing_keywords=review_profile.get("missing_keywords") if outcome == JobCandidateOutcome.ACCEPTED.value else [],

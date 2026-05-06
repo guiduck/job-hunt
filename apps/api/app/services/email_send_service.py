@@ -24,10 +24,10 @@ def has_successful_job_application(db: Session, opportunity_id: str, user_id: st
     )
 
 
-def approve_draft_send(db: Session, draft: EmailDraft, user: User | None = None) -> SendRequest:
+def approve_draft_send(db: Session, draft: EmailDraft, user: User | None = None, *, allow_duplicate: bool = False) -> SendRequest:
     if user and draft.user_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft not found")
-    if draft.template_kind == TemplateKind.JOB_APPLICATION.value and has_successful_job_application(
+    if not allow_duplicate and draft.template_kind == TemplateKind.JOB_APPLICATION.value and has_successful_job_application(
         db,
         draft.opportunity_id,
         user_id=draft.user_id,
@@ -108,6 +108,34 @@ def record_send_success(db: Session, send_request: SendRequest, provider_message
             subject=send_request.subject_snapshot,
             event_type="sent",
             status=SendRequestStatus.SENT.value,
+        )
+    )
+    db.commit()
+    db.refresh(send_request)
+    return send_request
+
+
+def record_send_failure(db: Session, send_request: SendRequest, error_code: str, error_message: str) -> SendRequest:
+    send_request.status = SendRequestStatus.FAILED.value
+    send_request.failed_at = datetime.now(UTC)
+    send_request.error_code = error_code
+    send_request.error_message = error_message
+    db.add(
+        OutreachEvent(
+            opportunity_id=send_request.opportunity_id,
+            user_id=send_request.user_id,
+            draft_id=send_request.draft_id,
+            send_request_id=send_request.id,
+            recipient_email=send_request.recipient_email,
+            provider_name="gmail",
+            template_id=send_request.template_id,
+            template_kind=send_request.template_kind,
+            resume_attachment_id=send_request.resume_attachment_id,
+            subject=send_request.subject_snapshot,
+            event_type="failed",
+            status=SendRequestStatus.FAILED.value,
+            error_code=error_code,
+            error_message=error_message,
         )
     )
     db.commit()

@@ -32,11 +32,12 @@ def list_runs(
     status: str | None = Query(default=None),
     provider_status: str | None = Query(default=None),
     analysis_status: str | None = Query(default=None),
+    ai_filter_status: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ) -> list[JobSearchRun]:
-    return list_job_search_runs(db, status, limit, provider_status, analysis_status, user=user)
+    return list_job_search_runs(db, status, limit, provider_status, analysis_status, ai_filter_status, user=user)
 
 
 @router.get("/{run_id}", response_model=JobSearchRun)
@@ -53,13 +54,14 @@ def get_run_candidates(
     outcome: str | None = Query(default=None),
     collection_source_type: str | None = Query(default=None),
     analysis_status: str | None = Query(default=None),
+    ai_filter_status: str | None = Query(default=None),
     min_score: int | None = Query(default=None, ge=0, le=100),
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ) -> list[JobSearchCandidate]:
     if get_job_search_run(db, run_id, user=user) is None:
         raise not_found("Job search run not found")
-    return list_candidates(db, run_id, outcome, collection_source_type, analysis_status, min_score, user=user)
+    return list_candidates(db, run_id, outcome, collection_source_type, analysis_status, ai_filter_status, min_score, user=user)
 
 
 @router.get("/{run_id}/opportunities", response_model=list[Opportunity])

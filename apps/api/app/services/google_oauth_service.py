@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from app.core.config import get_settings
 from app.models.email import ProviderAuthStatus, SendingProviderAccount
 from app.models.user import User
 from app.services.auth_service import ensure_default_local_user
+
+logger = logging.getLogger(__name__)
 
 
 def build_google_oauth_url(user: User | None = None) -> str:
@@ -33,12 +36,20 @@ def build_google_oauth_url(user: User | None = None) -> str:
 
 def complete_google_oauth(db: Session, code: str, user_id: str | None = None) -> SendingProviderAccount:
     flow = _build_flow()
-    flow.fetch_token(code=code)
+    try:
+        flow.fetch_token(code=code)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google OAuth authorization failed. Start the connection from Opportunity Desk again and complete it in the same browser session.",
+        ) from exc
     credentials = flow.credentials
     token_json = json.loads(credentials.to_json())
-    profile = _get_gmail_profile(credentials)
 
     user = db.get(User, user_id) if user_id else ensure_default_local_user(db)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Google OAuth user state is invalid. Please log in again.")
+    profile = _get_gmail_profile_or_fallback(credentials, user.email)
     account = (
         db.query(SendingProviderAccount)
         .filter(SendingProviderAccount.user_id == user.id, SendingProviderAccount.provider_name == "gmail")
@@ -89,11 +100,13 @@ def _build_flow():
             json.loads(settings.gmail_oauth_client_config_json),
             scopes=scopes,
             redirect_uri=settings.gmail_oauth_redirect_uri,
+            autogenerate_code_verifier=False,
         )
     return Flow.from_client_secrets_file(
         settings.gmail_oauth_client_secrets_file,
         scopes=scopes,
         redirect_uri=settings.gmail_oauth_redirect_uri,
+        autogenerate_code_verifier=False,
     )
 
 
@@ -108,3 +121,11 @@ def _get_gmail_profile(credentials) -> dict[str, str]:
 
     service = build("gmail", "v1", credentials=credentials)
     return service.users().getProfile(userId="me").execute()
+
+
+def _get_gmail_profile_or_fallback(credentials, fallback_email: str) -> dict[str, str]:
+    try:
+        return _get_gmail_profile(credentials)
+    except Exception as exc:
+        logger.warning("Could not fetch Gmail profile after OAuth; using current user email as display email: %s", exc)
+        return {"emailAddress": fallback_email}

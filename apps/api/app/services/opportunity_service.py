@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, exists, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.opportunity import (
@@ -12,6 +12,7 @@ from app.models.opportunity import (
     OpportunityType,
 )
 from app.models.job_search_run import JobSearchCandidate
+from app.models.email import EmailDraft, OutreachEvent, SendRequest, SendRequestStatus, TemplateKind
 from app.models.user import User
 from app.schemas.opportunity import OpportunityCreate, OpportunityUpdate
 from app.services.auth_service import ensure_default_local_user
@@ -196,6 +197,8 @@ def list_opportunities(
     review_status: str | None = None,
     provider_status: str | None = None,
     analysis_status: str | None = None,
+    send_status: str | None = None,
+    sort_order: str = "newest",
     source_query: str | None = None,
     run_id: str | None = None,
     campaign_id: str | None = None,
@@ -212,6 +215,7 @@ def list_opportunities(
             job_stage,
             review_status,
             analysis_status,
+            matched_keyword,
         ]
     )
     if needs_detail_join:
@@ -238,7 +242,28 @@ def list_opportunities(
     if analysis_status:
         statement = statement.where(JobOpportunityDetail.analysis_status == analysis_status)
     if matched_keyword:
-        statement = statement.join(OpportunityKeywordMatch).where(OpportunityKeywordMatch.matched_term == matched_keyword)
+        search = f"%{matched_keyword}%"
+        statement = statement.outerjoin(OpportunityKeywordMatch).where(
+            or_(
+                OpportunityKeywordMatch.matched_term.ilike(search),
+                Opportunity.title.ilike(search),
+                Opportunity.organization_name.ilike(search),
+                Opportunity.source_query.ilike(search),
+                Opportunity.source_evidence.ilike(search),
+                JobOpportunityDetail.company_name.ilike(search),
+                JobOpportunityDetail.role_title.ilike(search),
+                JobOpportunityDetail.post_headline.ilike(search),
+                JobOpportunityDetail.job_description.ilike(search),
+                JobOpportunityDetail.contact_channel_value.ilike(search),
+            )
+        )
+    if send_status in {"sent", "unsent"}:
+        sent_application = exists().where(
+            SendRequest.opportunity_id == Opportunity.id,
+            SendRequest.template_kind == TemplateKind.JOB_APPLICATION.value,
+            SendRequest.status == SendRequestStatus.SENT.value,
+        )
+        statement = statement.where(sent_application if send_status == "sent" else ~sent_application)
     if provider_status or run_id or campaign_id:
         statement = statement.join(JobSearchCandidate, JobSearchCandidate.opportunity_id == Opportunity.id)
     if provider_status:
@@ -246,6 +271,7 @@ def list_opportunities(
     if run_id:
         statement = statement.where(JobSearchCandidate.run_id == run_id)
     # campaign_id is reserved for future campaign linkage; keep the accepted query parameter additive.
+    statement = statement.order_by(Opportunity.captured_at.asc() if sort_order == "oldest" else Opportunity.captured_at.desc())
     return list(db.scalars(statement).unique())
 
 
@@ -261,3 +287,44 @@ def update_opportunity(db: Session, opportunity_id: str, payload: OpportunityUpd
         opportunity.job_detail.review_status = payload.review_status.value
     db.commit()
     return get_opportunity(db, opportunity_id, user=user)
+
+
+def delete_opportunity(db: Session, opportunity_id: str, user: User | None = None) -> bool:
+    opportunity = get_opportunity(db, opportunity_id, user=user)
+    if opportunity is None:
+        return False
+
+    db.execute(delete(OutreachEvent).where(OutreachEvent.opportunity_id == opportunity_id))
+    db.execute(delete(SendRequest).where(SendRequest.opportunity_id == opportunity_id))
+    db.execute(delete(EmailDraft).where(EmailDraft.opportunity_id == opportunity_id))
+    db.execute(update(JobSearchCandidate).where(JobSearchCandidate.opportunity_id == opportunity_id).values(opportunity_id=None))
+    db.delete(opportunity)
+    db.commit()
+    return True
+
+
+def delete_opportunities(
+    db: Session,
+    *,
+    opportunity_ids: list[str] | None = None,
+    send_status: str | None = None,
+    user: User | None = None,
+) -> int:
+    ids = set(opportunity_ids or [])
+    if send_status in {"sent", "unsent"}:
+        statement = select(Opportunity.id).where(Opportunity.opportunity_type == OpportunityType.JOB.value)
+        if user:
+            statement = statement.where(Opportunity.user_id == user.id)
+        sent_application = exists().where(
+            SendRequest.opportunity_id == Opportunity.id,
+            SendRequest.template_kind == TemplateKind.JOB_APPLICATION.value,
+            SendRequest.status == SendRequestStatus.SENT.value,
+        )
+        statement = statement.where(sent_application if send_status == "sent" else ~sent_application)
+        ids.update(db.scalars(statement).all())
+
+    deleted_count = 0
+    for opportunity_id in ids:
+        if delete_opportunity(db, opportunity_id, user=user):
+            deleted_count += 1
+    return deleted_count

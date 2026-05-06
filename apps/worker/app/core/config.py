@@ -15,6 +15,9 @@ class WorkerSettings(BaseSettings):
     job_review_ai_analysis_enabled: bool = False
     job_review_ai_model_name: str | None = None
     job_review_ai_prompt_version: str = "job-review-v1"
+    openai_api_key: str | None = None
+    job_ai_filters_enabled: bool = False
+    job_ai_filter_model_name: str | None = None
     resume_storage_backend: str = "local_fs"
     resume_storage_dir: str | None = None
     email_provider: str = "gmail"

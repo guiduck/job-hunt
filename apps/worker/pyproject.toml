@@ -10,6 +10,7 @@ dependencies = [
   "httpx",
   "psycopg[binary]",
   "pydantic-settings",
+  "pypdf",
   "sqlalchemy>=2",
 ]
 

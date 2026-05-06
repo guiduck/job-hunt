@@ -72,8 +72,13 @@ Estado do recorte:
   base de bulk send e historico
 - login de usuario, ownership por `user_id`, reset de senha e autenticacao da extensao foram
   implementados em grande parte no recorte `007`
-- a proxima entrega deve estabilizar validacao completa, testes legados autenticados, smoke publicado
-  e OAuth/envio real fora do ambiente local
+- busca LinkedIn simplificada e filtros opcionais por IA pos-captura foram implementados no recorte
+  `008`, com campos/counters, fallback deterministico, provider OpenAI compativel, diagnosticos,
+  rejeicao de posts de pessoas procurando emprego, remocao do campo `Exclude keywords` e testes
+  focados
+- a proxima entrega deve estabilizar validacao completa, testes legados autenticados, smoke manual da
+  extensao/AI filters, contratos, feedback pos-envio, smoke publicado e OAuth/envio real fora do
+  ambiente local
 
 ### 4. Revisao operacional
 
@@ -154,6 +159,9 @@ Pendencias de hardening:
 - atualizar testes legados para enviar bearer token nas rotas protegidas
 - revisar contrato OpenAPI contra rotas implementadas
 - executar quickstart local com login, reset e isolamento de dois usuarios
+- executar smoke manual de `008` com LinkedIn real, AI filters, controle de mais resultados e revisao
+  de output do modelo
+- melhorar feedback pos-envio para acompanhar `queued/sending/sent/failed` sem exigir abrir historico
 - validar Gmail OAuth e approved-send em ambiente publicado
 - decidir se a falha `blocked_source` vs `accepted` do provider LinkedIn e bug ou expectativa antiga
 
@@ -199,7 +207,8 @@ Se a meta for validar valor rapido, a melhor sequencia continua sendo:
 4. painel simples para revisar vagas
 5. envio real individual ou em massa de emails com curriculo
 6. login de usuario, ownership dos dados e prontidao de deploy/configuracao para sair do local
-7. bot freelance Google Maps com prompts Lovable
+7. hardening operacional do MVP `Full-time` antes de abrir produto novo
+8. bot freelance Google Maps com prompts Lovable
 
 Esse e o primeiro ponto em que o sistema deixa de ser apenas um scraper e vira uma ferramenta de
 operacao.

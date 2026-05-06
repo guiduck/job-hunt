@@ -32,10 +32,18 @@ def process_pending_send_requests(db: Session, provider: GmailProvider | None = 
     processed = 0
     for row in rows:
         row_provider = provider or GmailProvider(token_info=_load_gmail_token_info(db, row["user_id"]))
-        db.execute(
-            text("UPDATE send_requests SET status = 'sending', queued_at = COALESCE(queued_at, :now), updated_at = :now WHERE id = :id"),
+        claim = db.execute(
+            text(
+                """
+                UPDATE send_requests
+                SET status = 'sending', queued_at = COALESCE(queued_at, :now), updated_at = :now
+                WHERE id = :id AND status IN ('approved', 'queued')
+                """
+            ),
             {"id": row["id"], "now": datetime.now(UTC)},
         )
+        if claim.rowcount != 1:
+            continue
         attachment = _load_attachment(db, row["resume_attachment_id"], row["user_id"])
         if row["resume_attachment_id"] and attachment is None:
             _record_failure(db, row, "resume_unavailable", "Selected resume is no longer available.")

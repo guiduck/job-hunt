@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     auth_session_ttl_hours: int = 12
     auth_token_bytes: int = 32
     password_reset_token_ttl_minutes: int = 30
+    openai_api_key: str | None = None
+    ai_email_model: str = "gpt-4o-mini"
     default_local_user_email: str = "local@example.com"
     default_local_user_display_name: str = "Local Operator"
     linkedin_browser_collector_script_path: str | None = None

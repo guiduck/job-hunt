@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
@@ -28,6 +28,8 @@ class JobCandidateOutcome(StrEnum):
     BLOCKED_SOURCE = "blocked_source"
     INACCESSIBLE_SOURCE = "inaccessible_source"
     EMPTY_SOURCE = "empty_source"
+    REJECTED_AI_FILTER = "rejected_ai_filter"
+    FAILED_AI_FILTER = "failed_ai_filter"
 
 
 class ProviderStatus(StrEnum):
@@ -48,6 +50,19 @@ class CandidateAnalysisStatus(StrEnum):
     SKIPPED = "skipped"
 
 
+class AIFilterStatus(StrEnum):
+    PASSED = "passed"
+    REJECTED = "rejected"
+    FALLBACK = "fallback"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class SearchSortOrder(StrEnum):
+    RECENT = "recent"
+    RELEVANT = "relevant"
+
+
 class JobSearchRun(Base):
     __tablename__ = "job_search_runs"
 
@@ -56,6 +71,8 @@ class JobSearchRun(Base):
     status: Mapped[str] = mapped_column(String(50), default=JobSearchRunStatus.PENDING.value, nullable=False)
     keyword_set_id: Mapped[str | None] = mapped_column(ForeignKey("keyword_sets.id"))
     requested_keywords: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    search_query: Mapped[str | None] = mapped_column(Text)
+    search_sort_order: Mapped[str] = mapped_column(String(20), default=SearchSortOrder.RECENT.value, nullable=False)
     hiring_intent_terms: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     collection_source_types: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     provided_source_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -78,6 +95,17 @@ class JobSearchRun(Base):
     analysis_fallback_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     analysis_failed_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     analysis_skipped_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ai_filters_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    ai_filter_settings: Mapped[dict[str, object]] = mapped_column(JSON, default=dict, nullable=False)
+    ai_filter_status: Mapped[str] = mapped_column(String(50), default=AIFilterStatus.SKIPPED.value, nullable=False)
+    ai_filter_error_code: Mapped[str | None] = mapped_column(String(100))
+    ai_filter_error_message: Mapped[str | None] = mapped_column(Text)
+    ai_filter_inspected_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ai_filter_passed_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ai_filter_rejected_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ai_filter_fallback_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ai_filter_failed_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ai_filter_skipped_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_message: Mapped[str | None] = mapped_column(Text)
@@ -148,6 +176,15 @@ class JobSearchCandidate(Base):
     analysis_error_message: Mapped[str | None] = mapped_column(Text)
     ai_model_name: Mapped[str | None] = mapped_column(String(255))
     ai_prompt_version: Mapped[str | None] = mapped_column(String(100))
+    passes_ai_filter: Mapped[bool | None] = mapped_column(Boolean)
+    ai_filter_status: Mapped[str] = mapped_column(String(50), default=AIFilterStatus.SKIPPED.value, nullable=False, index=True)
+    ai_filter_reason: Mapped[str | None] = mapped_column(Text)
+    ai_filter_confidence: Mapped[float | None] = mapped_column(Float)
+    ai_filter_signals: Mapped[dict[str, object]] = mapped_column(JSON, default=dict, nullable=False)
+    ai_filter_error_code: Mapped[str | None] = mapped_column(String(100))
+    ai_filter_error_message: Mapped[str | None] = mapped_column(Text)
+    ai_filter_model_name: Mapped[str | None] = mapped_column(String(255))
+    ai_filter_prompt_version: Mapped[str | None] = mapped_column(String(100))
     normalized_company_name: Mapped[str | None] = mapped_column(String(255))
     normalized_role_title: Mapped[str | None] = mapped_column(String(500))
     detected_seniority: Mapped[str | None] = mapped_column(String(100))

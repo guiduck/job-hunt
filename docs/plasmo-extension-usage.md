@@ -7,6 +7,8 @@ Este guia cobre a primeira versao da extensao Chrome para o modo `Full-time`.
 - Abre uma busca de publicacoes do LinkedIn usando `sortBy="date_posted"`.
 - Usa a sessao real do Chrome, entao voce deve estar logado no LinkedIn.
 - Rola a pagina de resultados e captura textos visiveis dos posts.
+- Quando a lista visivel para de carregar e aparece um controle de mais resultados, tenta acionar esse
+  controle como parte do fluxo iniciado pelo usuario.
 - Envia os textos para a API como `authenticated_browser_search`.
 - Lista oportunidades `job` ja processadas pelo worker.
 - Permite atualizar `review_status`, `job_stage` e notas.
@@ -89,11 +91,12 @@ apps/extension/build/chrome-mv3-prod
 3. Crie conta ou faca login na extensao.
 4. Entre na aba `search`.
 5. Informe keywords como `hiring typescript`.
-6. Ajuste `max posts` e `max scrolls`.
-7. Clique em `Open LinkedIn and capture`.
-8. A extensao abre uma aba do LinkedIn, rola os resultados, captura posts e cria uma run autenticada na API.
-9. Aguarde o worker processar a run.
-10. Volte para a aba `jobs` e clique em `Refresh`.
+6. Opcionalmente ligue `AI filters` e configure remoto/regioes para avaliacao pos-captura.
+7. Ajuste `max posts` e `max scrolls`.
+8. Clique em `Open LinkedIn and capture`.
+9. A extensao abre uma aba do LinkedIn, rola os resultados, captura posts e cria uma run autenticada na API.
+10. Aguarde o worker processar a run.
+11. Volte para a aba `jobs` e clique em `Refresh`.
 
 ## Validacao Rapida
 
@@ -115,7 +118,8 @@ curl "http://localhost:8000/opportunities?opportunity_type=job&contact_available
 ## Limitacoes Atuais
 
 - A extracao depende do DOM atual do LinkedIn e pode precisar de ajuste se a pagina mudar.
-- A extensao nao clica em `ver mais`, para evitar modais e travamentos.
+- A extensao trata apenas controles visiveis de mais resultados na pagina de resultados; mudancas de
+  DOM/idioma podem exigir novos labels ou seletores.
 - A primeira versao usa metricas derivadas no popup, sem endpoint agregado dedicado.
 - O coletor Playwright local continua sendo fallback caso a extensao precise ser comparada ou depurada.
 - O estado de login fica em browser session storage; reiniciar o navegador exige login novamente.

@@ -141,7 +141,7 @@ class BulkSendBatch(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), default=DEFAULT_LOCAL_USER_ID, nullable=False, index=True)
-    template_id: Mapped[str] = mapped_column(ForeignKey("email_templates.id"), nullable=False)
+    template_id: Mapped[str | None] = mapped_column(ForeignKey("email_templates.id"))
     resume_attachment_id: Mapped[str | None] = mapped_column(ForeignKey("resume_attachments.id"))
     selected_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     sendable_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -196,7 +196,7 @@ class SendRequest(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), default=DEFAULT_LOCAL_USER_ID, nullable=False, index=True)
     draft_id: Mapped[str | None] = mapped_column(ForeignKey("email_drafts.id"))
     opportunity_id: Mapped[str] = mapped_column(ForeignKey("opportunities.id"), nullable=False)
-    template_id: Mapped[str] = mapped_column(ForeignKey("email_templates.id"), nullable=False)
+    template_id: Mapped[str | None] = mapped_column(ForeignKey("email_templates.id"))
     template_kind: Mapped[str] = mapped_column(String(50), nullable=False)
     resume_attachment_id: Mapped[str | None] = mapped_column(ForeignKey("resume_attachments.id"))
     recipient_email: Mapped[str] = mapped_column(String(320), nullable=False)

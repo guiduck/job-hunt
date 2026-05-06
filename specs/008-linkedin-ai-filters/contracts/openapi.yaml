@@ -1,0 +1,460 @@
+openapi: 3.1.0
+info:
+  title: Scrapper Freelance API - LinkedIn AI Filters
+  version: 0.8.0
+  description: API contract additions for broad LinkedIn search input, optional post-capture AI filters, candidate filter decisions, and owner-scoped run diagnostics.
+servers:
+  - url: http://localhost:8000
+    description: Local API
+security:
+  - bearerAuth: []
+paths:
+  /job-search-runs:
+    post:
+      summary: Create a LinkedIn job-search run with optional post-capture AI filters
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobSearchRunCreate"
+      responses:
+        "202":
+          description: Run accepted for worker processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobSearchRun"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      summary: List current user's job-search runs with AI filter diagnostics
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: "#/components/schemas/JobSearchRunStatus"
+        - in: query
+          name: provider_status
+          schema:
+            $ref: "#/components/schemas/ProviderStatus"
+        - in: query
+          name: analysis_status
+          schema:
+            $ref: "#/components/schemas/CandidateAnalysisStatus"
+        - in: query
+          name: ai_filter_status
+          schema:
+            $ref: "#/components/schemas/AIFilterStatus"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Current user's runs ordered by newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobSearchRun"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /job-search-runs/{run_id}:
+    get:
+      summary: Get one owner-scoped run with provider, analysis, and AI filter counters
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Run detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobSearchRun"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Run not found for current user
+  /job-search-runs/{run_id}/candidates:
+    get:
+      summary: List current-user-owned inspected candidates with AI filter decisions
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - in: query
+          name: outcome
+          schema:
+            $ref: "#/components/schemas/JobCandidateOutcome"
+        - in: query
+          name: collection_source_type
+          schema:
+            $ref: "#/components/schemas/LinkedInCollectionSourceType"
+        - in: query
+          name: analysis_status
+          schema:
+            $ref: "#/components/schemas/CandidateAnalysisStatus"
+        - in: query
+          name: ai_filter_status
+          schema:
+            $ref: "#/components/schemas/AIFilterStatus"
+        - in: query
+          name: min_score
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+      responses:
+        "200":
+          description: Candidate outcomes persisted by the worker
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobSearchCandidate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Run not found for current user
+  /job-search-runs/{run_id}/opportunities:
+    get:
+      summary: List accepted job opportunities created from one owner-scoped run
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Accepted job opportunities linked to accepted candidates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Opportunity"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Run not found for current user
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    RunId:
+      in: path
+      name: run_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer session
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    JobSearchRunStatus:
+      type: string
+      enum: [pending, running, completed, completed_no_results, failed]
+    JobCandidateOutcome:
+      type: string
+      enum:
+        - accepted
+        - rejected_no_contact
+        - rejected_weak_match
+        - rejected_missing_evidence
+        - duplicate
+        - failed_parse
+        - failed_provider
+        - blocked_source
+        - inaccessible_source
+        - empty_source
+        - rejected_ai_filter
+        - failed_ai_filter
+    LinkedInCollectionSourceType:
+      type: string
+      enum: [automatic_publication_search, provided_url, provided_public_content, authenticated_browser_search]
+    ProviderStatus:
+      type: string
+      enum: [not_started, collected, partial, blocked, inaccessible, empty, failed]
+    CandidateAnalysisStatus:
+      type: string
+      enum: [deterministic_only, ai_assisted, fallback, failed, skipped]
+    AIFilterStatus:
+      type: string
+      enum: [passed, rejected, fallback, failed, skipped]
+    SearchSortOrder:
+      type: string
+      enum: [recent, relevant]
+      default: recent
+    AIFilterSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        remote_only:
+          type: boolean
+          default: false
+        exclude_onsite:
+          type: boolean
+          default: false
+        accepted_regions:
+          type: array
+          items:
+            type: string
+          default: []
+        excluded_regions:
+          type: array
+          items:
+            type: string
+          default: []
+        excluded_keywords:
+          type: array
+          items:
+            type: string
+          default: []
+    AIFilterSignals:
+      type: object
+      additionalProperties: true
+      properties:
+        detected_work_mode:
+          type: string
+          enum: [remote, hybrid, onsite, presential, unknown, mixed]
+        accepted_regions:
+          type: array
+          items:
+            type: string
+        accepted_countries:
+          type: array
+          items:
+            type: string
+        accepted_timezones:
+          type: array
+          items:
+            type: string
+        rejected_regions:
+          type: array
+          items:
+            type: string
+        matched_exclusion_keywords:
+          type: array
+          items:
+            type: string
+        evidence_quotes:
+          type: array
+          items:
+            type: string
+    LinkedInCollectionInput:
+      type: object
+      required: [source_type]
+      properties:
+        source_type:
+          $ref: "#/components/schemas/LinkedInCollectionSourceType"
+        source_url:
+          type: [string, "null"]
+        provided_text:
+          type: [string, "null"]
+        label:
+          type: [string, "null"]
+    JobSearchRunCreate:
+      type: object
+      properties:
+        keywords:
+          type: [array, "null"]
+          items:
+            type: string
+          description: Normalized keywords derived from the LinkedIn search query for existing matching/scoring behavior.
+        search_query:
+          type: string
+          description: Free-text LinkedIn search query used by the extension.
+        search_sort_order:
+          $ref: "#/components/schemas/SearchSortOrder"
+        collection_source_types:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/LinkedInCollectionSourceType"
+        collection_inputs:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkedInCollectionInput"
+          default: []
+        candidate_limit:
+          type: [integer, "null"]
+          minimum: 1
+        ai_filters_enabled:
+          type: boolean
+          default: false
+        ai_filter_settings:
+          $ref: "#/components/schemas/AIFilterSettings"
+    JobSearchRun:
+      type: object
+      required:
+        - id
+        - status
+        - requested_keywords
+        - collection_source_types
+        - provider_status
+        - analysis_status
+        - inspected_count
+        - accepted_count
+        - rejected_count
+        - duplicate_count
+        - cap_reached
+        - ai_filters_enabled
+        - ai_filter_status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/JobSearchRunStatus"
+        requested_keywords:
+          type: array
+          items:
+            type: string
+        search_query:
+          type: [string, "null"]
+        search_sort_order:
+          $ref: "#/components/schemas/SearchSortOrder"
+        collection_source_types:
+          type: array
+          items:
+            type: string
+        provider_status:
+          $ref: "#/components/schemas/ProviderStatus"
+        analysis_status:
+          $ref: "#/components/schemas/CandidateAnalysisStatus"
+        inspected_count:
+          type: integer
+        accepted_count:
+          type: integer
+        rejected_count:
+          type: integer
+        duplicate_count:
+          type: integer
+        cap_reached:
+          type: boolean
+        ai_filters_enabled:
+          type: boolean
+        ai_filter_settings:
+          $ref: "#/components/schemas/AIFilterSettings"
+        ai_filter_status:
+          $ref: "#/components/schemas/AIFilterStatus"
+        ai_filter_inspected_count:
+          type: integer
+          default: 0
+        ai_filter_passed_count:
+          type: integer
+          default: 0
+        ai_filter_rejected_count:
+          type: integer
+          default: 0
+        ai_filter_fallback_count:
+          type: integer
+          default: 0
+        ai_filter_failed_count:
+          type: integer
+          default: 0
+        ai_filter_skipped_count:
+          type: integer
+          default: 0
+        ai_filter_error_code:
+          type: [string, "null"]
+        ai_filter_error_message:
+          type: [string, "null"]
+        started_at:
+          type: [string, "null"]
+          format: date-time
+        completed_at:
+          type: [string, "null"]
+          format: date-time
+        error_message:
+          type: [string, "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    JobSearchCandidate:
+      type: object
+      required:
+        - id
+        - run_id
+        - outcome
+        - source_query
+        - matched_keywords
+        - ai_filter_status
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        opportunity_id:
+          type: [string, "null"]
+          format: uuid
+        outcome:
+          $ref: "#/components/schemas/JobCandidateOutcome"
+        company_name:
+          type: [string, "null"]
+        role_title:
+          type: [string, "null"]
+        post_headline:
+          type: [string, "null"]
+        job_description:
+          type: [string, "null"]
+        contact_channel_type:
+          type: [string, "null"]
+        contact_channel_value:
+          type: [string, "null"]
+        source_url:
+          type: [string, "null"]
+        source_query:
+          type: string
+        source_evidence:
+          type: [string, "null"]
+        matched_keywords:
+          type: array
+          items:
+            type: string
+        passes_ai_filter:
+          type: [boolean, "null"]
+        ai_filter_status:
+          $ref: "#/components/schemas/AIFilterStatus"
+        ai_filter_reason:
+          type: [string, "null"]
+        ai_filter_confidence:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+        ai_filter_signals:
+          $ref: "#/components/schemas/AIFilterSignals"
+        ai_filter_error_code:
+          type: [string, "null"]
+        ai_filter_error_message:
+          type: [string, "null"]
+        rejection_reason:
+          type: [string, "null"]
+        created_at:
+          type: string
+          format: date-time
+    Opportunity:
+      type: object
+      description: Existing opportunity schema remains compatible; accepted opportunities are created only from candidates that pass AI filters or deterministic fallback.
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string

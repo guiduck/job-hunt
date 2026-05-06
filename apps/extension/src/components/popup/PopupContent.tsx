@@ -17,6 +17,7 @@ export function PopupContent() {
   const initializeAuth = usePopupStore((state) => state.initializeAuth)
 
   useEffect(() => {
+    console.info("[Opportunity Desk] popup mounted; initializing auth")
     void initializeAuth()
   }, [initializeAuth])
 

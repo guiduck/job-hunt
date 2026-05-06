@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -9,13 +9,23 @@ from app.services.password_service import hash_password
 from app.services.session_token_service import generate_token, hash_token
 
 
+def utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 def request_password_reset(db: Session, email: str) -> str | None:
     user = get_user_by_email(db, email)
     if not user:
         return None
 
     token = generate_token()
-    now = datetime.utcnow()
+    now = utc_now()
     reset_request = PasswordResetRequest(
         user_id=user.id,
         token_hash=hash_token(token),
@@ -28,13 +38,13 @@ def request_password_reset(db: Session, email: str) -> str | None:
 
 
 def consume_password_reset(db: Session, token: str, new_password: str):
-    now = datetime.utcnow()
+    now = utc_now()
     reset_request = (
         db.query(PasswordResetRequest)
         .filter(PasswordResetRequest.token_hash == hash_token(token))
         .one_or_none()
     )
-    if not reset_request or reset_request.used_at is not None or reset_request.expires_at <= now:
+    if not reset_request or reset_request.used_at is not None or as_utc(reset_request.expires_at) <= now:
         return None
 
     reset_request.user.password_hash = hash_password(new_password)

@@ -41,6 +41,9 @@ export type JobReviewStatus = "unreviewed" | "reviewing" | "saved" | "ignored"
 export type AnalysisStatus = "deterministic_only" | "ai_assisted" | "fallback" | "failed" | "skipped"
 
 export type JobSearchRunStatus = "pending" | "running" | "completed" | "completed_no_results" | "failed"
+export type AIFilterStatus = "passed" | "rejected" | "fallback" | "failed" | "skipped"
+export type SearchSortOrder = "recent" | "relevant"
+export type DetectedWorkMode = "remote" | "hybrid" | "onsite" | "presential" | "unknown" | "mixed"
 
 export type LinkedInCollectionSourceType = "authenticated_browser_search"
 
@@ -106,12 +109,23 @@ export type OpportunityUpdate = {
   operator_notes?: string | null
 }
 
+export type OpportunityBulkDeleteRequest = {
+  opportunity_ids?: string[]
+  send_status?: "sent" | "unsent"
+}
+
+export type OpportunityBulkDeleteResponse = {
+  deleted_count: number
+}
+
 export type OpportunityFilters = {
   contact_available?: boolean
   keyword?: string
   min_score?: number
   review_status?: JobReviewStatus | ""
   job_stage?: JobStage | ""
+  send_status?: "sent" | "unsent" | ""
+  sort_order?: "newest" | "oldest"
   provider_status?: string
   analysis_status?: AnalysisStatus | ""
 }
@@ -123,17 +137,41 @@ export type LinkedInCollectionInput = {
   label?: string | null
 }
 
+export type AIFilterSettings = {
+  remote_only: boolean
+  exclude_onsite: boolean
+  accepted_regions: string[]
+  excluded_regions: string[]
+}
+
+export type AIFilterSignals = {
+  detected_work_mode?: DetectedWorkMode
+  accepted_regions?: string[]
+  accepted_countries?: string[]
+  accepted_timezones?: string[]
+  rejected_regions?: string[]
+  candidate_fit_summary?: string
+  missing_or_unclear_requirements?: string[]
+  evidence_quotes?: string[]
+}
+
 export type JobSearchRunCreate = {
   keywords?: string[] | null
+  search_query?: string | null
+  search_sort_order?: SearchSortOrder
   collection_source_types: LinkedInCollectionSourceType[]
   collection_inputs: LinkedInCollectionInput[]
   candidate_limit?: number | null
+  ai_filters_enabled?: boolean
+  ai_filter_settings?: AIFilterSettings
 }
 
 export type JobSearchRun = {
   id: string
   status: JobSearchRunStatus
   requested_keywords: string[]
+  search_query: string | null
+  search_sort_order: SearchSortOrder
   collection_source_types: string[]
   provider_status: string
   analysis_status: AnalysisStatus
@@ -142,6 +180,17 @@ export type JobSearchRun = {
   rejected_count: number
   duplicate_count: number
   cap_reached: boolean
+  ai_filters_enabled: boolean
+  ai_filter_settings: AIFilterSettings
+  ai_filter_status: AIFilterStatus
+  ai_filter_inspected_count: number
+  ai_filter_passed_count: number
+  ai_filter_rejected_count: number
+  ai_filter_fallback_count: number
+  ai_filter_failed_count: number
+  ai_filter_skipped_count: number
+  ai_filter_error_code: string | null
+  ai_filter_error_message: string | null
   created_at: string
   updated_at: string
   started_at: string | null
@@ -160,6 +209,13 @@ export type JobSearchCandidate = {
   source_url: string | null
   source_query: string
   source_evidence: string | null
+  passes_ai_filter: boolean | null
+  ai_filter_status: AIFilterStatus
+  ai_filter_reason: string | null
+  ai_filter_confidence: number | null
+  ai_filter_signals: AIFilterSignals
+  ai_filter_error_code: string | null
+  ai_filter_error_message: string | null
   rejection_reason: string | null
   created_at: string
 }
@@ -202,6 +258,7 @@ export type UserSettings = {
   id: string
   operator_name: string | null
   operator_email: string | null
+  portfolio_url: string | null
   default_mode: "full_time"
   created_at: string
   updated_at: string
@@ -210,6 +267,7 @@ export type UserSettings = {
 export type UserSettingsUpdate = {
   operator_name?: string | null
   operator_email?: string | null
+  portfolio_url?: string | null
 }
 
 export type ResumeAttachment = {
@@ -282,7 +340,7 @@ export type SendRequest = {
   id: string
   draft_id: string | null
   opportunity_id: string
-  template_id: string
+  template_id: string | null
   template_kind: TemplateKind
   resume_attachment_id: string | null
   recipient_email: string
@@ -307,9 +365,24 @@ export type SendRequest = {
 export type BulkSendItem = {
   opportunity_id: string
   recipient_email: string | null
-  outcome: "sendable" | "skipped_missing_contact" | "skipped_duplicate" | "blocked_invalid_contact" | "blocked_limit"
+  outcome:
+    | "sendable"
+    | "skipped_missing_contact"
+    | "skipped_duplicate"
+    | "blocked_invalid_contact"
+    | "blocked_limit"
+    | "ai_generation_failed"
+    | "skipped_by_user"
+    | "blocked_missing_subject"
+    | "blocked_missing_body"
   reason: string | null
   draft_id: string | null
+  send_request_id: string | null
+  subject: string | null
+  body: string | null
+  is_skipped: boolean
+  ai_error_code: string | null
+  retryable: boolean
 }
 
 export type BulkSendBatch = {

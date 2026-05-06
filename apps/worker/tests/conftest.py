@@ -38,6 +38,16 @@ def sample_review_candidate() -> dict[str, object]:
 
 
 @pytest.fixture()
+def ai_filter_settings_payload() -> dict[str, object]:
+    return {
+        "remote_only": True,
+        "exclude_onsite": True,
+        "accepted_regions": ["LATAM", "Brazil"],
+        "excluded_regions": ["India"],
+    }
+
+
+@pytest.fixture()
 def db_session() -> Session:
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
@@ -144,6 +154,8 @@ WORKER_SCHEMA = [
         status VARCHAR(50) NOT NULL,
         keyword_set_id VARCHAR(36),
         requested_keywords JSON NOT NULL,
+        search_query TEXT,
+        search_sort_order VARCHAR(20) NOT NULL DEFAULT 'recent',
         hiring_intent_terms JSON NOT NULL,
         collection_source_types JSON NOT NULL,
         provided_source_count INTEGER NOT NULL,
@@ -166,6 +178,17 @@ WORKER_SCHEMA = [
         analysis_fallback_count INTEGER NOT NULL DEFAULT 0,
         analysis_failed_count INTEGER NOT NULL DEFAULT 0,
         analysis_skipped_count INTEGER NOT NULL DEFAULT 0,
+        ai_filters_enabled BOOLEAN NOT NULL DEFAULT false,
+        ai_filter_settings JSON NOT NULL DEFAULT '{}',
+        ai_filter_status VARCHAR(50) NOT NULL DEFAULT 'skipped',
+        ai_filter_error_code VARCHAR(100),
+        ai_filter_error_message TEXT,
+        ai_filter_inspected_count INTEGER NOT NULL DEFAULT 0,
+        ai_filter_passed_count INTEGER NOT NULL DEFAULT 0,
+        ai_filter_rejected_count INTEGER NOT NULL DEFAULT 0,
+        ai_filter_fallback_count INTEGER NOT NULL DEFAULT 0,
+        ai_filter_failed_count INTEGER NOT NULL DEFAULT 0,
+        ai_filter_skipped_count INTEGER NOT NULL DEFAULT 0,
         started_at DATETIME,
         completed_at DATETIME,
         error_message TEXT,
@@ -218,6 +241,15 @@ WORKER_SCHEMA = [
         analysis_error_message TEXT,
         ai_model_name VARCHAR(255),
         ai_prompt_version VARCHAR(100),
+        passes_ai_filter BOOLEAN,
+        ai_filter_status VARCHAR(50) NOT NULL DEFAULT 'skipped',
+        ai_filter_reason TEXT,
+        ai_filter_confidence FLOAT,
+        ai_filter_signals JSON NOT NULL DEFAULT '{}',
+        ai_filter_error_code VARCHAR(100),
+        ai_filter_error_message TEXT,
+        ai_filter_model_name VARCHAR(255),
+        ai_filter_prompt_version VARCHAR(100),
         normalized_company_name VARCHAR(255),
         normalized_role_title VARCHAR(500),
         detected_seniority VARCHAR(100),

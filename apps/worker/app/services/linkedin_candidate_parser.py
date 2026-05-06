@@ -2,6 +2,53 @@ import re
 
 EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
 LINKEDIN_PROFILE_RE = re.compile(r"https?://(?:www\.)?linkedin\.com/in/[A-Z0-9_\-/%]+", re.IGNORECASE)
+COMMON_EMAIL_TLDS = [
+    "com.br",
+    "com",
+    "net",
+    "org",
+    "io",
+    "co",
+    "ai",
+    "dev",
+    "tech",
+    "global",
+    "br",
+    "us",
+    "uk",
+    "ca",
+    "de",
+    "fr",
+    "es",
+    "pt",
+    "au",
+    "ar",
+    "cl",
+    "mx",
+    "pe",
+    "uy",
+    "eu",
+    "in",
+]
+LOCAL_PREFIX_NOISE = [
+    "oportunidadlaboral",
+    "oportunidade",
+    "opportunity",
+    "jobopportunity",
+    "vacante",
+    "vaga",
+    "vagas",
+    "contact",
+    "contato",
+    "email",
+    "mail",
+    "apply",
+    "resume",
+    "curriculo",
+    "cv",
+    "send",
+    "communication",
+]
 CONTACT_INVITATION_PATTERNS = [
     r"\b(dm|dms|direct message|inbox)\s+(me|us)\b",
     r"\b(send|drop|shoot)\s+(me|us)\s+(a\s+)?(dm|message|note)\b",
@@ -15,7 +62,42 @@ CONTACT_INVITATION_RES = [re.compile(pattern, re.IGNORECASE) for pattern in CONT
 
 def extract_public_email(text: str) -> str | None:
     match = EMAIL_RE.search(text)
-    return match.group(0) if match else None
+    return normalize_public_email(match.group(0)) if match else None
+
+
+def normalize_public_email(value: str) -> str:
+    email = value.strip().strip(".,;:)]}>\"'")
+    if "@" not in email:
+        return email
+    local, domain = email.rsplit("@", 1)
+    local = strip_glued_local_prefix(local)
+    labels = domain.split(".")
+    if len(labels) < 2:
+        return email
+
+    normalized_labels = labels[:]
+    lower_labels = [label.lower() for label in labels]
+    if len(labels) >= 3 and lower_labels[-2] == "com" and lower_labels[-1].startswith("br"):
+        normalized_labels[-2] = "com"
+        normalized_labels[-1] = "br"
+    else:
+        last_label = lower_labels[-1]
+        for tld in COMMON_EMAIL_TLDS:
+            if "." in tld:
+                continue
+            if last_label.startswith(tld):
+                normalized_labels[-1] = tld
+                break
+
+    return f"{local}@{'.'.join(normalized_labels).lower()}"
+
+
+def strip_glued_local_prefix(local: str) -> str:
+    lowered = local.lower()
+    for prefix in sorted(LOCAL_PREFIX_NOISE, key=len, reverse=True):
+        if lowered.startswith(prefix) and len(local) > len(prefix) + 2:
+            return local[len(prefix) :]
+    return local
 
 
 def extract_linkedin_profile_url(text: str) -> str | None:

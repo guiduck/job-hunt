@@ -13,6 +13,8 @@ import type {
   JobSearchRun,
   JobSearchRunCreate,
   Opportunity,
+  OpportunityBulkDeleteRequest,
+  OpportunityBulkDeleteResponse,
   OpportunityFilters,
   OpportunityUpdate,
   OutreachEvent,
@@ -50,8 +52,35 @@ export class ApiError extends Error {
 
 let accessToken: string | null = null
 
+function describeAccessToken(token: string | null) {
+  if (!token) {
+    return { present: false }
+  }
+  return {
+    present: true,
+    length: token.length,
+    suffix: token.slice(-6)
+  }
+}
+
 export function setApiAccessToken(token: string | null) {
   accessToken = token
+  console.info("[Opportunity Desk] API access token updated", describeAccessToken(token))
+}
+
+function responseErrorMessage(rawMessage: string, fallback: string) {
+  if (!rawMessage) {
+    return fallback
+  }
+  try {
+    const parsed = JSON.parse(rawMessage) as { detail?: unknown }
+    if (typeof parsed.detail === "string") {
+      return parsed.detail
+    }
+  } catch {
+    return rawMessage
+  }
+  return rawMessage
 }
 
 async function request<T>(path: string, init: RequestInit = {}, options: RequestOptions = {}): Promise<T> {
@@ -62,15 +91,19 @@ async function request<T>(path: string, init: RequestInit = {}, options: Request
   if (accessToken && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${accessToken}`)
   }
+  const method = init.method || "GET"
+  const hasAuth = headers.has("Authorization")
+  console.info("[Opportunity Desk] API request", { method, path, hasAuth, token: describeAccessToken(accessToken) })
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers,
     signal: options.signal
   })
+  console.info("[Opportunity Desk] API response", { method, path, status: response.status, ok: response.ok, hasAuth })
 
   if (!response.ok) {
     const message = await response.text()
-    throw new ApiError(response.status, message || `Request failed with status ${response.status}`)
+    throw new ApiError(response.status, responseErrorMessage(message, `Request failed with status ${response.status}`))
   }
 
   if (response.status === 204) {
@@ -121,6 +154,8 @@ export async function listOpportunities(filters: OpportunityFilters = {}, option
   appendIfPresent(params, "min_score", filters.min_score)
   appendIfPresent(params, "review_status", filters.review_status)
   appendIfPresent(params, "job_stage", filters.job_stage)
+  appendIfPresent(params, "send_status", filters.send_status)
+  appendIfPresent(params, "sort_order", filters.sort_order)
   appendIfPresent(params, "provider_status", filters.provider_status?.trim())
   appendIfPresent(params, "analysis_status", filters.analysis_status)
 
@@ -140,6 +175,14 @@ export function updateOpportunity(id: string, payload: OpportunityUpdate, option
     },
     options
   )
+}
+
+export function deleteOpportunity(id: string, options?: RequestOptions) {
+  return request<void>(`/opportunities/${id}`, { method: "DELETE" }, options)
+}
+
+export function bulkDeleteOpportunities(payload: OpportunityBulkDeleteRequest, options?: RequestOptions) {
+  return request<OpportunityBulkDeleteResponse>("/opportunities/bulk-delete", { method: "POST", body: JSON.stringify(payload) }, options)
 }
 
 export function listJobSearchRuns(options?: RequestOptions) {
@@ -212,6 +255,19 @@ export function resumeFileUrl(id: string) {
   return `${API_BASE_URL}/user-settings/resumes/${id}/file`
 }
 
+export async function fetchResumeFile(id: string, options?: RequestOptions) {
+  const headers = new Headers()
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`)
+  }
+  const response = await fetch(resumeFileUrl(id), { headers, signal: options?.signal })
+  if (!response.ok) {
+    const message = await response.text()
+    throw new ApiError(response.status, message || `Request failed with status ${response.status}`)
+  }
+  return response.blob()
+}
+
 export function listEmailTemplates(templateKind?: TemplateKind, options?: RequestOptions) {
   const params = new URLSearchParams({ mode: "full_time" })
   appendIfPresent(params, "template_kind", templateKind)
@@ -267,6 +323,26 @@ export function previewBulkEmail(
   options?: RequestOptions
 ) {
   return request<BulkSendBatch>("/bulk-email/preview", { method: "POST", body: JSON.stringify(payload) }, options)
+}
+
+export function generateAIBulkEmail(
+  payload: { opportunity_ids: string[]; resume_attachment_id?: string | null; template_id?: string | null },
+  options?: RequestOptions
+) {
+  return request<BulkSendBatch>("/bulk-email/generate-ai", { method: "POST", body: JSON.stringify(payload) }, options)
+}
+
+export function updateBulkEmailItem(
+  batchId: string,
+  opportunityId: string,
+  payload: { recipient_email?: string | null; subject?: string | null; body?: string | null; is_skipped?: boolean },
+  options?: RequestOptions
+) {
+  return request<BulkSendBatch>(
+    `/bulk-email/${batchId}/items/${opportunityId}`,
+    { method: "PATCH", body: JSON.stringify(payload) },
+    options
+  )
 }
 
 export function approveBulkEmail(batchId: string, options?: RequestOptions) {
