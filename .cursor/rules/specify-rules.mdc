@@ -10,9 +10,10 @@ alwaysApply: true
 - If `docs/`, the constitution, and generated spec artifacts disagree, surface the conflict and resolve it explicitly before proceeding.
 - For frontend or `Next.js` planning, also consider `.agents/skills/vercel-react-best-practices` and `.agents/skills/vercel-composition-patterns`.
 - For AI UI or AI product flows, also consider `.agents/skills/ai-elements` and `.agents/skills/ai-sdk`.
+- At the end of every implementation, update all affected documentation plus `docs/handoff.md` and `docs/roadmap.md`, and prepare the next Spec Kit `/speckit-specify` prompt in `docs/next-spec-prompt.md`. Do this before reporting the implementation as complete.
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/008-linkedin-ai-filters/plan.md`
+`specs/010-ai-field-assistant/plan.md`
 <!-- SPECKIT END -->

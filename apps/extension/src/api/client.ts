@@ -1,5 +1,7 @@
 import type {
+  AIGenerationBatch,
   AuthSessionResponse,
+  BulkAIGenerateRequest,
   BulkSendBatch,
   EmailDraft,
   EmailDraftCreate,
@@ -7,7 +9,16 @@ import type {
   EmailTemplate,
   EmailTemplateCreate,
   EmailTemplateUpdate,
+  FieldAnswerGenerateRequest,
+  FieldAnswerGenerateResponse,
+  FieldAnswerGenerateInput,
+  FieldAssistantActivation,
+  FieldAssistantActivationCreate,
+  FieldAssistantActivationUpdate,
+  FieldResponseSuggestion,
+  FieldResponseSuggestionCreate,
   GoogleOAuthStartResponse,
+  GooglePrimaryAuthStartResponse,
   LoginRequest,
   JobSearchCandidate,
   JobSearchRun,
@@ -16,6 +27,7 @@ import type {
   OpportunityBulkDeleteRequest,
   OpportunityBulkDeleteResponse,
   OpportunityFilters,
+  OpportunityPage,
   OpportunityUpdate,
   OutreachEvent,
   PasswordResetConfirmRequest,
@@ -120,6 +132,19 @@ export function login(payload: LoginRequest, options?: RequestOptions) {
   return request<AuthSessionResponse>("/auth/login", { method: "POST", body: JSON.stringify(payload) }, options)
 }
 
+export function startGooglePrimaryAuth(successRedirectUrl?: string | null, options?: RequestOptions) {
+  const params = new URLSearchParams()
+  appendIfPresent(params, "success_redirect_url", successRedirectUrl)
+  const query = params.toString()
+  return request<GooglePrimaryAuthStartResponse>(`/auth/google/start${query ? `?${query}` : ""}`, {}, options)
+}
+
+export function completeGooglePrimaryAuth(code: string, state?: string | null, options?: RequestOptions) {
+  const params = new URLSearchParams({ code })
+  appendIfPresent(params, "state", state)
+  return request<AuthSessionResponse>(`/auth/google/callback?${params.toString()}`, {}, options)
+}
+
 export function logout(options?: RequestOptions) {
   return request<void>("/auth/logout", { method: "POST" }, options)
 }
@@ -160,6 +185,23 @@ export async function listOpportunities(filters: OpportunityFilters = {}, option
   appendIfPresent(params, "analysis_status", filters.analysis_status)
 
   return request<Opportunity[]>(`/opportunities?${params.toString()}`, {}, options)
+}
+
+export async function listOpportunityPage(filters: OpportunityFilters = {}, options?: RequestOptions) {
+  const params = new URLSearchParams({ opportunity_type: "job" })
+  appendIfPresent(params, "contact_available", filters.contact_available)
+  appendIfPresent(params, "keyword", filters.keyword?.trim())
+  appendIfPresent(params, "min_score", filters.min_score)
+  appendIfPresent(params, "review_status", filters.review_status)
+  appendIfPresent(params, "job_stage", filters.job_stage)
+  appendIfPresent(params, "send_status", filters.send_status)
+  appendIfPresent(params, "sort_order", filters.sort_order)
+  appendIfPresent(params, "provider_status", filters.provider_status?.trim())
+  appendIfPresent(params, "analysis_status", filters.analysis_status)
+  appendIfPresent(params, "page", filters.page)
+  appendIfPresent(params, "page_size", filters.page_size)
+
+  return request<OpportunityPage>(`/opportunities?${params.toString()}`, {}, options)
 }
 
 export function getOpportunity(id: string, options?: RequestOptions) {
@@ -243,7 +285,11 @@ export function uploadResume(file: File, displayName: string, options?: RequestO
   )
 }
 
-export function updateResume(id: string, payload: { display_name?: string; is_available?: boolean; is_default?: boolean }, options?: RequestOptions) {
+export function updateResume(
+  id: string,
+  payload: { display_name?: string; is_available?: boolean; is_default?: boolean; include_in_field_assistant_context?: boolean },
+  options?: RequestOptions
+) {
   return request<ResumeAttachment>(
     `/user-settings/resumes/${id}`,
     { method: "PATCH", body: JSON.stringify(payload) },
@@ -326,10 +372,21 @@ export function previewBulkEmail(
 }
 
 export function generateAIBulkEmail(
-  payload: { opportunity_ids: string[]; resume_attachment_id?: string | null; template_id?: string | null },
+  payload: BulkAIGenerateRequest,
   options?: RequestOptions
 ) {
   return request<BulkSendBatch>("/bulk-email/generate-ai", { method: "POST", body: JSON.stringify(payload) }, options)
+}
+
+export function createAIGenerationBatch(
+  payload: BulkAIGenerateRequest,
+  options?: RequestOptions
+) {
+  return request<AIGenerationBatch>("/bulk-email/generate-ai", { method: "POST", body: JSON.stringify(payload) }, options)
+}
+
+export function getAIGenerationBatch(batchId: string, options?: RequestOptions) {
+  return request<AIGenerationBatch>(`/bulk-email/generate-ai/${batchId}`, {}, options)
 }
 
 export function updateBulkEmailItem(
@@ -351,4 +408,78 @@ export function approveBulkEmail(batchId: string, options?: RequestOptions) {
 
 export function listEmailHistory(opportunityId: string, options?: RequestOptions) {
   return request<OutreachEvent[]>(`/opportunities/${opportunityId}/email-history`, {}, options)
+}
+
+export async function listFieldAssistantActivations(options?: RequestOptions) {
+  const response = await request<{ items: FieldAssistantActivation[] }>("/field-assistant/activations", {}, options)
+  return response.items
+}
+
+export function createFieldAssistantActivation(payload: FieldAssistantActivationCreate, options?: RequestOptions) {
+  return request<FieldAssistantActivation>(
+    "/field-assistant/activations",
+    { method: "POST", body: JSON.stringify(payload) },
+    options
+  )
+}
+
+export function updateFieldAssistantActivation(id: string, payload: FieldAssistantActivationUpdate, options?: RequestOptions) {
+  return request<FieldAssistantActivation>(
+    `/field-assistant/activations/${id}`,
+    { method: "PATCH", body: JSON.stringify(payload) },
+    options
+  )
+}
+
+export function deleteFieldAssistantActivation(id: string, options?: RequestOptions) {
+  return request<void>(`/field-assistant/activations/${id}`, { method: "DELETE" }, options)
+}
+
+export function generateFieldAnswer(payload: FieldAnswerGenerateRequest, options?: RequestOptions) {
+  return request<FieldAnswerGenerateResponse>(
+    "/field-assistant/generate",
+    { method: "POST", body: JSON.stringify(payload) },
+    options
+  )
+}
+
+export function generateFieldAnswerFromInput(payload: FieldAnswerGenerateInput, options?: RequestOptions) {
+  const fieldType = payload.field_type === "textarea" ? "textarea" : "long_text_input"
+  return generateFieldAnswer(
+    {
+      keyword: payload.keyword,
+      field_context: {
+        label_text: payload.question_text || payload.field_label || payload.field_name || "Application question",
+        placeholder: payload.field_placeholder || null,
+        field_type: fieldType,
+        existing_value: null,
+        confidence: 0.7
+      },
+      page_context: {
+        origin: new URL(payload.scope_url).origin,
+        sanitized_url: payload.scope_url,
+        page_title: null
+      },
+      template_hint: payload.surrounding_text || null
+    },
+    options
+  )
+}
+
+export async function listFieldResponseSuggestions(keyword: string, options?: RequestOptions) {
+  const params = new URLSearchParams({ keyword })
+  const response = await request<{ items: FieldResponseSuggestion[] }>(`/field-assistant/suggestions?${params.toString()}`, {}, options)
+  return response.items
+}
+
+export function saveFieldResponseSuggestion(payload: FieldResponseSuggestionCreate, options?: RequestOptions) {
+  return request<FieldResponseSuggestion>(
+    "/field-assistant/suggestions",
+    { method: "POST", body: JSON.stringify(payload) },
+    options
+  )
+}
+
+export function recordFieldResponseSuggestionUsed(id: string, options?: RequestOptions) {
+  return request<FieldResponseSuggestion>(`/field-assistant/suggestions/${id}/used`, { method: "POST" }, options)
 }

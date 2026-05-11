@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.email import EmailDraft, OutreachEvent, SendRequest, SendRequestStatus, TemplateKind
 from app.models.opportunity import JobStage, Opportunity
 from app.models.user import User
+from app.services.email_constants import is_valid_email, sanitize_email_address
 
 
 def has_successful_job_application(db: Session, opportunity_id: str, user_id: str | None = None) -> bool:
@@ -27,6 +28,10 @@ def has_successful_job_application(db: Session, opportunity_id: str, user_id: st
 def approve_draft_send(db: Session, draft: EmailDraft, user: User | None = None, *, allow_duplicate: bool = False) -> SendRequest:
     if user and draft.user_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft not found")
+    recipient_email = sanitize_email_address(draft.to_email)
+    if not is_valid_email(recipient_email):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Draft recipient email is invalid")
+    draft.to_email = recipient_email
     if not allow_duplicate and draft.template_kind == TemplateKind.JOB_APPLICATION.value and has_successful_job_application(
         db,
         draft.opportunity_id,
@@ -36,7 +41,7 @@ def approve_draft_send(db: Session, draft: EmailDraft, user: User | None = None,
             user_id=draft.user_id,
             opportunity_id=draft.opportunity_id,
             draft_id=draft.id,
-            recipient_email=draft.to_email,
+            recipient_email=recipient_email,
             template_id=draft.template_id,
             template_kind=draft.template_kind,
             resume_attachment_id=draft.resume_attachment_id,
@@ -56,7 +61,7 @@ def approve_draft_send(db: Session, draft: EmailDraft, user: User | None = None,
         template_id=draft.template_id,
         template_kind=draft.template_kind,
         resume_attachment_id=draft.resume_attachment_id,
-        recipient_email=draft.to_email,
+        recipient_email=recipient_email,
         subject_snapshot=draft.subject,
         body_snapshot=draft.body,
         resume_snapshot={},
@@ -71,7 +76,7 @@ def approve_draft_send(db: Session, draft: EmailDraft, user: User | None = None,
         opportunity_id=draft.opportunity_id,
         draft_id=draft.id,
         send_request_id=send_request.id,
-        recipient_email=draft.to_email,
+        recipient_email=recipient_email,
         template_id=draft.template_id,
         template_kind=draft.template_kind,
         resume_attachment_id=draft.resume_attachment_id,

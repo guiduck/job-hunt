@@ -35,8 +35,8 @@ def generate_job_application_email(context: dict[str, object]) -> dict[str, str]
                     "instead focus on relevant confirmed strengths. Never mention .NET, Java, Python, or any other "
                     "technology unless it appears in the resume/profile context. If a template reference is provided, "
                     "use it for tone and structure, but still obey the no-false-claims rule. Write the email in the "
-                    "detected job post language from the provided language context. If portfolio_url is present, include "
-                    "it naturally in the closing or signature."
+                    "detected job post language from the provided language context. If portfolio_url or linkedin_url is "
+                    "present, include the strongest relevant profile link naturally in the closing or signature."
                 ),
             },
             {
@@ -103,6 +103,75 @@ def generate_job_application_email(context: dict[str, object]) -> dict[str, str]
     if not subject or not body:
         raise AIEmailGenerationError("OpenAI response did not include both subject and body.")
     return {"subject": subject, "body": body}
+
+
+def generate_field_answer(context: dict[str, object]) -> dict[str, object]:
+    settings = get_settings()
+    if not settings.openai_api_key or settings.openai_api_key == "sk-your-openai-api-key":
+        raise AIEmailGenerationError(
+            "OPENAI_API_KEY is missing or still using the placeholder value. Add a real backend key and recreate the API container.",
+            code="openai_key_missing",
+        )
+
+    payload = {
+        "model": settings.ai_email_model,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You help a job candidate answer one application form question. Return only valid JSON with "
+                    "string field 'answer_text', optional string field 'rationale', and optional array field "
+                    "'missing_context'. Use only the provided resume/profile/operator context as truth. Do not invent "
+                    "experience, years, degrees, employers, legal status, salary, location, or availability. If the "
+                    "context is insufficient, write a conservative answer and list missing context. Give strong weight "
+                    "to selected resume excerpts and prefer specific projects, methods, tools, and outcomes from those "
+                    "excerpts when they answer the field question. Keep the answer direct, polished, and suitable for "
+                    "pasting into a form field."
+                ),
+            },
+            {"role": "user", "content": json.dumps(context, ensure_ascii=False)},
+        ],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.5,
+    }
+    http_request = request.Request(
+        "https://api.openai.com/v1/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {settings.openai_api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with request.urlopen(http_request, timeout=45) as response:
+            raw_response = json.loads(response.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        openai_detail = _openai_error_detail(exc)
+        raise AIEmailGenerationError(
+            f"OpenAI request failed with HTTP {exc.code}. {openai_detail}".strip(),
+            code=f"openai_http_{exc.code}",
+            retryable=exc.code >= 500 or exc.code == 429,
+        ) from exc
+    except (OSError, json.JSONDecodeError) as exc:
+        raise AIEmailGenerationError(f"Could not reach or parse OpenAI response: {exc}", code="openai_connection_failed", retryable=True) from exc
+
+    content = raw_response.get("choices", [{}])[0].get("message", {}).get("content")
+    if not isinstance(content, str):
+        raise AIEmailGenerationError("OpenAI response did not include message content.")
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise AIEmailGenerationError("OpenAI response was not valid JSON.") from exc
+    answer_text = str(parsed.get("answer_text") or "").strip()
+    if not answer_text:
+        raise AIEmailGenerationError("OpenAI response did not include answer_text.")
+    missing_context = parsed.get("missing_context")
+    return {
+        "answer_text": answer_text,
+        "rationale": str(parsed.get("rationale") or "").strip() or None,
+        "missing_context": missing_context if isinstance(missing_context, list) else [],
+    }
 
 
 def _openai_error_detail(exc: error.HTTPError) -> str:

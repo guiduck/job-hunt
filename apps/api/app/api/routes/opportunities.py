@@ -11,6 +11,7 @@ from app.schemas.opportunity import (
     OpportunityBulkDeleteResponse,
     OpportunityCreate,
     OpportunityListItem,
+    OpportunityPage,
     OpportunityUpdate,
 )
 from app.services.opportunity_service import (
@@ -18,6 +19,7 @@ from app.services.opportunity_service import (
     delete_opportunities,
     delete_opportunity,
     get_opportunity,
+    list_opportunity_page,
     list_opportunities,
     update_opportunity,
 )
@@ -34,7 +36,7 @@ def create_opportunity_endpoint(
     return create_opportunity(db, payload, user=user)
 
 
-@router.get("", response_model=list[OpportunityListItem])
+@router.get("", response_model=list[OpportunityListItem] | OpportunityPage)
 def list_opportunities_endpoint(
     opportunity_type: str | None = Query(default=None),
     contact_channel: str | None = Query(default=None),
@@ -52,27 +54,31 @@ def list_opportunities_endpoint(
     source_query: str | None = Query(default=None),
     run_id: str | None = Query(default=None),
     campaign_id: str | None = Query(default=None),
+    page: int | None = Query(default=None, ge=1),
+    page_size: int | None = Query(default=None, ge=1, le=100),
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
-) -> list[OpportunityListItem]:
-    return list_opportunities(
-        db,
-        opportunity_type=opportunity_type,
-        contact_channel=contact_channel or contact_channel_type,
-        matched_keyword=matched_keyword or keyword,
-        min_score=min_score,
-        contact_available=contact_available,
-        job_stage=job_stage,
-        review_status=review_status,
-        provider_status=provider_status,
-        analysis_status=analysis_status,
-        send_status=send_status,
-        sort_order=sort_order,
-        source_query=source_query,
-        run_id=run_id,
-        campaign_id=campaign_id,
-        user=user,
-    )
+) -> list[OpportunityListItem] | OpportunityPage:
+    filters = {
+        "opportunity_type": opportunity_type,
+        "contact_channel": contact_channel or contact_channel_type,
+        "matched_keyword": matched_keyword or keyword,
+        "min_score": min_score,
+        "contact_available": contact_available,
+        "job_stage": job_stage,
+        "review_status": review_status,
+        "provider_status": provider_status,
+        "analysis_status": analysis_status,
+        "send_status": send_status,
+        "sort_order": sort_order,
+        "source_query": source_query,
+        "run_id": run_id,
+        "campaign_id": campaign_id,
+        "user": user,
+    }
+    if page is not None or page_size is not None:
+        return list_opportunity_page(db, page=page or 1, page_size=page_size or 50, **filters)
+    return list_opportunities(db, **filters)
 
 
 @router.post("/bulk-delete", response_model=OpportunityBulkDeleteResponse)

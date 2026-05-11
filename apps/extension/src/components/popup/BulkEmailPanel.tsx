@@ -107,6 +107,9 @@ export function BulkEmailPanel({ onClose, selectedIds }: { onClose?: () => void;
   }
 
   const failedGenerationCount = bulkPreview?.items.filter((item) => item.outcome === "ai_generation_failed").length || 0
+  const completedGenerationCount = bulkPreview?.items.filter((item) => item.status === "completed").length || 0
+  const runningGenerationCount = bulkPreview?.items.filter((item) => item.status === "running" || item.status === "queued").length || 0
+  const skippedGenerationCount = bulkPreview?.items.filter((item) => item.status === "skipped").length || 0
   const failedGenerationReasons = Array.from(
     new Set(
       bulkPreview?.items
@@ -197,6 +200,9 @@ export function BulkEmailPanel({ onClose, selectedIds }: { onClose?: () => void;
         <div className="bulk-summary">
           <div className="bulk-stats">
             <span>Sendable: {bulkPreview.sendable_count}</span>
+            <span>Completed: {completedGenerationCount}</span>
+            <span>Queued/running: {runningGenerationCount}</span>
+            <span>Skipped: {skippedGenerationCount}</span>
             <span>Missing: {bulkPreview.skipped_missing_contact_count}</span>
             <span>Duplicates: {bulkPreview.skipped_duplicate_count}</span>
             <span>Invalid: {bulkPreview.blocked_invalid_contact_count}</span>
@@ -208,7 +214,10 @@ export function BulkEmailPanel({ onClose, selectedIds }: { onClose?: () => void;
               const edits = editValues(item)
               return (
                 <li className="stack-card" key={item.opportunity_id}>
-                  <strong>{item.recipient_email || "Missing recipient"}</strong>
+                  <div className="bulk-item-heading">
+                    <strong>{item.recipient_email || "Missing recipient"}</strong>
+                    <span className={`progress-badge progress-badge--${item.status || "completed"}`}>{item.status || "completed"}</span>
+                  </div>
                   <span>{item.subject || item.outcome}</span>
                   {item.reason ? <span>{item.reason}</span> : null}
                   {item.ai_error_code ? <span>Error code: {item.ai_error_code}</span> : null}

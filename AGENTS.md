@@ -47,7 +47,7 @@ For general prompt refinement or change-risk review, consider:
 
 The active plan reference mirrored from Cursor is:
 
-- `specs/008-linkedin-ai-filters/plan.md`
+- `specs/010-ai-field-assistant/plan.md`
 
 ## Conflict Handling
 
@@ -77,3 +77,7 @@ Do not load optional skills unnecessarily for backend-only scraper or worker wor
 - Do not store secrets in source files; keep OAuth and environment secrets in environment-specific
   configuration.
 - Update docs, tests, migrations, contracts, and operational notes when the change affects them.
+- At the end of every implementation, update all affected documentation plus `docs/handoff.md` and
+  `docs/roadmap.md`, and prepare the next Spec Kit `/speckit-specify` prompt in
+  `docs/next-spec-prompt.md`. Treat this as a required closeout step even when the code change is
+  otherwise complete.

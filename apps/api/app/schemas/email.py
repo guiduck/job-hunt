@@ -1,7 +1,9 @@
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+from app.services.email_constants import sanitize_email_address
 
 
 class TemplateMode(StrEnum):
@@ -118,6 +120,11 @@ class EmailDraftUpdate(BaseModel):
     body: str | None = None
     resume_attachment_id: str | None = None
 
+    @field_validator("to_email", mode="before")
+    @classmethod
+    def sanitize_to_email(cls, value: object) -> object:
+        return sanitize_email_address(str(value)) if value is not None else value
+
 
 class EmailDraft(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -177,6 +184,7 @@ class BulkSendItemUpdate(BaseModel):
 class BulkSendItem(BaseModel):
     opportunity_id: str
     recipient_email: str | None = None
+    status: str = "queued"
     outcome: str
     reason: str | None = None
     draft_id: str | None = None

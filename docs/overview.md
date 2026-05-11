@@ -27,6 +27,9 @@ O MVP local ja cobre login de usuario, ownership dos dados, captura LinkedIn, re
 templates, curriculos, Gmail conectado, envio individual e bulk send revisavel. A geracao de emails
 com IA usa curriculo PDF extraido como fonte de verdade, template como referencia de tom/estrutura,
 idioma detectado do post da vaga e aprovacao humana antes de criar requests de envio pelo Gmail.
+O login pode ser feito por email/senha ou por Google primary auth; a identidade Google e vinculada ao
+usuario existente quando o email verificado coincide, sem conceder automaticamente permissao de envio
+Gmail.
 
 A busca do LinkedIn esta sendo simplificada: a extensao usa texto e ordenacao para capturar posts
 amplos, enquanto filtros de remoto/onsite e regioes aceitas/excluidas ficam em uma camada opcional
@@ -34,10 +37,12 @@ pos-captura com status, motivos, confianca, sinais e counters persistidos. Nao h
 de keywords excluidas; a IA deve avaliar o texto completo com contexto de curriculo/perfil e distinguir
 vaga real de posts de pessoas procurando emprego.
 
-O proximo recorte recomendado e de hardening operacional, nao de produto novo: validar manualmente o
-fluxo `Full-time`, alinhar testes/contratos com auth e campos recentes, melhorar feedback pos-envio e
-confirmar OAuth/envio publicado. Depois disso, o proximo salto de produto volta a ser o modo
-`Freelance` com Google Maps, analise de site e prompts Lovable.
+O proximo recorte recomendado volta a ser produto util para o operador: um assistente de navegador
+que detecta campos longos de candidatura em abas abertas, mostra um botao de varinha magica no fim do
+campo e gera ou reutiliza respostas com IA usando curriculo/perfil do usuario. Esse recorte deve
+incluir tambem uma shell persistente da extensao em iframe/content script para substituir o botao
+`Keep open` e esconder header/navegacao enquanto o usuario nao esta autenticado. O hardening
+assincrono de bulk AI/post-send continua importante, mas pode vir depois dessa spec.
 
 Para IA, chaves de API devem ficar somente no backend/worker via variaveis de ambiente. A extensao
 nao deve armazenar nem receber `OPENAI_API_KEY` ou segredo equivalente.
@@ -64,7 +69,8 @@ Construir uma base operacional que permita:
 3. revisar oportunidades em um fluxo manual estilo CRM
 4. enviar emails reais com template e curriculo anexado, em massa ou um a um, apos revisao humana
 5. isolar os dados por usuario antes de deploy
-6. evoluir depois para prospeccao freelance via Google Maps, IA, analytics e sugestoes geograficas
+6. preencher formularios externos de candidatura com respostas geradas a partir do curriculo
+7. evoluir depois para prospeccao freelance via Google Maps, IA, analytics e sugestoes geograficas
 
 ## Capacidade principal
 
@@ -74,6 +80,7 @@ O sistema precisa cobrir estas capacidades ao longo da evolucao:
 - armazenamento estruturado com evidencia da captura
 - revisao e qualificacao manual em fluxo de operacao
 - outreach humano assistido por templates, email real, curriculo anexado e eventos auditaveis
+- preenchimento assistido por IA em formularios externos, com insercao controlada pelo usuario
 - geracao assistida por IA para mensagens, prompts e artefatos, sempre com revisao humana antes de
   qualquer envio real
 

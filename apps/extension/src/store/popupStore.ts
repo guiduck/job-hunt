@@ -7,27 +7,31 @@ import {
   bulkDeleteOpportunities,
   confirmPasswordReset,
   createEmailDraft,
+  deleteFieldAssistantActivation as apiDeleteFieldAssistantActivation,
   disconnectGoogleOAuth,
   getCurrentUser,
   getOpportunity,
   getSendingProviderAccount,
   getUserSettings,
   generateAIBulkEmail,
+  listFieldAssistantActivations,
   login as apiLogin,
   listEmailHistory,
   listEmailTemplates,
   listJobSearchRuns,
-  listOpportunities,
+  listOpportunityPage,
   listResumes,
   previewBulkEmail,
   register as apiRegister,
   requestPasswordReset,
   setApiAccessToken,
   logout as apiLogout,
+  startGooglePrimaryAuth,
   startGoogleOAuth,
   updateResume,
   updateEmailDraft,
   updateBulkEmailItem,
+  updateFieldAssistantActivation as apiUpdateFieldAssistantActivation,
   updateUserSettings as apiUpdateUserSettings,
   uploadResume,
   updateOpportunity,
@@ -35,9 +39,12 @@ import {
 } from "../api/client"
 import type {
   EmailDraft,
+  AuthSessionResponse,
   EmailTemplate,
   BulkSendBatch,
   CurrentUser,
+  FieldAssistantActivation,
+  FieldAssistantScopeType,
   JobStage,
   JobReviewStatus,
   Opportunity,
@@ -49,6 +56,7 @@ import type {
   UserSettingsUpdate
 } from "../api/types"
 import type { CaptureProgress, CaptureRequest, CaptureResult } from "../capture/types"
+import { FIELD_ASSISTANT_MESSAGE_TYPES, normalizeActivationScope } from "../utils/fieldAssistant"
 import { clearStoredAuthSession, loadStoredAuthSession, saveStoredAuthSession } from "./authSession"
 
 export type PopupTab = "dashboard" | "search" | "jobs" | "templates" | "settings"
@@ -78,12 +86,21 @@ function clampNumber(value: number, min: number, max: number) {
 
 type PopupState = {
   activeTab: PopupTab
+  selectedJobIds: string[]
+  showBulkEmail: boolean
   opportunities: Opportunity[]
+  opportunityPage: number
+  opportunityPageSize: number
+  opportunityTotalItems: number
+  opportunityTotalPages: number
+  opportunityHasNext: boolean
+  opportunityHasPrevious: boolean
   runsCount: number
   selectedOpportunity: Opportunity | null
   emailTemplates: EmailTemplate[]
   resumes: ResumeAttachment[]
   userSettings: UserSettings | null
+  fieldAssistantActivations: FieldAssistantActivation[]
   providerAccount: SendingProviderAccount | null
   activeDraft: EmailDraft | null
   emailHistory: OutreachEvent[]
@@ -104,7 +121,10 @@ type PopupState = {
   maxPosts: number
   maxScrolls: number
   filters: OpportunityFilters
+  clearError: () => void
   setActiveTab: (activeTab: PopupTab) => void
+  setSelectedJobIds: (selectedJobIds: string[]) => void
+  setShowBulkEmail: (showBulkEmail: boolean) => void
   setKeywords: (keywords: string) => void
   setRegion: (region: string) => void
   setAiFiltersEnabled: (aiFiltersEnabled: boolean) => void
@@ -119,6 +139,7 @@ type PopupState = {
   setSelectedOpportunity: (selectedOpportunity: Opportunity | null) => void
   initializeAuth: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
+  loginWithGoogle: () => Promise<void>
   register: (email: string, password: string, displayName: string) => Promise<void>
   logout: () => Promise<void>
   requestPasswordReset: (email: string) => Promise<void>
@@ -130,13 +151,17 @@ type PopupState = {
   saveOpportunityUpdate: (payload: OpportunityUpdatePayload) => Promise<void>
   deleteOpportunity: (opportunityId: string) => Promise<void>
   deleteOpportunities: (opportunityIds: string[]) => Promise<number>
-  deleteOpportunitiesBySendStatus: (sendStatus: "sent" | "unsent") => Promise<number>
   refreshEmailSetup: () => Promise<void>
+  refreshFieldAssistantActivations: () => Promise<void>
+  enableFieldAssistantForCurrent: (scopeType: FieldAssistantScopeType) => Promise<void>
+  updateFieldAssistantActivation: (id: string, payload: { display_name?: string | null; enabled?: boolean }) => Promise<void>
+  deleteFieldAssistantActivation: (id: string) => Promise<void>
   connectGoogle: () => Promise<void>
   disconnectGoogle: () => Promise<void>
   updateUserSettings: (payload: UserSettingsUpdate) => Promise<void>
   uploadResumePdf: (file: File, displayName: string) => Promise<void>
   setDefaultResume: (resumeId: string) => Promise<void>
+  setResumeAssistantContext: (resumeId: string, enabled: boolean) => Promise<void>
   prepareEmailDraft: (opportunityId: string, templateId: string, resumeAttachmentId?: string | null) => Promise<void>
   updateActiveDraft: (payload: { to_email?: string; subject?: string; body?: string; resume_attachment_id?: string | null }) => Promise<boolean>
   approveActiveDraft: () => Promise<boolean>
@@ -153,6 +178,35 @@ type PopupState = {
 const DEFAULT_CAPTURE_PROGRESS: CaptureProgress = {
   status: "idle",
   message: "Ready to capture LinkedIn posts."
+}
+
+type PersistedPopupState = {
+  activeTab?: PopupTab
+  selectedJobIds?: string[]
+  showBulkEmail?: boolean
+  selectedOpportunityId?: string | null
+  filters?: OpportunityFilters
+  captureProgress?: CaptureProgress
+}
+
+const POPUP_STATE_STORAGE_KEY = "opportunity-desk-popup-state"
+
+function loadPersistedPopupState(): PersistedPopupState {
+  try {
+    const raw = window.localStorage.getItem(POPUP_STATE_STORAGE_KEY)
+    return raw ? (JSON.parse(raw) as PersistedPopupState) : {}
+  } catch {
+    return {}
+  }
+}
+
+function persistPopupState(update: PersistedPopupState) {
+  try {
+    const current = loadPersistedPopupState()
+    window.localStorage.setItem(POPUP_STATE_STORAGE_KEY, JSON.stringify({ ...current, ...update }))
+  } catch {
+    // Best-effort UI persistence only.
+  }
 }
 
 function sendCaptureRequest(payload: CaptureRequest) {
@@ -180,14 +234,69 @@ function isUnauthorized(error: unknown) {
   return error instanceof ApiError && error.status === 401
 }
 
+function filtersWithoutPage(filters: OpportunityFilters) {
+  const { page, page_size, ...rest } = filters
+  return rest
+}
+
+function didFilterCriteriaChange(current: OpportunityFilters, next: OpportunityFilters) {
+  return JSON.stringify(filtersWithoutPage(current)) !== JSON.stringify(filtersWithoutPage(next))
+}
+
+export function resolveOpportunityPageFilters(current: OpportunityFilters, next: OpportunityFilters): OpportunityFilters {
+  return {
+    ...next,
+    page: didFilterCriteriaChange(current, next) ? 1 : next.page || current.page || 1,
+    page_size: next.page_size || current.page_size || 50
+  }
+}
+
+async function persistAuthSession(session: AuthSessionResponse) {
+  setApiAccessToken(session.access_token)
+  await saveStoredAuthSession({ accessToken: session.access_token, user: session.user })
+}
+
+function parseGoogleAuthSession(finalUrl: string): AuthSessionResponse | null {
+  const url = new URL(finalUrl)
+  const params = new URLSearchParams(url.hash.replace(/^#/, ""))
+  const error = params.get("error")
+  if (error) {
+    throw new Error(error)
+  }
+  const accessToken = params.get("access_token")
+  const user = params.get("user")
+  if (!accessToken || !user) {
+    return null
+  }
+  return {
+    access_token: accessToken,
+    token_type: "bearer",
+    user: JSON.parse(user)
+  }
+}
+
+const persistedPopupState = loadPersistedPopupState()
+const persistedFilters = persistedPopupState.filters
+  ? { ...persistedPopupState.filters, review_status: "" as const }
+  : undefined
+
 export const usePopupStore = create<PopupState>((set, get) => ({
-  activeTab: "dashboard",
+  activeTab: persistedPopupState.activeTab || "dashboard",
+  selectedJobIds: persistedPopupState.selectedJobIds || [],
+  showBulkEmail: persistedPopupState.showBulkEmail || false,
   opportunities: [],
+  opportunityPage: persistedFilters?.page || 1,
+  opportunityPageSize: persistedFilters?.page_size || 50,
+  opportunityTotalItems: 0,
+  opportunityTotalPages: 1,
+  opportunityHasNext: false,
+  opportunityHasPrevious: false,
   runsCount: 0,
   selectedOpportunity: null,
   emailTemplates: [],
   resumes: [],
   userSettings: null,
+  fieldAssistantActivations: [],
   providerAccount: null,
   activeDraft: null,
   emailHistory: [],
@@ -196,7 +305,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   authReady: false,
   loading: false,
   error: null,
-  captureProgress: DEFAULT_CAPTURE_PROGRESS,
+  captureProgress: persistedPopupState.captureProgress || DEFAULT_CAPTURE_PROGRESS,
   keywords: "hiring typescript",
   region: "",
   aiFiltersEnabled: false,
@@ -207,13 +316,28 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   sortMode: "recent",
   maxPosts: CAPTURE_DEFAULT_MAX_POSTS,
   maxScrolls: CAPTURE_DEFAULT_MAX_SCROLLS,
-  filters: {
+  filters: persistedFilters || {
     contact_available: true,
     min_score: 0,
-    sort_order: "newest"
+    sort_order: "newest",
+    page: 1,
+    page_size: 50
   },
 
-  setActiveTab: (activeTab) => set({ activeTab }),
+  clearError: () => set({ error: null }),
+
+  setActiveTab: (activeTab) => {
+    persistPopupState({ activeTab })
+    set({ activeTab })
+  },
+  setSelectedJobIds: (selectedJobIds) => {
+    persistPopupState({ selectedJobIds })
+    set({ selectedJobIds })
+  },
+  setShowBulkEmail: (showBulkEmail) => {
+    persistPopupState({ showBulkEmail })
+    set({ showBulkEmail })
+  },
   setKeywords: (keywords) => set({ keywords }),
   setRegion: (region) => set({ region }),
   setAiFiltersEnabled: (aiFiltersEnabled) => set({ aiFiltersEnabled }),
@@ -224,8 +348,14 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   setSortMode: (sortMode) => set({ sortMode }),
   setMaxPosts: (maxPosts) => set({ maxPosts: clampNumber(maxPosts, 1, CAPTURE_MAX_POSTS) }),
   setMaxScrolls: (maxScrolls) => set({ maxScrolls: clampNumber(maxScrolls, 0, CAPTURE_MAX_SCROLLS) }),
-  setCaptureProgress: (captureProgress) => set({ captureProgress }),
-  setSelectedOpportunity: (selectedOpportunity) => set({ selectedOpportunity }),
+  setCaptureProgress: (captureProgress) => {
+    persistPopupState({ captureProgress })
+    set({ captureProgress })
+  },
+  setSelectedOpportunity: (selectedOpportunity) => {
+    persistPopupState({ selectedOpportunityId: selectedOpportunity?.id || null })
+    set({ selectedOpportunity })
+  },
 
   initializeAuth: async () => {
     console.info("[Opportunity Desk] initializeAuth started")
@@ -272,6 +402,38 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     }
   },
 
+  loginWithGoogle: async () => {
+    console.info("[Opportunity Desk] Google primary auth started")
+    set({ loading: true, error: null })
+    try {
+      const identity = chrome.identity
+      const successRedirectUrl = identity?.getRedirectURL?.("google-auth")
+      const { auth_url } = await startGooglePrimaryAuth(successRedirectUrl)
+      if (!identity?.launchWebAuthFlow || !successRedirectUrl) {
+        await chrome.tabs.create({ url: auth_url })
+        set({ error: "Chrome identity is unavailable. Complete Google sign-in in the opened tab, then reopen the popup." })
+        return
+      }
+
+      const finalUrl = await identity.launchWebAuthFlow({ url: auth_url, interactive: true })
+      if (!finalUrl) {
+        throw new Error("Google sign-in did not return an app session.")
+      }
+      const session = parseGoogleAuthSession(finalUrl)
+      if (!session) {
+        throw new Error("Google sign-in completed, but no app session was returned to the extension.")
+      }
+      await persistAuthSession(session)
+      set({ currentUser: session.user })
+      await get().refreshData()
+    } catch (error) {
+      console.info("[Opportunity Desk] Google primary auth failed", describeError(error))
+      set({ error: errorMessage(error, "Could not sign in with Google.") })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
   register: async (email, password, displayName) => {
     console.info("[Opportunity Desk] register started", { email })
     set({ loading: true, error: null })
@@ -296,9 +458,21 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     try {
       await apiLogout().catch(() => undefined)
     } finally {
+      await chrome.runtime.sendMessage({ type: FIELD_ASSISTANT_MESSAGE_TYPES.closeShell }).catch(() => undefined)
       setApiAccessToken(null)
       await clearStoredAuthSession()
-      set({ currentUser: null, opportunities: [], runsCount: 0, selectedOpportunity: null, emailTemplates: [], resumes: [] })
+      persistPopupState({ selectedJobIds: [], showBulkEmail: false, selectedOpportunityId: null })
+      set({
+        currentUser: null,
+        opportunities: [],
+        runsCount: 0,
+        selectedOpportunity: null,
+        selectedJobIds: [],
+        showBulkEmail: false,
+        emailTemplates: [],
+        resumes: [],
+        fieldAssistantActivations: []
+      })
       console.info("[Opportunity Desk] logout finished and local auth state cleared")
     }
   },
@@ -329,9 +503,28 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     console.info("[Opportunity Desk] refreshData started", { filters: nextFilters })
     set({ loading: true, error: null })
     try {
-      const [opportunities, runs] = await Promise.all([listOpportunities(nextFilters), listJobSearchRuns()])
-      set({ opportunities, runsCount: runs.length })
-      console.info("[Opportunity Desk] refreshData finished", { opportunities: opportunities.length, runs: runs.length })
+      const pageFilters = { ...nextFilters, page: nextFilters.page || 1, page_size: nextFilters.page_size || 50 }
+      const [opportunityPage, runs] = await Promise.all([listOpportunityPage(pageFilters), listJobSearchRuns()])
+      const visibleIds = new Set(opportunityPage.items.map((opportunity) => opportunity.id))
+      const selectedJobIds = get().selectedJobIds.filter((id) => visibleIds.has(id))
+      persistPopupState({ selectedJobIds, filters: { ...pageFilters, page: opportunityPage.page, page_size: opportunityPage.page_size } })
+      set({
+        opportunities: opportunityPage.items,
+        opportunityPage: opportunityPage.page,
+        opportunityPageSize: opportunityPage.page_size,
+        opportunityTotalItems: opportunityPage.total_items,
+        opportunityTotalPages: opportunityPage.total_pages,
+        opportunityHasNext: opportunityPage.has_next,
+        opportunityHasPrevious: opportunityPage.has_previous,
+        selectedJobIds,
+        filters: { ...pageFilters, page: opportunityPage.page, page_size: opportunityPage.page_size },
+        runsCount: runs.length
+      })
+      const selectedOpportunityId = loadPersistedPopupState().selectedOpportunityId
+      if (selectedOpportunityId && !get().selectedOpportunity) {
+        await get().openDetail(selectedOpportunityId).catch(() => persistPopupState({ selectedOpportunityId: null }))
+      }
+      console.info("[Opportunity Desk] refreshData finished", { opportunities: opportunityPage.items.length, runs: runs.length })
     } catch (error) {
       console.info("[Opportunity Desk] refreshData failed", describeError(error))
       if (isUnauthorized(error)) {
@@ -363,6 +556,72 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         set({ currentUser: null })
       }
       set({ error: errorMessage(error, "Could not load email setup.") })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  refreshFieldAssistantActivations: async () => {
+    set({ loading: true, error: null })
+    try {
+      set({ fieldAssistantActivations: await listFieldAssistantActivations(), error: null })
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        setApiAccessToken(null)
+        await clearStoredAuthSession()
+        set({ currentUser: null })
+      }
+      set({ error: errorMessage(error, "Could not load field assistant sites.") })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  enableFieldAssistantForCurrent: async (scopeType) => {
+    set({ loading: true, error: null })
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true })
+      const rawUrl = tab?.url || ""
+      const scopeValue = normalizeActivationScope(scopeType, rawUrl)
+      if (!scopeValue) {
+        throw new Error("Open a regular web page before enabling the field assistant.")
+      }
+      const response = await chrome.runtime.sendMessage({
+        type: FIELD_ASSISTANT_MESSAGE_TYPES.enableCurrent,
+        payload: { scopeType, url: rawUrl }
+      })
+      if (!response?.ok) {
+        throw new Error(response?.error || "Could not enable field assistant for this page.")
+      }
+      set({ fieldAssistantActivations: await listFieldAssistantActivations() })
+    } catch (error) {
+      const message = errorMessage(error, "Could not enable field assistant for this page.")
+      set({ error: message })
+      throw new Error(message)
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  updateFieldAssistantActivation: async (id, payload) => {
+    set({ loading: true, error: null })
+    try {
+      await apiUpdateFieldAssistantActivation(id, payload)
+      set({ fieldAssistantActivations: await listFieldAssistantActivations() })
+    } catch (error) {
+      set({ error: errorMessage(error, "Could not update field assistant site.") })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  deleteFieldAssistantActivation: async (id) => {
+    set({ loading: true, error: null })
+    try {
+      await apiDeleteFieldAssistantActivation(id)
+      set({ fieldAssistantActivations: await listFieldAssistantActivations() })
+    } catch (error) {
+      set({ error: errorMessage(error, "Could not remove field assistant site.") })
     } finally {
       set({ loading: false })
     }
@@ -428,9 +687,24 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     }
   },
 
+  setResumeAssistantContext: async (resumeId, enabled) => {
+    set({ loading: true, error: null })
+    try {
+      await updateResume(resumeId, { include_in_field_assistant_context: enabled })
+      set({ resumes: await listResumes() })
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Could not update assistant resume context." })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
   updateFilters: async (nextFilters) => {
-    set({ filters: nextFilters })
-    await get().refreshData(nextFilters)
+    const currentFilters = get().filters
+    const pageScopedFilters = resolveOpportunityPageFilters(currentFilters, nextFilters)
+    persistPopupState({ filters: pageScopedFilters, selectedJobIds: [] })
+    set({ filters: pageScopedFilters, selectedJobIds: [] })
+    await get().refreshData(pageScopedFilters)
   },
 
   startCapture: async () => {
@@ -446,9 +720,11 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       maxPosts,
       maxScrolls
     } = get()
+    const captureProgress: CaptureProgress = { status: "opening", message: "Opening LinkedIn search..." }
+    persistPopupState({ captureProgress })
     set({
       error: null,
-      captureProgress: { status: "opening", message: "Opening LinkedIn search..." }
+      captureProgress
     })
 
     const response = await sendCaptureRequest({
@@ -474,6 +750,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   },
 
   openDetail: async (opportunityId) => {
+    persistPopupState({ selectedOpportunityId: opportunityId })
     set({ loading: true, error: null })
     try {
       const [selectedOpportunity, emailHistory] = await Promise.all([
@@ -509,7 +786,13 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     try {
       await apiDeleteOpportunity(opportunityId)
       const { selectedOpportunity } = get()
+      const selectedJobIds = get().selectedJobIds.filter((id) => id !== opportunityId)
+      persistPopupState({
+        selectedJobIds,
+        selectedOpportunityId: selectedOpportunity?.id === opportunityId ? null : selectedOpportunity?.id || null
+      })
       set({
+        selectedJobIds,
         selectedOpportunity: selectedOpportunity?.id === opportunityId ? null : selectedOpportunity,
         emailHistory: selectedOpportunity?.id === opportunityId ? [] : get().emailHistory
       })
@@ -528,7 +811,13 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       const result = await bulkDeleteOpportunities({ opportunity_ids: opportunityIds })
       const deletedIds = new Set(opportunityIds)
       const { selectedOpportunity } = get()
+      const selectedJobIds = get().selectedJobIds.filter((id) => !deletedIds.has(id))
+      persistPopupState({
+        selectedJobIds,
+        selectedOpportunityId: selectedOpportunity && deletedIds.has(selectedOpportunity.id) ? null : selectedOpportunity?.id || null
+      })
       set({
+        selectedJobIds,
         selectedOpportunity: selectedOpportunity && deletedIds.has(selectedOpportunity.id) ? null : selectedOpportunity,
         emailHistory: selectedOpportunity && deletedIds.has(selectedOpportunity.id) ? [] : get().emailHistory
       })
@@ -536,25 +825,6 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       return result.deleted_count
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Could not delete selected jobs." })
-      return 0
-    } finally {
-      set({ loading: false })
-    }
-  },
-
-  deleteOpportunitiesBySendStatus: async (sendStatus) => {
-    set({ loading: true, error: null })
-    try {
-      const result = await bulkDeleteOpportunities({ send_status: sendStatus })
-      const { selectedOpportunity } = get()
-      set({
-        selectedOpportunity: null,
-        emailHistory: selectedOpportunity ? [] : get().emailHistory
-      })
-      await get().refreshData()
-      return result.deleted_count
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : `Could not delete ${sendStatus} jobs.` })
       return 0
     } finally {
       set({ loading: false })

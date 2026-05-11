@@ -5,7 +5,12 @@ const TABS: PopupTab[] = ["dashboard", "search", "jobs", "templates", "settings"
 
 export function TabNav() {
   const activeTab = usePopupStore((state) => state.activeTab)
+  const currentUser = usePopupStore((state) => state.currentUser)
   const setActiveTab = usePopupStore((state) => state.setActiveTab)
+
+  if (!currentUser) {
+    return null
+  }
 
   return (
     <nav className="tab-list" aria-label="Extension sections">

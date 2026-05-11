@@ -112,6 +112,33 @@ class AIFilterSignals(BaseModel):
     missing_or_unclear_requirements: list[str] = Field(default_factory=list)
     evidence_quotes: list[str] = Field(default_factory=list)
 
+    @field_validator("detected_work_mode", mode="before")
+    @classmethod
+    def normalize_detected_work_mode(cls, value: object) -> DetectedWorkMode:
+        if value is None:
+            return DetectedWorkMode.UNKNOWN
+        raw_value = str(value).strip().lower().replace("_", "-")
+        aliases = {
+            "on-site": DetectedWorkMode.ONSITE,
+            "in-office": DetectedWorkMode.ONSITE,
+            "presencial": DetectedWorkMode.PRESENTIAL,
+            "hibrido": DetectedWorkMode.HYBRID,
+            "híbrido": DetectedWorkMode.HYBRID,
+        }
+        if raw_value in aliases:
+            return aliases[raw_value]
+        allowed = {item.value for item in DetectedWorkMode}
+        if raw_value in allowed:
+            return DetectedWorkMode(raw_value)
+        parts = [part.strip() for part in raw_value.replace(",", "|").replace("/", "|").split("|") if part.strip()]
+        normalized_parts = {aliases.get(part, part).value if isinstance(aliases.get(part), DetectedWorkMode) else part for part in parts}
+        known_parts = normalized_parts & allowed
+        if len(known_parts) > 1:
+            return DetectedWorkMode.MIXED
+        if len(known_parts) == 1:
+            return DetectedWorkMode(next(iter(known_parts)))
+        return DetectedWorkMode.UNKNOWN
+
 
 class JobReviewStatus(StrEnum):
     UNREVIEWED = "unreviewed"

@@ -16,6 +16,8 @@ Construir uma base de desenvolvimento que permita:
 - persistencia estruturada no `PostgreSQL`
 - revisao e qualificacao em fluxo estilo CRM
 - envio assistido de templates de email com curriculo anexado
+- assistente de preenchimento em paginas de candidatura, usando IA e contexto do curriculo para
+  responder campos longos sem expor segredos na extensao
 
 ## Direcao do produto
 
@@ -24,6 +26,8 @@ Expansoes planejadas:
 - painel operacional para revisar oportunidades
 - tracking de outreach
 - templates e campanhas
+- assistente de navegador para campos de candidatura, acionado por overlay em inputs/textareas e
+  reaproveitando respostas recentes por keyword
 - area de IA para gerar prompts e materiais
 - bot de prospeccao freelance para empresas sem site ou com baixa maturidade digital
 - sugestoes de areas com maior concentracao dos nichos escolhidos
@@ -127,8 +131,10 @@ autenticado. Use os mesmos nomes de variaveis em todos os ambientes (`DATABASE_U
 `GMAIL_OAUTH_CLIENT_CONFIG_JSON`, `GMAIL_OAUTH_REDIRECT_URI`, `PLASMO_PUBLIC_API_BASE_URL` e variaveis
 `AUTH_*`), sempre com valores especificos do ambiente.
 
-Estado atual: o recorte de auth/ownership ja existe, mas ainda precisa de hardening final antes de
-uso publicado: atualizar testes legados para bearer auth, revisar contrato OpenAPI, executar smoke de
-dois usuarios, validar OAuth Gmail publicado, aprovar um envio real controlado pelo worker e validar o
-smoke manual da extensao com LinkedIn AI filters. Esse hardening e a proxima spec recomendada antes
-de iniciar o bot `Freelance` Google Maps/Lovable.
+Estado atual: o recorte de auth/ownership ja existe. A extensao suporta email/senha e Google primary
+auth; login Google vincula uma identidade Google a usuario existente quando o email verificado e o
+mesmo, e permanece separado do OAuth Gmail de envio. Ainda faltam hardening e produto: revisar testes
+legados para bearer auth, contrato OpenAPI, smoke de dois usuarios, OAuth Gmail publicado, feedback
+pos-envio e validacao manual ampla da extensao. A proxima spec recomendada agora e o assistente de
+campos com IA na extensao, pois ele aumenta diretamente o valor do fluxo `Full-time` durante
+candidaturas externas.

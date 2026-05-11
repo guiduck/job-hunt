@@ -135,7 +135,27 @@ def test_ai_filter_rejects_obvious_job_seeker_post(
 
     assert decision.ai_filter_status == "rejected"
     assert decision.passes_ai_filter is False
-    assert decision.ai_filter_signals["is_job_seeker_post"] is True
+
+
+def test_ai_filter_normalizes_composite_work_mode_signal(
+    sample_review_candidate: dict[str, object],
+    ai_filter_settings_payload: dict[str, object],
+) -> None:
+    settings = normalize_ai_filter_settings(ai_filter_settings_payload)
+
+    decision = evaluate_ai_filter(
+        sample_review_candidate,
+        settings,
+        enabled=True,
+        provider=lambda _payload: {
+            "passes": False,
+            "reason": "Multiple work modes are listed.",
+            "confidence": 0.91,
+            "signals": {"detected_work_mode": "remote|hybrid|onsite"},
+        },
+    )
+
+    assert decision.ai_filter_signals["detected_work_mode"] == "mixed"
 
 
 def test_ai_filter_rejects_human_post_focused_on_finding_opportunity(

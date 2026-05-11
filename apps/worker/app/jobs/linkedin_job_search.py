@@ -54,6 +54,13 @@ def json_list(value: object, fallback: list[str] | None = None) -> list[str]:
     return list(fallback or [])
 
 
+def truncate_string(value: object, max_length: int) -> str | None:
+    text_value = str(value or "").strip()
+    if not text_value:
+        return None
+    return text_value[:max_length]
+
+
 def normalize_key_part(value: str) -> str:
     return " ".join(value.lower().strip().split())
 
@@ -61,14 +68,17 @@ def normalize_key_part(value: str) -> str:
 def build_job_dedupe_key(candidate: dict[str, object]) -> str:
     title = str(candidate.get("role_title") or candidate.get("post_headline") or "")
     keywords = sorted({normalize_key_part(str(keyword)) for keyword in candidate.get("matched_keywords", []) if keyword})
-    return "|".join(
-        [
-            normalize_key_part(str(candidate.get("company_name") or "")),
-            normalize_key_part(title),
-            ",".join(keywords),
-            normalize_key_part(str(candidate.get("contact_channel_value") or "")),
-        ]
-    )
+    company = normalize_key_part(str(candidate.get("company_name") or ""))
+    normalized_title = normalize_key_part(title)
+    parts = [
+        company,
+        normalized_title,
+        ",".join(keywords),
+        normalize_key_part(str(candidate.get("contact_channel_value") or "")),
+    ]
+    if not company and not normalized_title:
+        parts.append(normalize_key_part(str(candidate.get("source_url") or "")))
+    return "|".join(parts)
 
 
 def inspect_candidates(
@@ -133,12 +143,18 @@ def apply_ai_filters(
     provider: Callable[[dict[str, object]], dict[str, object]] | None = None,
     model_name: str | None = None,
     profile_context: dict[str, object] | None = None,
+    log_context: dict[str, object] | None = None,
 ) -> list[dict[str, object]]:
     settings = normalize_ai_filter_settings(settings_payload)
     filtered: list[dict[str, object]] = []
-    for candidate in candidates:
+    for candidate_index, candidate in enumerate(candidates, start=1):
+        candidate_log_context = {
+            **(log_context or {}),
+            "candidate_index": candidate_index,
+            "candidate_count": len(candidates),
+        }
         if candidate.get("outcome") != "accepted":
-            decision = evaluate_ai_filter(candidate, settings, enabled=False)
+            decision = evaluate_ai_filter(candidate, settings, enabled=False, log_context=candidate_log_context)
         else:
             decision = evaluate_ai_filter(
                 candidate,
@@ -147,6 +163,7 @@ def apply_ai_filters(
                 provider=provider,
                 model_name=model_name,
                 profile_context=profile_context,
+                log_context=candidate_log_context,
             )
         next_candidate = apply_decision(candidate, decision)
         if decision.ai_filter_status == "rejected" or decision.passes_ai_filter is False:
@@ -157,6 +174,10 @@ def apply_ai_filters(
             next_candidate["rejection_reason"] = decision.ai_filter_error_message or decision.ai_filter_reason
         filtered.append(next_candidate)
     return filtered
+
+
+def log_worker_event(event: str, payload: dict[str, object]) -> None:
+    print("[linkedin-job-search] " + json.dumps({"event": event, **payload}, ensure_ascii=False, default=str), flush=True)
 
 
 def load_profile_context(db: Session, user_id: str) -> dict[str, object]:
@@ -418,8 +439,8 @@ def create_job_opportunity(db: Session, user_id: str, candidate: dict[str, objec
         {
             "id": opportunity_id,
             "user_id": user_id,
-            "title": title,
-            "company": company,
+            "title": truncate_string(title, 500) or "",
+            "company": truncate_string(company, 255) or "",
             "source_url": str(candidate.get("source_url") or ""),
             "source_query": str(candidate.get("source_query") or ""),
             "source_evidence": source_evidence,
@@ -431,7 +452,7 @@ def create_job_opportunity(db: Session, user_id: str, candidate: dict[str, objec
             """
             INSERT INTO job_opportunity_details (
                 id, opportunity_id, company_name, role_title, post_headline, job_description,
-                contact_channel_type, contact_channel_value, contact_email, linkedin_url,
+                contact_channel_type, contact_channel_value, contact_email, application_url, linkedin_url,
                 poster_profile_url, contact_priority, hiring_intent_term, collection_source_type,
                 matched_keywords, dedupe_key, job_stage, review_status, match_score, score_explanation,
                 score_factors, analysis_status, analysis_confidence, analysis_error_code,
@@ -441,7 +462,7 @@ def create_job_opportunity(db: Session, user_id: str, candidate: dict[str, objec
             )
             VALUES (
                 :id, :opportunity_id, :company_name, :role_title, :post_headline, :job_description,
-                :contact_channel_type, :contact_channel_value, :contact_email, :linkedin_url,
+                :contact_channel_type, :contact_channel_value, :contact_email, :application_url, :linkedin_url,
                 :poster_profile_url, :contact_priority, :hiring_intent_term, :collection_source_type,
                 :matched_keywords, :dedupe_key, 'new', :review_status, :match_score, :score_explanation,
                 :score_factors, :analysis_status, :analysis_confidence, :analysis_error_code,
@@ -454,18 +475,19 @@ def create_job_opportunity(db: Session, user_id: str, candidate: dict[str, objec
         {
             "id": detail_id,
             "opportunity_id": opportunity_id,
-            "company_name": company,
-            "role_title": str(candidate.get("role_title") or ""),
-            "post_headline": str(candidate.get("post_headline") or ""),
+            "company_name": truncate_string(company, 255),
+            "role_title": truncate_string(candidate.get("role_title"), 500),
+            "post_headline": truncate_string(candidate.get("post_headline"), 500),
             "job_description": str(candidate.get("job_description") or ""),
-            "contact_channel_type": contact_channel_type,
-            "contact_channel_value": contact_value,
-            "contact_email": contact_value if contact_channel_type == "email" else None,
+            "contact_channel_type": truncate_string(contact_channel_type, 50),
+            "contact_channel_value": truncate_string(contact_value, 500),
+            "contact_email": truncate_string(contact_value, 320) if contact_channel_type == "email" else None,
+            "application_url": str(candidate.get("job_url") or candidate.get("source_url") or "") or None,
             "linkedin_url": str(candidate.get("source_url") or ""),
             "poster_profile_url": str(candidate.get("poster_profile_url") or "") or None,
-            "contact_priority": str(candidate.get("contact_priority") or "") or None,
-            "hiring_intent_term": str(candidate.get("hiring_intent_term") or ""),
-            "collection_source_type": str(candidate.get("collection_source_type") or ""),
+            "contact_priority": truncate_string(candidate.get("contact_priority"), 50),
+            "hiring_intent_term": truncate_string(candidate.get("hiring_intent_term"), 100),
+            "collection_source_type": truncate_string(candidate.get("collection_source_type"), 50),
             "matched_keywords": json.dumps(matched_keywords),
             "dedupe_key": dedupe_key,
             "review_status": str(candidate.get("review_status") or "unreviewed"),
@@ -476,11 +498,11 @@ def create_job_opportunity(db: Session, user_id: str, candidate: dict[str, objec
             "analysis_confidence": str(candidate.get("analysis_confidence") or "") or None,
             "analysis_error_code": str(candidate.get("analysis_error_code") or "") or None,
             "analysis_error_message": str(candidate.get("analysis_error_message") or "") or None,
-            "normalized_company_name": str(candidate.get("normalized_company_name") or company) or None,
-            "normalized_role_title": str(candidate.get("normalized_role_title") or title) or None,
-            "detected_seniority": str(candidate.get("detected_seniority") or "") or None,
-            "detected_modality": str(candidate.get("detected_modality") or "") or None,
-            "detected_location": str(candidate.get("detected_location") or "") or None,
+            "normalized_company_name": truncate_string(candidate.get("normalized_company_name") or company, 255),
+            "normalized_role_title": truncate_string(candidate.get("normalized_role_title") or title, 500),
+            "detected_seniority": truncate_string(candidate.get("detected_seniority"), 100),
+            "detected_modality": truncate_string(candidate.get("detected_modality"), 100),
+            "detected_location": truncate_string(candidate.get("detected_location"), 255),
             "missing_keywords": json.dumps(candidate.get("missing_keywords") or []),
             "historical_similarity_signals": json.dumps(candidate.get("historical_similarity_signals") or {}),
             "now": now,
@@ -512,7 +534,7 @@ def create_job_opportunity(db: Session, user_id: str, candidate: dict[str, objec
 
 def record_candidate(db: Session, run_id: str, user_id: str, candidate: dict[str, object]) -> str:
     outcome = str(candidate.get("outcome") or "accepted")
-    dedupe_key = build_job_dedupe_key(candidate)
+    dedupe_key = truncate_string(build_job_dedupe_key(candidate), 1000) or ""
     opportunity_id = None
 
     if outcome == "accepted":
@@ -561,20 +583,20 @@ def record_candidate(db: Session, run_id: str, user_id: str, candidate: dict[str
             "user_id": user_id,
             "run_id": run_id,
             "opportunity_id": opportunity_id,
-            "outcome": outcome,
-            "company_name": str(candidate.get("company_name") or ""),
-            "role_title": str(candidate.get("role_title") or ""),
-            "post_headline": str(candidate.get("post_headline") or ""),
+            "outcome": truncate_string(outcome, 50) or "accepted",
+            "company_name": truncate_string(candidate.get("company_name"), 255) or "",
+            "role_title": truncate_string(candidate.get("role_title"), 500) or "",
+            "post_headline": truncate_string(candidate.get("post_headline"), 500) or "",
             "job_description": str(candidate.get("job_description") or ""),
-            "contact_channel_type": str(candidate.get("contact_channel_type") or "") or None,
-            "contact_channel_value": str(candidate.get("contact_channel_value") or "") or None,
-            "collection_source_type": str(candidate.get("collection_source_type") or ""),
-            "hiring_intent_term": str(candidate.get("hiring_intent_term") or ""),
-            "provider_name": str(candidate.get("provider_name") or ""),
-            "provider_status": str(candidate.get("provider_status") or "collected"),
-            "provider_error_code": str(candidate.get("provider_error_code") or "") or None,
+            "contact_channel_type": truncate_string(candidate.get("contact_channel_type"), 50),
+            "contact_channel_value": truncate_string(candidate.get("contact_channel_value"), 500),
+            "collection_source_type": truncate_string(candidate.get("collection_source_type"), 50) or "",
+            "hiring_intent_term": truncate_string(candidate.get("hiring_intent_term"), 100) or "",
+            "provider_name": truncate_string(candidate.get("provider_name"), 100) or "",
+            "provider_status": truncate_string(candidate.get("provider_status") or "collected", 50) or "collected",
+            "provider_error_code": truncate_string(candidate.get("provider_error_code"), 100),
             "poster_profile_url": str(candidate.get("poster_profile_url") or "") or None,
-            "contact_priority": str(candidate.get("contact_priority") or "") or None,
+            "contact_priority": truncate_string(candidate.get("contact_priority"), 50),
             "source_url": str(candidate.get("source_url") or ""),
             "source_query": str(candidate.get("source_query") or ""),
             "source_evidence": str(candidate.get("source_evidence") or "") or None,
@@ -582,28 +604,32 @@ def record_candidate(db: Session, run_id: str, user_id: str, candidate: dict[str
             "match_score": candidate.get("match_score"),
             "score_explanation": str(candidate.get("score_explanation") or "") or None,
             "score_factors": json.dumps(candidate.get("score_factors") or {}),
-            "analysis_status": str(candidate.get("analysis_status") or "skipped"),
-            "analysis_confidence": str(candidate.get("analysis_confidence") or "") or None,
-            "analysis_error_code": str(candidate.get("analysis_error_code") or "") or None,
+            "analysis_status": truncate_string(candidate.get("analysis_status") or "skipped", 50) or "skipped",
+            "analysis_confidence": truncate_string(candidate.get("analysis_confidence"), 50),
+            "analysis_error_code": truncate_string(candidate.get("analysis_error_code"), 100),
             "analysis_error_message": str(candidate.get("analysis_error_message") or "") or None,
-            "ai_model_name": str(candidate.get("ai_model_name") or "") or None,
-            "ai_prompt_version": str(candidate.get("ai_prompt_version") or "") or None,
+            "ai_model_name": truncate_string(candidate.get("ai_model_name"), 255),
+            "ai_prompt_version": truncate_string(candidate.get("ai_prompt_version"), 100),
             "passes_ai_filter": candidate.get("passes_ai_filter") if isinstance(candidate.get("passes_ai_filter"), bool) else None,
-            "ai_filter_status": str(candidate.get("ai_filter_status") or "skipped"),
+            "ai_filter_status": truncate_string(candidate.get("ai_filter_status") or "skipped", 50) or "skipped",
             "ai_filter_reason": str(candidate.get("ai_filter_reason") or "") or None,
             "ai_filter_confidence": candidate.get("ai_filter_confidence")
             if isinstance(candidate.get("ai_filter_confidence"), int | float)
             else None,
             "ai_filter_signals": json.dumps(candidate.get("ai_filter_signals") or {}),
-            "ai_filter_error_code": str(candidate.get("ai_filter_error_code") or "") or None,
+            "ai_filter_error_code": truncate_string(candidate.get("ai_filter_error_code"), 100),
             "ai_filter_error_message": str(candidate.get("ai_filter_error_message") or "") or None,
-            "ai_filter_model_name": str(candidate.get("ai_filter_model_name") or "") or None,
-            "ai_filter_prompt_version": str(candidate.get("ai_filter_prompt_version") or "") or None,
-            "normalized_company_name": str(candidate.get("normalized_company_name") or candidate.get("company_name") or "") or None,
-            "normalized_role_title": str(candidate.get("normalized_role_title") or candidate.get("role_title") or candidate.get("post_headline") or "") or None,
-            "detected_seniority": str(candidate.get("detected_seniority") or "") or None,
-            "detected_modality": str(candidate.get("detected_modality") or "") or None,
-            "detected_location": str(candidate.get("detected_location") or "") or None,
+            "ai_filter_model_name": truncate_string(candidate.get("ai_filter_model_name"), 255),
+            "ai_filter_prompt_version": truncate_string(candidate.get("ai_filter_prompt_version"), 100),
+            "normalized_company_name": truncate_string(
+                candidate.get("normalized_company_name") or candidate.get("company_name"), 255
+            ),
+            "normalized_role_title": truncate_string(
+                candidate.get("normalized_role_title") or candidate.get("role_title") or candidate.get("post_headline"), 500
+            ),
+            "detected_seniority": truncate_string(candidate.get("detected_seniority"), 100),
+            "detected_modality": truncate_string(candidate.get("detected_modality"), 100),
+            "detected_location": truncate_string(candidate.get("detected_location"), 255),
             "missing_keywords": json.dumps(candidate.get("missing_keywords") or []),
             "historical_similarity_signals": json.dumps(candidate.get("historical_similarity_signals") or {}),
             "raw_excerpt": str(candidate.get("raw_excerpt") or "") or None,
@@ -615,6 +641,55 @@ def record_candidate(db: Session, run_id: str, user_id: str, candidate: dict[str
     candidate["outcome"] = outcome
     candidate["opportunity_id"] = opportunity_id
     return row_id
+
+
+def update_running_run_progress(db: Session, run_id: str, candidates: list[dict[str, object]]) -> None:
+    inspected_count = len(candidates)
+    accepted_count = sum(1 for candidate in candidates if candidate.get("outcome") == "accepted")
+    duplicate_count = sum(1 for candidate in candidates if candidate.get("outcome") == "duplicate")
+    rejected_count = sum(1 for candidate in candidates if str(candidate.get("outcome") or "") in REJECTED_OUTCOMES)
+    ai_filter_inspected_count = sum(
+        1 for candidate in candidates if candidate.get("ai_filter_status") in {"passed", "rejected", "fallback", "failed"}
+    )
+    ai_filter_passed_count = sum(1 for candidate in candidates if candidate.get("ai_filter_status") == "passed")
+    ai_filter_rejected_count = sum(1 for candidate in candidates if candidate.get("ai_filter_status") == "rejected")
+    ai_filter_fallback_count = sum(1 for candidate in candidates if candidate.get("ai_filter_status") == "fallback")
+    ai_filter_failed_count = sum(1 for candidate in candidates if candidate.get("ai_filter_status") == "failed")
+    ai_filter_skipped_count = sum(1 for candidate in candidates if candidate.get("ai_filter_status") == "skipped")
+    now = datetime.now(UTC)
+    db.execute(
+        text(
+            """
+            UPDATE job_search_runs
+            SET inspected_count = :inspected_count,
+                accepted_count = :accepted_count,
+                rejected_count = :rejected_count,
+                duplicate_count = :duplicate_count,
+                ai_filter_inspected_count = :ai_filter_inspected_count,
+                ai_filter_passed_count = :ai_filter_passed_count,
+                ai_filter_rejected_count = :ai_filter_rejected_count,
+                ai_filter_fallback_count = :ai_filter_fallback_count,
+                ai_filter_failed_count = :ai_filter_failed_count,
+                ai_filter_skipped_count = :ai_filter_skipped_count,
+                updated_at = :now
+            WHERE id = :run_id AND status = 'running'
+            """
+        ),
+        {
+            "run_id": run_id,
+            "inspected_count": inspected_count,
+            "accepted_count": accepted_count,
+            "rejected_count": rejected_count,
+            "duplicate_count": duplicate_count,
+            "ai_filter_inspected_count": ai_filter_inspected_count,
+            "ai_filter_passed_count": ai_filter_passed_count,
+            "ai_filter_rejected_count": ai_filter_rejected_count,
+            "ai_filter_fallback_count": ai_filter_fallback_count,
+            "ai_filter_failed_count": ai_filter_failed_count,
+            "ai_filter_skipped_count": ai_filter_skipped_count,
+            "now": now,
+        },
+    )
 
 
 def finalize_run(db: Session, run_id: str, candidates: list[dict[str, object]]) -> None:
@@ -695,7 +770,7 @@ def finalize_run(db: Session, run_id: str, candidates: list[dict[str, object]]) 
             "accepted_count": accepted_count,
             "rejected_count": rejected_count,
             "duplicate_count": duplicate_count,
-            "cap_reached": inspected_count >= 50,
+            "cap_reached": False,
             "provider_status": provider_status,
             "provider_error_code": str(provider_error.get("provider_error_code") or "") if provider_error else None,
             "provider_error_message": str(provider_error.get("rejection_reason") or "") if provider_error else None,
@@ -765,31 +840,90 @@ def process_one_run(db: Session, pending_run: dict[str, Any], settings: WorkerSe
             settings.openai_api_key,
             settings.job_ai_filter_model_name or "gpt-4o-mini",
         )
+    log_worker_event(
+        "ai_filter_config",
+        {
+            "run_id": str(run["id"]),
+            "user_id": user_id,
+            "run_ai_filters_enabled": bool(run.get("ai_filters_enabled")),
+            "worker_ai_filters_enabled": settings.job_ai_filters_enabled,
+            "effective_ai_filters_enabled": ai_filters_enabled,
+            "provider_configured": ai_filter_provider is not None,
+            "model_name": settings.job_ai_filter_model_name,
+            "settings": ai_filter_settings or {},
+            "requested_keywords": requested_keywords,
+            "hiring_intent_terms": hiring_terms,
+            "collection_source_types": collection_source_types,
+            "candidate_limit": candidate_limit,
+        },
+    )
 
     try:
-        candidates = collect_and_inspect_candidates(
+        raw_candidates = collect_candidates(
             requested_keywords=requested_keywords,
             hiring_intent_terms=hiring_terms,
             collection_inputs=collection_inputs,
             collection_source_types=collection_source_types,
-            limit=candidate_limit,
+            candidate_limit=candidate_limit,
         )
-        candidates = analyze_inspected_candidates(
-            candidates,
-            requested_keywords,
-            ai_enabled=settings.job_review_ai_analysis_enabled,
-        )
-        candidates = apply_ai_filters(
-            candidates,
-            enabled=ai_filters_enabled,
-            settings_payload=ai_filter_settings,
-            provider=ai_filter_provider,
-            model_name=settings.job_ai_filter_model_name,
-            profile_context=profile_context,
-        )
-        for candidate in candidates:
+        selected_raw_candidates = raw_candidates if candidate_limit is None else raw_candidates[:candidate_limit]
+        candidates: list[dict[str, object]] = []
+        for candidate_index, raw_candidate in enumerate(selected_raw_candidates, start=1):
+            candidate = normalize_candidate(parse_candidate(raw_candidate, requested_keywords))
+            candidate = analyze_inspected_candidates(
+                [candidate],
+                requested_keywords,
+                ai_enabled=settings.job_review_ai_analysis_enabled,
+            )[0]
+            candidate = apply_ai_filters(
+                [candidate],
+                enabled=ai_filters_enabled,
+                settings_payload=ai_filter_settings,
+                provider=ai_filter_provider,
+                model_name=settings.job_ai_filter_model_name,
+                profile_context=profile_context,
+                log_context={
+                    "run_id": str(run["id"]),
+                    "user_id": user_id,
+                    "provider_configured": ai_filter_provider is not None,
+                    "effective_ai_filters_enabled": ai_filters_enabled,
+                    "model_name": settings.job_ai_filter_model_name,
+                    "candidate_index": candidate_index,
+                    "candidate_count": len(selected_raw_candidates),
+                },
+            )[0]
             record_candidate(db, str(run["id"]), user_id, candidate)
+            candidates.append(candidate)
+            update_running_run_progress(db, str(run["id"]), candidates)
+            db.commit()
+            log_worker_event(
+                "run_progress",
+                {
+                    "run_id": str(run["id"]),
+                    "candidate_index": candidate_index,
+                    "candidate_count": len(selected_raw_candidates),
+                    "accepted_count": sum(1 for item in candidates if item.get("outcome") == "accepted"),
+                    "rejected_count": sum(1 for item in candidates if str(item.get("outcome") or "") in REJECTED_OUTCOMES),
+                    "duplicate_count": sum(1 for item in candidates if item.get("outcome") == "duplicate"),
+                },
+            )
         finalize_run(db, str(run["id"]), candidates)
+        log_worker_event(
+            "ai_filter_summary",
+            {
+                "run_id": str(run["id"]),
+                "candidate_count": len(candidates),
+                "accepted_count": sum(1 for candidate in candidates if candidate.get("outcome") == "accepted"),
+                "rejected_ai_filter_count": sum(
+                    1 for candidate in candidates if candidate.get("outcome") == "rejected_ai_filter"
+                ),
+                "fallback_count": sum(1 for candidate in candidates if candidate.get("ai_filter_status") == "fallback"),
+                "passed_count": sum(1 for candidate in candidates if candidate.get("ai_filter_status") == "passed"),
+                "rejected_count": sum(1 for candidate in candidates if candidate.get("ai_filter_status") == "rejected"),
+                "failed_count": sum(1 for candidate in candidates if candidate.get("ai_filter_status") == "failed"),
+                "skipped_count": sum(1 for candidate in candidates if candidate.get("ai_filter_status") == "skipped"),
+            },
+        )
         return True
     except Exception as exc:
         db.rollback()

@@ -13,6 +13,7 @@ export function AuthView() {
   const [resetToken, setResetToken] = useState("")
   const loading = usePopupStore((state) => state.loading)
   const login = usePopupStore((state) => state.login)
+  const loginWithGoogle = usePopupStore((state) => state.loginWithGoogle)
   const register = usePopupStore((state) => state.register)
   const requestPasswordReset = usePopupStore((state) => state.requestPasswordReset)
   const confirmPasswordReset = usePopupStore((state) => state.confirmPasswordReset)
@@ -38,6 +39,14 @@ export function AuthView() {
         <h2>{mode === "register" ? "Create your workspace" : "Welcome back"}</h2>
         <p>Keep LinkedIn jobs, templates, resumes, and Gmail sending scoped to your account.</p>
       </div>
+      {mode === "login" || mode === "register" ? (
+        <button className="google-auth-button" disabled={loading} onClick={() => void loginWithGoogle()} type="button">
+          <span className="google-auth-icon" aria-hidden="true">
+            G
+          </span>
+          <span>{mode === "login" ? "Login with Google" : "Sign up with Google / Cadastrar com Google"}</span>
+        </button>
+      ) : null}
       <form className="form-stack" onSubmit={(event) => void submit(event)}>
         {mode !== "reset-confirm" ? (
           <label className="field">
@@ -68,7 +77,7 @@ export function AuthView() {
         </button>
       </form>
       <p className="message">
-        Google connection is configured after login in Settings. Google sign-in will need a dedicated auth flow before it can replace email login.
+        Google sign-in opens the app session only. Gmail sending still requires the separate sender connection in Settings.
       </p>
       <div className="button-row">
         <button className="link-button" onClick={() => setMode(mode === "login" ? "register" : "login")} type="button">

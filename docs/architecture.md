@@ -9,6 +9,7 @@ A base atual do projeto deve permanecer simples e compativel com o `constitution
 - `Docker Compose` para ambiente local
 - worker separado para jobs demorados
 - extensao Chrome/Plasmo como primeira interface operacional local
+- content scripts da extensao para overlays assistivos em paginas externas de candidatura
 
 ## Objetivo arquitetural
 
@@ -19,6 +20,8 @@ A arquitetura precisa suportar:
 - armazenamento estruturado e reutilizavel
 - operacao manual em fluxo de CRM
 - outreach assistido por contexto, template, curriculo anexado e envio real aprovado pelo operador
+- respostas assistidas por IA em campos externos de candidatura, sempre inseridas por acao explicita
+  do usuario
 - evolucao futura para IA e interfaces internas
 
 ## Componentes principais
@@ -33,6 +36,8 @@ Responsavel por expor operacao e consulta:
 - endpoints para iniciar jobs
 - endpoints para revisar templates, anexos e envios
 - endpoints para preparar drafts, aprovar envios e consultar eventos de outreach
+- endpoints para gerar respostas de formulario com IA usando curriculo/perfil, salvar respostas
+  recentes por keyword e consultar opcoes anteriores
 
 A API nao deve executar scraping pesado, enriquecimento demorado ou envio em lote no mesmo
 processo HTTP.
@@ -63,6 +68,12 @@ falsos positivos e devolver JSON validado contra os schemas existentes.
 Essa separacao evita um fluxo opaco: a IA ajuda a entender melhor o texto coletado, mas nao deve
 burlar login, rate limit, controles de acesso ou transformar a busca em navegacao automatica sem
 rastreabilidade.
+
+Para o assistente de campos em paginas externas, a IA tambem deve ficar atras da API/worker: a
+extensao coleta apenas metadados seguros do campo e texto de pergunta/label, envia ao backend
+autenticado e recebe uma resposta revisavel. `OPENAI_API_KEY`, prompts sensiveis, curriculo extraido e
+historico completo nunca devem ser enviados para o content script alem do texto final aprovado para
+insercao.
 
 ### Banco
 
@@ -98,6 +109,11 @@ A extensao e a primeira interface operacional real do modo `Full-time`. Ela deve
   e capturar publicacoes visiveis
 - exibir dashboard, busca, lista, detalhe, filtros, diagnosticos de captura e acoes de candidatura
 - acionar drafts/envios de email pela API, sem guardar segredo sensivel dentro do bundle da extensao
+- injetar overlays leves em inputs, textareas e campos `contenteditable` de paginas externas quando
+  houver criterios de candidatura/pergunta, mostrando um botao de varinha magica e dropdown de
+  respostas recentes
+- oferecer uma shell persistente via content script, semelhante ao padrao do projeto de referencia
+  `references/chrome-plugin-v3`, substituindo a janela `Keep open` no fluxo autenticado
 
 ### Envio de email
 
@@ -140,6 +156,21 @@ Os referenciais visuais atuais sugerem uma web com modulos como:
 - areas auxiliares de feedback, discussoes, comunidade e changelog
 
 ## Fronteiras importantes
+
+### Popup x content script
+
+- O popup nativo do Chrome fecha ao perder foco; fluxos que precisam permanecer abertos devem usar
+  uma UI injetada por content script com mensagens para background.
+- A UI injetada deve ser restrita a usuario autenticado, permissao de host adequada e dominios
+  suportados, evitando invadir campos sensiveis como senha, cartao, OTP ou dados pessoais fora de
+  contexto de candidatura.
+- Overlays em campos devem ser elementos reais posicionados ao lado/fim do campo, nao dependentes de
+  `::before`/`::after` em `input`, porque pseudo-elementos em controles nativos sao inconsistentes.
+- No recorte atual, o content script roda em paginas `http/https`, mas a operacao real fica bloqueada
+  ate existir sessao local valida e ativacao owner-scoped para dominio base ou pagina exata.
+- As chamadas de IA e a leitura de curriculo/perfil ficam atras da API autenticada; o content script
+  recebe apenas a resposta textual revisavel e nunca recebe secrets, prompts internos ou bytes de
+  curriculo.
 
 ### API x worker
 

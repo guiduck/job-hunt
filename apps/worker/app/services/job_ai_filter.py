@@ -9,6 +9,14 @@ from urllib import error, request
 
 CONFIDENCE_THRESHOLD = 0.70
 PROMPT_VERSION = "job-ai-filter-v3"
+WORK_MODE_VALUES = {"remote", "hybrid", "onsite", "presential", "unknown", "mixed"}
+WORK_MODE_ALIASES = {
+    "on-site": "onsite",
+    "in-office": "onsite",
+    "presencial": "presential",
+    "hibrido": "hybrid",
+    "híbrido": "hybrid",
+}
 
 SKIPPED_OUTCOMES = {
     "duplicate",
@@ -119,16 +127,30 @@ def evaluate_ai_filter(
     provider: Callable[[dict[str, object]], dict[str, object]] | None = None,
     model_name: str | None = None,
     profile_context: dict[str, object] | None = None,
+    log_context: dict[str, object] | None = None,
 ) -> AIFilterDecision:
     if str(candidate.get("outcome") or "accepted") in SKIPPED_OUTCOMES:
-        return AIFilterDecision(None, "skipped", "Skipped because an earlier deterministic outcome already decided this candidate.")
+        decision = AIFilterDecision(
+            None,
+            "skipped",
+            "Skipped because an earlier deterministic outcome already decided this candidate.",
+        )
+        log_ai_filter_decision(candidate, settings, decision, provider_output=None, log_context=log_context)
+        return decision
 
     if not enabled:
-        return deterministic_fallback(candidate, settings, error_code="ai_filters_disabled", error_message="AI filters are disabled.")
+        decision = deterministic_fallback(
+            candidate,
+            settings,
+            error_code="ai_filters_disabled",
+            error_message="AI filters are disabled.",
+        )
+        log_ai_filter_decision(candidate, settings, decision, provider_output=None, log_context=log_context)
+        return decision
 
     job_seeker_decision = reject_obvious_job_seeker_post(candidate, model_name=model_name)
     if job_seeker_decision is not None:
-        log_ai_filter_decision(candidate, settings, job_seeker_decision, provider_output=None)
+        log_ai_filter_decision(candidate, settings, job_seeker_decision, provider_output=None, log_context=log_context)
         return job_seeker_decision
 
     if provider is None:
@@ -138,18 +160,18 @@ def evaluate_ai_filter(
             error_code="ai_not_configured",
             error_message="AI filters are enabled but no provider is configured.",
         )
-        log_ai_filter_decision(candidate, settings, decision, provider_output=None)
+        log_ai_filter_decision(candidate, settings, decision, provider_output=None, log_context=log_context)
         return decision
 
     try:
         output = provider(build_ai_filter_input(candidate, settings, profile_context))
     except TimeoutError:
         decision = deterministic_fallback(candidate, settings, error_code="ai_timeout", error_message="AI filter provider timed out.")
-        log_ai_filter_decision(candidate, settings, decision, provider_output=None)
+        log_ai_filter_decision(candidate, settings, decision, provider_output=None, log_context=log_context)
         return decision
     except Exception as exc:  # noqa: BLE001 - provider failures must not break capture.
         decision = deterministic_fallback(candidate, settings, error_code="ai_unavailable", error_message=str(exc))
-        log_ai_filter_decision(candidate, settings, decision, provider_output=None)
+        log_ai_filter_decision(candidate, settings, decision, provider_output=None, log_context=log_context)
         return decision
 
     validated = validate_ai_filter_output(output)
@@ -160,7 +182,7 @@ def evaluate_ai_filter(
             error_code="invalid_ai_output",
             error_message="AI filter provider returned invalid structured output.",
         )
-        log_ai_filter_decision(candidate, settings, decision, provider_output=output)
+        log_ai_filter_decision(candidate, settings, decision, provider_output=output, log_context=log_context)
         return decision
 
     confidence = float(validated["confidence"])
@@ -173,7 +195,7 @@ def evaluate_ai_filter(
             error_code="low_confidence",
             error_message="AI filter confidence was below 0.70.",
         )
-        log_ai_filter_decision(candidate, settings, decision, provider_output=output)
+        log_ai_filter_decision(candidate, settings, decision, provider_output=output, log_context=log_context)
         return decision
 
     passes = bool(validated["passes"])
@@ -185,7 +207,7 @@ def evaluate_ai_filter(
         ai_filter_signals=dict(validated.get("signals") or {}),
         ai_filter_model_name=model_name,
     )
-    log_ai_filter_decision(candidate, settings, decision, provider_output=output)
+    log_ai_filter_decision(candidate, settings, decision, provider_output=output, log_context=log_context)
     return decision
 
 
@@ -332,23 +354,34 @@ def log_ai_filter_decision(
     decision: AIFilterDecision,
     *,
     provider_output: object,
+    log_context: dict[str, object] | None = None,
 ) -> None:
+    fallback_trigger = explain_fallback_trigger(decision)
+    unmet_criteria = explain_unmet_criteria(settings, decision)
     print(
         "[job-ai-filter] "
         + json.dumps(
             {
+                "event": "decision",
+                "context": log_context or {},
                 "status": decision.ai_filter_status,
                 "passes": decision.passes_ai_filter,
                 "confidence": decision.ai_filter_confidence,
                 "reason": decision.ai_filter_reason,
                 "error_code": decision.ai_filter_error_code,
+                "error_message": decision.ai_filter_error_message,
+                "fallback_trigger": fallback_trigger,
+                "unmet_criteria": unmet_criteria,
                 "signals": decision.ai_filter_signals,
-                "settings": settings.__dict__,
+                "search_criteria": describe_search_criteria(settings),
                 "candidate": {
                     "title": str(candidate.get("role_title") or candidate.get("post_headline") or "")[:160],
                     "company": str(candidate.get("company_name") or "")[:120],
                     "contact": str(candidate.get("contact_channel_value") or "")[:120],
                     "source_url": str(candidate.get("source_url") or "")[:240],
+                    "source_query": str(candidate.get("source_query") or "")[:240],
+                    "matched_keywords": [str(item) for item in candidate.get("matched_keywords", []) if item][:20],
+                    "previous_outcome": str(candidate.get("outcome") or "accepted"),
                     "evidence_preview": str(candidate.get("source_evidence") or candidate.get("raw_excerpt") or "")[:500],
                 },
                 "provider_output": provider_output,
@@ -358,6 +391,62 @@ def log_ai_filter_decision(
         ),
         flush=True,
     )
+
+
+def describe_search_criteria(settings: AIFilterSettings) -> dict[str, object]:
+    return {
+        "remote_only": settings.remote_only,
+        "exclude_onsite": settings.exclude_onsite,
+        "accepted_regions": settings.accepted_regions,
+        "excluded_regions": settings.excluded_regions,
+        "confidence_threshold": CONFIDENCE_THRESHOLD,
+        "prompt_version": PROMPT_VERSION,
+    }
+
+
+def explain_fallback_trigger(decision: AIFilterDecision) -> str | None:
+    if decision.ai_filter_status != "fallback":
+        return None
+    if decision.ai_filter_error_code == "ai_not_configured":
+        return "AI filters were enabled for the run, but the worker did not have a configured provider/key."
+    if decision.ai_filter_error_code == "low_confidence":
+        return "AI returned confidence below the configured threshold, so deterministic fallback kept the legacy decision."
+    if decision.ai_filter_error_code == "invalid_ai_output":
+        return "AI returned malformed or incomplete JSON, so deterministic fallback kept the legacy decision."
+    if decision.ai_filter_error_code == "ai_timeout":
+        return "AI provider timed out, so deterministic fallback kept the legacy decision."
+    if decision.ai_filter_error_code == "ai_unavailable":
+        return "AI provider request failed, so deterministic fallback kept the legacy decision."
+    if decision.ai_filter_error_code == "ai_filters_disabled":
+        return "AI filters were disabled, so deterministic fallback kept the legacy decision."
+    return "Deterministic fallback kept the legacy decision after an uncertain AI filter result."
+
+
+def explain_unmet_criteria(settings: AIFilterSettings, decision: AIFilterDecision) -> list[str]:
+    criteria: list[str] = []
+    signals = decision.ai_filter_signals or {}
+    work_mode = str(signals.get("detected_work_mode") or "unknown")
+    speaker_type = str(signals.get("speaker_type") or "unknown")
+    if decision.ai_filter_status == "rejected" or decision.passes_ai_filter is False:
+        if signals.get("is_job_seeker_post") is True or speaker_type == "job_seeker":
+            criteria.append("Post appears to be from a person looking for work, not an employer/recruiter hiring.")
+        if signals.get("has_real_job_opening") is False:
+            criteria.append("AI did not find evidence of a real job opening.")
+        rejected_regions = [str(item) for item in signals.get("rejected_regions", []) if item]
+        if rejected_regions:
+            criteria.append(f"Matched excluded region(s): {', '.join(rejected_regions)}.")
+        if settings.exclude_onsite and work_mode in {"onsite", "hybrid", "presential", "mixed"}:
+            criteria.append(f"Detected disallowed work mode: {work_mode}.")
+        if settings.remote_only and work_mode not in {"remote", "mixed", "unknown"}:
+            criteria.append(f"Remote-only filter was not satisfied; detected work mode: {work_mode}.")
+        if not criteria and decision.ai_filter_reason:
+            criteria.append(decision.ai_filter_reason)
+    elif decision.ai_filter_status == "fallback":
+        if decision.ai_filter_error_code == "low_confidence":
+            criteria.append("No search criterion was rejected with enough confidence; AI confidence was below threshold.")
+        elif decision.ai_filter_error_code:
+            criteria.append("No AI rejection criterion was trusted because the AI step could not be used.")
+    return criteria
 
 
 def validate_ai_filter_output(output: object) -> dict[str, object] | None:
@@ -373,6 +462,8 @@ def validate_ai_filter_output(output: object) -> dict[str, object] | None:
     if not isinstance(confidence, int | float) or confidence < 0 or confidence > 1:
         return None
     signals = output.get("signals")
+    if isinstance(signals, dict):
+        signals = normalize_ai_filter_signals(signals)
     if isinstance(signals, dict) and signals.get("is_job_seeker_post") is True:
         return {
             "passes": False,
@@ -386,6 +477,29 @@ def validate_ai_filter_output(output: object) -> dict[str, object] | None:
         "confidence": float(confidence),
         "signals": signals if isinstance(signals, dict) else {},
     }
+
+
+def normalize_ai_filter_signals(signals: dict[str, object]) -> dict[str, object]:
+    return {
+        **signals,
+        "detected_work_mode": normalize_work_mode(signals.get("detected_work_mode")),
+    }
+
+
+def normalize_work_mode(value: object) -> str:
+    if value is None:
+        return "unknown"
+    raw_value = str(value).strip().lower().replace("_", "-")
+    raw_value = WORK_MODE_ALIASES.get(raw_value, raw_value)
+    if raw_value in WORK_MODE_VALUES:
+        return raw_value
+    parts = [part.strip() for part in raw_value.replace(",", "|").replace("/", "|").split("|") if part.strip()]
+    known_parts = {WORK_MODE_ALIASES.get(part, part) for part in parts} & WORK_MODE_VALUES
+    if len(known_parts) > 1:
+        return "mixed"
+    if len(known_parts) == 1:
+        return next(iter(known_parts))
+    return "unknown"
 
 
 def candidate_text(candidate: dict[str, object]) -> str:

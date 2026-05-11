@@ -14,8 +14,9 @@ from app.models.opportunity import (
 from app.models.job_search_run import JobSearchCandidate
 from app.models.email import EmailDraft, OutreachEvent, SendRequest, SendRequestStatus, TemplateKind
 from app.models.user import User
-from app.schemas.opportunity import OpportunityCreate, OpportunityUpdate
+from app.schemas.opportunity import OpportunityCreate, OpportunityPage, OpportunityUpdate
 from app.services.auth_service import ensure_default_local_user
+from app.services.email_constants import sanitize_email_address
 from app.services.job_dedupe import build_job_dedupe_key
 from app.services.job_review_scoring import default_review_profile
 
@@ -78,12 +79,19 @@ def create_opportunity(
         raise ValueError("job_detail is required")
 
     matched_keywords = list(detail_payload.matched_keywords)
+    contact_channel_value = (
+        sanitize_email_address(detail_payload.contact_channel_value)
+        if detail_payload.contact_channel_type == ContactChannelType.EMAIL
+        else detail_payload.contact_channel_value
+    )
+    contact_email = sanitize_email_address(detail_payload.contact_email or contact_channel_value)
     dedupe_key = detail_payload.dedupe_key or build_job_dedupe_key(
         detail_payload.company_name or payload.organization_name,
         detail_payload.role_title,
         detail_payload.post_headline or payload.title,
         matched_keywords,
-        detail_payload.contact_channel_value,
+        contact_channel_value,
+        payload.source_url,
     )
 
     existing = get_opportunity_by_dedupe_key(db, dedupe_key, user=user, user_id=owner_id)
@@ -112,10 +120,8 @@ def create_opportunity(
         post_headline=detail_payload.post_headline or payload.title,
         job_description=detail_payload.job_description,
         contact_channel_type=detail_payload.contact_channel_type.value,
-        contact_channel_value=detail_payload.contact_channel_value,
-        contact_email=detail_payload.contact_channel_value
-        if detail_payload.contact_channel_type == ContactChannelType.EMAIL
-        else detail_payload.contact_email,
+        contact_channel_value=contact_channel_value,
+        contact_email=contact_email if detail_payload.contact_channel_type == ContactChannelType.EMAIL else contact_email,
         application_url=detail_payload.application_url,
         linkedin_url=detail_payload.linkedin_url or payload.source_url,
         poster_profile_url=detail_payload.poster_profile_url,
@@ -255,6 +261,7 @@ def list_opportunities(
                 JobOpportunityDetail.post_headline.ilike(search),
                 JobOpportunityDetail.job_description.ilike(search),
                 JobOpportunityDetail.contact_channel_value.ilike(search),
+                JobOpportunityDetail.contact_email.ilike(search),
             )
         )
     if send_status in {"sent", "unsent"}:
@@ -273,6 +280,31 @@ def list_opportunities(
     # campaign_id is reserved for future campaign linkage; keep the accepted query parameter additive.
     statement = statement.order_by(Opportunity.captured_at.asc() if sort_order == "oldest" else Opportunity.captured_at.desc())
     return list(db.scalars(statement).unique())
+
+
+def list_opportunity_page(
+    db: Session,
+    *,
+    page: int = 1,
+    page_size: int = 50,
+    **filters,
+) -> OpportunityPage:
+    safe_page_size = max(1, min(page_size, 100))
+    all_items = list_opportunities(db, **filters)
+    total_items = len(all_items)
+    total_pages = max(1, (total_items + safe_page_size - 1) // safe_page_size)
+    safe_page = max(1, min(page, total_pages))
+    start = (safe_page - 1) * safe_page_size
+    end = start + safe_page_size
+    return OpportunityPage(
+        items=all_items[start:end],
+        page=safe_page,
+        page_size=safe_page_size,
+        total_items=total_items,
+        total_pages=total_pages,
+        has_next=safe_page < total_pages,
+        has_previous=safe_page > 1,
+    )
 
 
 def update_opportunity(db: Session, opportunity_id: str, payload: OpportunityUpdate, user: User | None = None) -> Opportunity | None:

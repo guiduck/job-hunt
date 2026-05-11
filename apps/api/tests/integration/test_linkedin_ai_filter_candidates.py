@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session
 
 from app.schemas.job_search_run import JobSearchRunCreate
 from app.services.job_search_run_service import create_job_search_run, list_candidates, record_candidate
+from app.models.user import User
+from fastapi.testclient import TestClient
 
 
 def test_persists_candidate_ai_filter_decision(
@@ -40,3 +42,34 @@ def test_candidate_list_filters_by_ai_filter_status(
 
     assert len(rejected) == 1
     assert rejected[0].outcome == "rejected_ai_filter"
+
+
+def test_candidate_endpoint_normalizes_composite_ai_work_mode(
+    client: TestClient,
+    db_session: Session,
+    auth_headers: dict[str, str],
+    test_user: User,
+    ai_filter_candidate_payload: dict[str, object],
+) -> None:
+    run = create_job_search_run(
+        db_session,
+        JobSearchRunCreate(
+            keywords=["typescript"],
+            search_query="hiring typescript",
+            ai_filters_enabled=True,
+        ),
+        user=test_user,
+    )
+    record_candidate(
+        db_session,
+        run,
+        {
+            **ai_filter_candidate_payload,
+            "ai_filter_signals": {"detected_work_mode": "remote|hybrid|onsite"},
+        },
+    )
+
+    response = client.get(f"/job-search-runs/{run.id}/candidates", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.json()[0]["ai_filter_signals"]["detected_work_mode"] == "mixed"

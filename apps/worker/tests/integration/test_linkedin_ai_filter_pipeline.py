@@ -103,3 +103,56 @@ def test_fallback_keeps_legacy_acceptance_and_evidence(db_session: Session) -> N
     assert candidate["outcome"] == "accepted"
     assert candidate["ai_filter_status"] == "fallback"
     assert candidate["source_evidence"] == evidence
+
+
+def test_disabled_ai_filters_do_not_apply_region_rejection(db_session: Session) -> None:
+    now = datetime.now(UTC)
+    db_session.execute(
+        text(
+            """
+            INSERT INTO job_search_runs (
+                id, status, requested_keywords, search_query, search_sort_order, hiring_intent_terms,
+                collection_source_types, provided_source_count, source_name, candidate_limit,
+                inspected_count, accepted_count, rejected_count, duplicate_count, cap_reached,
+                provider_status, ai_filters_enabled, ai_filter_settings, created_at, updated_at
+            )
+            VALUES (
+                'run-ai-region-disabled', 'pending', :keywords, 'hiring typescript', 'recent', :terms,
+                :sources, 1, 'LinkedIn', 1, 0, 0, 0, 0, false, 'not_started', false, :settings, :now, :now
+            )
+            """
+        ),
+        {
+            "keywords": json.dumps(["typescript"]),
+            "terms": json.dumps(["hiring"]),
+            "sources": json.dumps(["provided_public_content"]),
+            "settings": json.dumps({"accepted_regions": ["Brazil"], "excluded_regions": ["India"], "remote_only": True}),
+            "now": now,
+        },
+    )
+    evidence = "Example Co is hiring a remote TypeScript developer for India timezone. Email jobs@example.com"
+    db_session.execute(
+        text(
+            """
+            INSERT INTO linkedin_collection_inputs (id, run_id, source_type, source_url, provided_text, label, created_at)
+            VALUES (
+                'input-ai-region-disabled', 'run-ai-region-disabled', 'provided_public_content',
+                'https://www.linkedin.com/feed/update/example-region-disabled',
+                :evidence,
+                'manual-linkedin-post',
+                :now
+            )
+            """
+        ),
+        {"evidence": evidence, "now": now},
+    )
+    db_session.commit()
+
+    assert process_pending_runs(db_session, run_once=True) == 1
+
+    run = db_session.execute(text("SELECT * FROM job_search_runs WHERE id = 'run-ai-region-disabled'")).mappings().one()
+    candidate = db_session.execute(text("SELECT * FROM job_search_candidates WHERE run_id = 'run-ai-region-disabled'")).mappings().one()
+
+    assert run["accepted_count"] == 1
+    assert candidate["outcome"] == "accepted"
+    assert candidate["ai_filter_error_code"] == "ai_filters_disabled"

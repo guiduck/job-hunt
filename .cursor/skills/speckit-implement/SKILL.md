@@ -170,6 +170,8 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Check that implemented features match the original specification
    - Validate that tests pass and coverage meets requirements
    - Confirm the implementation follows the technical plan
+   - Update all affected documentation plus `docs/handoff.md` and `docs/roadmap.md`
+   - Prepare the next Spec Kit `/speckit-specify` prompt in `docs/next-spec-prompt.md`
    - Report final status with summary of completed work
 
 Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit.tasks` first to regenerate the task list.

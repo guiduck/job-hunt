@@ -14,14 +14,13 @@ def build_job_dedupe_key(
     post_headline: str | None,
     matched_keywords: list[str],
     contact_channel_value: str,
+    source_url: str | None = None,
 ) -> str:
     title = role_title or post_headline or ""
     keywords = ",".join(sorted({normalize_part(keyword) for keyword in matched_keywords if keyword}))
-    return "|".join(
-        [
-            normalize_part(company_name),
-            normalize_part(title),
-            keywords,
-            normalize_part(contact_channel_value),
-        ]
-    )
+    company = normalize_part(company_name)
+    normalized_title = normalize_part(title)
+    parts = [company, normalized_title, keywords, normalize_part(contact_channel_value)]
+    if not company and not normalized_title:
+        parts.append(normalize_part(source_url))
+    return "|".join(parts)

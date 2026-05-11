@@ -32,6 +32,11 @@ class AuthSessionResponse(BaseModel):
     user: UserPublic
 
 
+class GooglePrimaryAuthStartResponse(BaseModel):
+    auth_url: str
+    provider: str = "google"
+
+
 class PasswordResetRequestIn(BaseModel):
     email: EmailStr
 

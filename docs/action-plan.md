@@ -78,7 +78,8 @@ Estado do recorte:
   focados
 - a proxima entrega deve estabilizar validacao completa, testes legados autenticados, smoke manual da
   extensao/AI filters, contratos, feedback pos-envio, smoke publicado e OAuth/envio real fora do
-  ambiente local
+  ambiente local; apos o login Google estar funcional, a proxima spec de maior valor de produto passa
+  a ser o assistente de preenchimento de campos externos com IA
 
 ### 4. Revisao operacional
 
@@ -166,6 +167,17 @@ Pendencias de hardening:
 - decidir se a falha `blocked_source` vs `accepted` do provider LinkedIn e bug ou expectativa antiga
 
 ### 6. Tracking e feedback loop de emprego
+
+Antes ou em paralelo ao tracking, adicionar o assistente de campos em paginas externas de candidatura:
+
+- content script detecta inputs longos, textareas e `contenteditable` que parecam perguntas de vaga
+- botao de varinha magica aparece no fim do campo, sem cobrir texto nem quebrar layout
+- clique abre geracao de resposta com IA baseada em curriculo/perfil/settings do usuario
+- dropdown permite escolher respostas previamente salvas para a keyword identificada
+- manter no maximo 3 respostas por keyword e usuario
+- insercao no campo externo e sempre manual/confirmada pelo operador
+- UI persistente da extensao deve migrar de janela `Keep open` para iframe/floating shell injetada
+  quando possivel
 
 Adicionar depois:
 

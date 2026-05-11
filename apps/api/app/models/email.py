@@ -83,6 +83,7 @@ class ResumeAttachment(Base):
     sha256: Mapped[str | None] = mapped_column(String(64))
     is_available: Mapped[bool] = mapped_column(default=True, nullable=False)
     is_default: Mapped[bool] = mapped_column(default=False, nullable=False)
+    include_in_field_assistant_context: Mapped[bool] = mapped_column(default=False, nullable=False)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

@@ -1,0 +1,129 @@
+{
+  "name": "cuponeria-chrome-plugin",
+  "version": "3.0.0",
+  "private": true,
+  "dependencies": {
+    "@testing-library/jest-dom": "^5.16.2",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/user-event": "^14.4.3",
+    "eslint-plugin-prettier": "^4.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.2.2",
+    "react-scripts": "5.0.1",
+    "styled-components": "^5.3.3",
+    "typescript": "^5.0.4",
+    "web-vitals": "^3.3.1"
+  },
+  "devDependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.16.7",
+    "@craco/craco": "^7.1.0",
+    "@storybook/addon-actions": "^7.0.7",
+    "@storybook/addon-essentials": "^7.0.7",
+    "@storybook/addon-interactions": "^7.0.7",
+    "@storybook/addon-links": "^7.0.7",
+    "@storybook/builder-webpack5": "^7.0.7",
+    "@storybook/cli": "^7.0.7",
+    "@storybook/manager-webpack5": "^6.4.19",
+    "@storybook/node-logger": "^7.0.7",
+    "@storybook/preset-create-react-app": "^7.0.7",
+    "@storybook/react": "^7.0.7",
+    "@storybook/testing-library": "^0.1.0",
+    "@storybook/testing-react": "^2.0.1",
+    "@types/chrome": "^0.0.233",
+    "@types/jest": "^29.5.1",
+    "@types/node": "^18.16.0",
+    "@types/react": "^18.0.38",
+    "@types/react-dom": "^18.0.11",
+    "@types/styled-components": "^5.1.24",
+    "@typescript-eslint/eslint-plugin": "^5.59.1",
+    "@typescript-eslint/parser": "^5.59.1",
+    "eslint": "^8.10.0",
+    "eslint-config-airbnb": "^19.0.4",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-react": "^7.29.3",
+    "express": "^4.17.3",
+    "gulp": "^4.0.2",
+    "map-stream": "^0.0.7",
+    "nodemon": "^2.0.15",
+    "prettier": "^2.5.1",
+    "webpack": "^5.70.0"
+  },
+  "scripts": {
+    "preinstall": "git config core.hooksPath .hooks && chmod +x .hooks/* && git update-index --assume-unchanged .hooks/",
+    "hot-reload": "node ./src/chrome/hotReload.js",
+    "dev": "BROWSER=none NODE_ENV=development react-scripts start",
+    "dev:ext": "nodemon --watch src/ --ext '*' --ignore build/ --exec \"yarn build && yarn gulp && yarn hot-reload\"",
+    "build": "INLINE_RUNTIME_CHUNK=false craco build && date +%s > ./build/build-hash.txt",
+    "build:prod": "export $(cat .env.prod) && craco build && yarn gulp",
+    "test": "react-scripts test --coverage --watchAll=false",
+    "test:watch": "react-scripts test --coverage --watchAll=true",
+    "test:ci": "CI=true react-scripts test --coverage --color",
+    "eject": "react-scripts eject",
+    "storybook": "STORYBOOK_MODE=on start-storybook -p 6006 -s public",
+    "build-storybook": "build-storybook -s public",
+    "lint": "yarn eslint src && yarn prettier src --check",
+    "verify": "yarn lint && (yarn audit || true) && yarn test"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ],
+    "overrides": [
+      {
+        "files": [
+          "**/*.stories.*"
+        ],
+        "rules": {
+          "import/no-anonymous-default-export": "off"
+        }
+      },
+      {
+        "files": [
+          "**/*.stories.*"
+        ],
+        "rules": {
+          "import/no-anonymous-default-export": "off"
+        }
+      }
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "jest": {
+    "collectCoverageFrom": [
+      "src/**/*.{js,jsx,ts,tsx}",
+      "!src/**/*stories.{js,jsx,ts,tsx}",
+      "!src/components/Icons/**",
+      "!src/components/Images/**",
+      "!src/stories/**",
+      "!src/index.tsx",
+      "!src/utils/reportWebVitals.ts"
+    ],
+    "coverageReporters": [
+      "html",
+      "text-summary"
+    ],
+    "testMatch": [
+      "<rootDir>/**/**/?(*.)(spec|test).{js,jsx,ts,tsx}"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      }
+    }
+  }
+}

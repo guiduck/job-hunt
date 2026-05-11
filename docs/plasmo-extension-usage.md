@@ -14,9 +14,14 @@ Este guia cobre a primeira versao da extensao Chrome para o modo `Full-time`.
 - Permite atualizar `review_status`, `job_stage` e notas.
 - Permite conectar uma conta Google/Gmail pelo backend, subir um curriculo PDF, escolher o curriculo
   padrao e preparar/enviar emails pela API/worker.
+- Inclui um assistente de campos externos: content script detecta campos longos de candidatura em
+  dominios habilitados, posiciona um botao de varinha magica no fim do campo e chama a API para gerar
+  respostas com IA usando curriculo/perfil do usuario.
 
 O envio real usa Gmail API/OAuth no backend/worker. A extensao abre o fluxo de consentimento Google,
-mas nao guarda refresh token, client secret ou token de acesso.
+mas nao guarda refresh token, client secret ou token de acesso. Login com Google e autenticacao do app,
+separada do OAuth Gmail; quando o email verificado ja existe, a identidade Google deve ser vinculada
+ao usuario local existente.
 
 ## Configuracao
 
@@ -47,10 +52,46 @@ Para login Google e envio Gmail, configure tambem no backend:
 EMAIL_PROVIDER=gmail
 GMAIL_OAUTH_CLIENT_SECRETS_FILE=.local/gmail/client_secret.json
 GMAIL_OAUTH_REDIRECT_URI=http://localhost:8000/sending/google-oauth/callback
+GOOGLE_AUTH_REDIRECT_URI=http://localhost:8000/auth/google/callback
+GOOGLE_AUTH_SCOPES=openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile
 ```
 
-No Google Cloud Console, o redirect URI autorizado do OAuth Client precisa bater exatamente com
-`GMAIL_OAUTH_REDIRECT_URI`.
+No Google Cloud Console, os redirect URIs autorizados do OAuth Client precisam incluir exatamente:
+
+- `http://localhost:8000/sending/google-oauth/callback`
+- `http://localhost:8000/auth/google/callback`
+
+O primeiro e para permissao Gmail send em Settings. O segundo e para login Google do app.
+
+## Assistente De Campos
+
+O assistente fica desativado por padrao em sites externos. Depois de logar:
+
+1. Abra uma pagina de candidatura.
+2. Clique em `Enable site` no header autenticado, ou use `settings > AI field assistant`.
+3. Escolha `Enable current site` para liberar o dominio base, ou `Enable exact page` para uma URL
+   especifica.
+4. Em campos elegiveis, use o botao `Pin assistant` para abrir a shell persistente e a varinha magica
+   ao lado de perguntas de texto.
+
+O content script ignora campos sensiveis como senha, token, OTP, cartao, CPF/CNPJ e campos ocultos ou
+readonly. Ele envia ao backend apenas metadados seguros do campo, label/pergunta proxima e URL
+sanitizada. A resposta gerada aparece para revisao; inserir, substituir, anexar ou salvar exige clique
+explicito do operador. A extensao nunca submete formularios externos automaticamente.
+
+Respostas salvas sao owner-scoped por keyword e limitadas a 3 por usuario + keyword. O salvamento e
+manual: gerar uma resposta nao persiste sugestao automaticamente.
+
+## UI Persistente
+
+O popup nativo do Chrome fecha quando perde foco. O fluxo autenticado agora substitui `Keep open` por
+`Pin assistant`, que pede ao content script para abrir uma shell fixa/minimizavel dentro da aba ativa,
+sem depender da janela popup do Chrome. O documento `PERSISTENT_EXTENSION_SHELL.md` explica a diferenca
+entre popup, janela separada e UI injetada persistente.
+
+Enquanto o usuario nao estiver autenticado, a extensao deve mostrar apenas a experiencia de login. O
+titulo, abas (`dashboard`, `search`, `jobs`, `templates`, `settings`) e acoes operacionais devem ficar
+ocultos ate existir sessao valida.
 
 ## Subir Backend Local
 
@@ -123,3 +164,5 @@ curl "http://localhost:8000/opportunities?opportunity_type=job&contact_available
 - A primeira versao usa metricas derivadas no popup, sem endpoint agregado dedicado.
 - O coletor Playwright local continua sendo fallback caso a extensao precise ser comparada ou depurada.
 - O estado de login fica em browser session storage; reiniciar o navegador exige login novamente.
+- O assistente de campos usa host permissions amplas para poder operar nos dominios escolhidos pelo
+  usuario, mas permanece opt-in por dominio/pagina e autenticado antes de injetar controles.

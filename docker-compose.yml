@@ -34,6 +34,11 @@ services:
       GMAIL_OAUTH_CLIENT_CONFIG_JSON: ${GMAIL_OAUTH_CLIENT_CONFIG_JSON:-}
       GMAIL_OAUTH_CLIENT_SECRETS_FILE: ${GMAIL_OAUTH_CLIENT_SECRETS_FILE:-/app/.local/gmail/client_secret.json}
       GMAIL_OAUTH_SCOPES: ${GMAIL_OAUTH_SCOPES:-https://www.googleapis.com/auth/gmail.send}
+      GOOGLE_AUTH_CLIENT_ID: ${GOOGLE_AUTH_CLIENT_ID:-}
+      GOOGLE_AUTH_CLIENT_SECRET: ${GOOGLE_AUTH_CLIENT_SECRET:-}
+      GOOGLE_AUTH_REDIRECT_URI: ${GOOGLE_AUTH_REDIRECT_URI:-http://localhost:8000/auth/google/callback}
+      GOOGLE_AUTH_SCOPES: ${GOOGLE_AUTH_SCOPES:-openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile}
+      GOOGLE_AUTH_SUCCESS_REDIRECT_URL: ${GOOGLE_AUTH_SUCCESS_REDIRECT_URL:-http://localhost:8000/health}
       AUTH_SESSION_TTL_HOURS: ${AUTH_SESSION_TTL_HOURS:-12}
       AUTH_TOKEN_BYTES: ${AUTH_TOKEN_BYTES:-32}
       PASSWORD_RESET_TOKEN_TTL_MINUTES: ${PASSWORD_RESET_TOKEN_TTL_MINUTES:-30}
@@ -76,9 +81,16 @@ services:
       RESUME_STORAGE_DIR: ${RESUME_STORAGE_DIR:-/app/.local/resumes}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-gmail}
       EMAIL_SEND_POLL_INTERVAL_SECONDS: ${EMAIL_SEND_POLL_INTERVAL_SECONDS:-5}
+      JOB_AI_FILTERS_ENABLED: ${JOB_AI_FILTERS_ENABLED:-true}
+      JOB_AI_FILTER_MODEL_NAME: ${JOB_AI_FILTER_MODEL_NAME:-gpt-4o-mini}
       GMAIL_OAUTH_CLIENT_CONFIG_JSON: ${GMAIL_OAUTH_CLIENT_CONFIG_JSON:-}
       GMAIL_OAUTH_CLIENT_SECRETS_FILE: ${GMAIL_OAUTH_CLIENT_SECRETS_FILE:-/app/.local/gmail/client_secret.json}
       GMAIL_OAUTH_SCOPES: ${GMAIL_OAUTH_SCOPES:-https://www.googleapis.com/auth/gmail.send}
+      GOOGLE_AUTH_CLIENT_ID: ${GOOGLE_AUTH_CLIENT_ID:-}
+      GOOGLE_AUTH_CLIENT_SECRET: ${GOOGLE_AUTH_CLIENT_SECRET:-}
+      GOOGLE_AUTH_REDIRECT_URI: ${GOOGLE_AUTH_REDIRECT_URI:-http://localhost:8000/auth/google/callback}
+      GOOGLE_AUTH_SCOPES: ${GOOGLE_AUTH_SCOPES:-openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile}
+      GOOGLE_AUTH_SUCCESS_REDIRECT_URL: ${GOOGLE_AUTH_SUCCESS_REDIRECT_URL:-http://localhost:8000/health}
       DEFAULT_LOCAL_USER_EMAIL: ${DEFAULT_LOCAL_USER_EMAIL:-local@example.com}
     command: >
       sh -c "pip install -e . &&

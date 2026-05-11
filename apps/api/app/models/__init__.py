@@ -9,6 +9,7 @@ from app.models.email import (
     SendingProviderAccount,
     SendRequest,
 )
+from app.models.field_assistant import FieldAnswerGeneration, FieldAssistantActivation, FieldResponseSuggestion
 from app.models.job_search_run import JobSearchCandidate, JobSearchRun, LinkedInCollectionInput
 from app.models.opportunity import JobOpportunityDetail, KeywordSet, Opportunity, OpportunityKeywordMatch
 from app.models.user import AuthSession, PasswordResetRequest, User
@@ -19,6 +20,9 @@ __all__ = [
     "BulkSendBatch",
     "EmailDraft",
     "EmailTemplate",
+    "FieldAnswerGeneration",
+    "FieldAssistantActivation",
+    "FieldResponseSuggestion",
     "JobOpportunityDetail",
     "JobSearchCandidate",
     "JobSearchRun",

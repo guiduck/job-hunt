@@ -11,7 +11,7 @@ from app.models.user import User
 from app.schemas.email import BulkAIGenerateRequest, BulkPreviewRequest, BulkSendItemUpdate, EmailDraftCreate
 from app.services.ai_email_generation_service import AIEmailGenerationError, generate_job_application_email
 from app.services.auth_service import ensure_default_local_user
-from app.services.email_constants import is_valid_email
+from app.services.email_constants import is_valid_email, sanitize_email_address
 from app.services.email_draft_service import create_draft
 from app.services.email_send_service import approve_draft_send, has_successful_job_application
 from app.services.resume_service import get_newest_available_resume, get_resume
@@ -34,7 +34,7 @@ def preview_bulk_send(db: Session, payload: BulkPreviewRequest, user: User | Non
         if opportunity and opportunity.user_id != user.id:
             opportunity = None
         if opportunity and opportunity.job_detail:
-            email = opportunity.job_detail.contact_email or opportunity.job_detail.contact_channel_value
+            email = sanitize_email_address(opportunity.job_detail.contact_email or opportunity.job_detail.contact_channel_value)
         if not email:
             outcome = "skipped_missing_contact"
             reason = "Missing recipient email."
@@ -93,18 +93,18 @@ def generate_ai_bulk_send(db: Session, payload: BulkAIGenerateRequest, user: Use
         if opportunity and opportunity.user_id != user.id:
             opportunity = None
         email = _recipient_email(opportunity)
-        base_item = {"opportunity_id": opportunity_id, "recipient_email": email, "draft_id": None, "is_skipped": False}
+        base_item = {"opportunity_id": opportunity_id, "recipient_email": email, "draft_id": None, "is_skipped": False, "status": "running"}
         if not opportunity or not opportunity.job_detail:
-            items.append({**base_item, "outcome": "skipped_missing_contact", "reason": "Opportunity not found or not a job."})
+            items.append({**base_item, "status": "skipped", "outcome": "skipped_missing_contact", "reason": "Opportunity not found or not a job."})
             continue
         if not email:
-            items.append({**base_item, "outcome": "skipped_missing_contact", "reason": "Missing recipient email."})
+            items.append({**base_item, "status": "skipped", "outcome": "skipped_missing_contact", "reason": "Missing recipient email."})
             continue
         if has_successful_job_application(db, opportunity_id, user_id=user.id):
-            items.append({**base_item, "outcome": "skipped_duplicate", "reason": "A job_application send already succeeded."})
+            items.append({**base_item, "status": "skipped", "outcome": "skipped_duplicate", "reason": "A job_application send already succeeded."})
             continue
         if not is_valid_email(email):
-            items.append({**base_item, "outcome": "blocked_invalid_contact", "reason": "Recipient email is invalid."})
+            items.append({**base_item, "status": "skipped", "outcome": "blocked_invalid_contact", "reason": "Recipient email is invalid."})
             continue
 
         try:
@@ -121,6 +121,7 @@ def generate_ai_bulk_send(db: Session, payload: BulkAIGenerateRequest, user: Use
             items.append(
                 {
                     **base_item,
+                    "status": "failed",
                     "outcome": "ai_generation_failed",
                     "reason": str(exc),
                     "ai_error_code": exc.code,
@@ -128,20 +129,33 @@ def generate_ai_bulk_send(db: Session, payload: BulkAIGenerateRequest, user: Use
                 }
             )
             continue
-        items.append({**base_item, **generated, "outcome": "sendable", "reason": None})
+        items.append({**base_item, **generated, "status": "completed", "outcome": "sendable", "reason": None})
 
+    counts = _count_items(items)
     batch = BulkSendBatch(
         user_id=user.id,
         template_id=None,
         resume_attachment_id=resume.id if resume else None,
         selected_count=len(payload.opportunity_ids),
         items=items,
-        status=BulkBatchStatus.PREVIEWED.value,
-        **_count_items(items),
+        status=(
+            BulkBatchStatus.COMPLETED.value
+            if counts["sendable_count"] == len(payload.opportunity_ids)
+            else BulkBatchStatus.COMPLETED_WITH_FAILURES.value
+        ),
+        **counts,
     )
     db.add(batch)
     db.commit()
     db.refresh(batch)
+    return batch
+
+
+def get_ai_generation_batch(db: Session, batch_id: str, user: User | None = None) -> BulkSendBatch:
+    user = user or ensure_default_local_user(db)
+    batch = db.get(BulkSendBatch, batch_id)
+    if not batch or batch.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI generation batch not found")
     return batch
 
 
@@ -220,7 +234,7 @@ def approve_bulk_send(db: Session, batch_id: str, user: User | None = None) -> B
 def _recipient_email(opportunity: Opportunity | None) -> str | None:
     if not opportunity or not opportunity.job_detail:
         return None
-    return opportunity.job_detail.contact_email or opportunity.job_detail.contact_channel_value
+    return sanitize_email_address(opportunity.job_detail.contact_email or opportunity.job_detail.contact_channel_value)
 
 
 def _ai_generation_context(
@@ -251,6 +265,7 @@ def _ai_generation_context(
             "name": settings.operator_name,
             "email": settings.operator_email,
             "portfolio_url": settings.portfolio_url,
+            "linkedin_url": settings.operator_linkedin_url,
         },
         "resume": resume_context,
         "template_reference": template_context,
@@ -410,7 +425,7 @@ def _validate_review_item(db: Session, item: dict[str, object], *, user_id: str)
     opportunity_id = str(item.get("opportunity_id") or "")
     if item.get("is_skipped"):
         return {**item, "outcome": "skipped_by_user", "reason": "Skipped during review."}
-    recipient = str(item.get("recipient_email") or "").strip()
+    recipient = sanitize_email_address(str(item.get("recipient_email") or "")) or ""
     subject = str(item.get("subject") or "").strip()
     body = str(item.get("body") or "").strip()
     if has_successful_job_application(db, opportunity_id, user_id=user_id):

@@ -41,6 +41,7 @@ Adicionar `user_id` aos registros operacionais que pertencem a um usuario:
 - curriculos
 - templates editaveis/criados pelo usuario
 - provider Gmail e token OAuth
+- identidades Google vinculadas para login primario
 - runs de busca
 - oportunidades/vagas/leads
 - drafts, send requests, bulk batches e outreach events
@@ -328,6 +329,79 @@ Na primeira experiencia, `prompt_artifacts` e uma capacidade do modo `Freelance`
 `Full-time` pode usar IA no futuro para melhorar emails ou resumir vagas, mas nao deve exibir
 `Gerar Prompt Lovable` como acao primaria.
 
+### `field_response_suggestions`
+
+Respostas curtas/medias geradas ou salvas para campos externos de candidatura.
+
+Campos recomendados:
+
+- `id`
+- `user_id`
+- `keyword`
+- `field_label`
+- `field_context`
+- `response_text`
+- `source`: `ai_generated`, `operator_saved`, `manual_edit`
+- `used_count`
+- `last_used_at`
+- `created_at`
+
+Regras:
+
+- `keyword` deve ser owner-scoped e derivada de label, placeholder, aria-label, name, pergunta
+  proxima ou mapeamento manual do usuario.
+- Manter no maximo as 3 respostas mais recentes/uteis por usuario + keyword.
+- A resposta deve ser inserida em campo externo somente por acao explicita do usuario.
+- Nao armazenar valores digitados de campos sensiveis; campos de senha, pagamento, OTP, email
+  pessoal puro e documentos devem ser ignorados pelo detector.
+- O contexto de curriculo/perfil fica no backend; a extensao nao deve receber dados sensiveis alem da
+  resposta escolhida para inserir.
+
+### `field_assistant_activations`
+
+Permissoes owner-scoped para decidir onde o assistente de campos pode aparecer.
+
+Campos recomendados:
+
+- `id`
+- `user_id`
+- `scope_type`: `base_domain` ou `exact_page`
+- `scope_value`: dominio normalizado ou URL sanitizada
+- `display_name`
+- `enabled`
+- `last_used_at`
+- `created_at`
+- `updated_at`
+
+Regras:
+
+- A ativacao e desligada por padrao para qualquer dominio externo.
+- `base_domain` cobre subpaths do dominio normalizado; `exact_page` cobre apenas a URL sanitizada sem
+  fragmentos e tracking params conhecidos.
+- Ativacoes pertencem ao usuario autenticado e nao sao globais.
+- Ao fazer logout ou perder sessao, content scripts devem tratar a pagina como nao autorizada.
+
+### `field_answer_generations`
+
+Registro tecnico das respostas geradas para campos externos.
+
+Campos recomendados:
+
+- `id`
+- `user_id`
+- `keyword`
+- `field_label`
+- `page_origin`
+- `status`
+- `answer_text`
+- `error_message`
+- `created_at`
+
+Regras:
+
+- O registro serve para auditoria/debug de geracao, nao para auto-salvar sugestoes.
+- Uma resposta so vira sugestao reutilizavel quando o operador clica explicitamente em salvar.
+
 ### Dados adicionais para Google Maps freelance
 
 Quando o modo `Freelance` implementar descoberta por Google Maps, os registros devem preservar:
@@ -428,6 +502,7 @@ Estados especificos para o fluxo de emprego:
 - salvar uma URL de demo por lead
 - gerar e versionar prompt para `Lovable`
 - preparar contexto para email, WhatsApp e IA
+- gerar e reaproveitar respostas para perguntas de formularios de candidatura externos
 - medir qualidade da busca por `source_query`, nicho e localidade
 - descobrir leads freelance via Google Maps por nicho/localidade e classificar ausencia/fraqueza de site
 
@@ -442,3 +517,5 @@ Estados especificos para o fluxo de emprego:
 - Templates e envios devem ser sempre escopados por modo.
 - A extensao Plasmo pode operar o modo `Full-time`, mas deve consumir os mesmos contratos que uma
   futura web.
+- O assistente de campos da extensao deve escopar respostas por usuario autenticado e nao deve
+  aparecer quando a sessao local nao existir.

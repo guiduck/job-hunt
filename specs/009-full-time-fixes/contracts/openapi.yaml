@@ -1,0 +1,467 @@
+openapi: 3.1.0
+info:
+  title: Full-time Workflow Fixes API Contract
+  version: 0.1.0
+  description: Contract deltas for specs/009-full-time-fixes.
+paths:
+  /auth/google/start:
+    get:
+      summary: Start Google primary authentication
+      tags: [auth]
+      responses:
+        "200":
+          description: Google authorization URL for app sign-in
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [auth_url]
+                properties:
+                  auth_url:
+                    type: string
+                    format: uri
+  /auth/google/callback:
+    get:
+      summary: Complete Google primary authentication
+      tags: [auth]
+      parameters:
+        - in: query
+          name: code
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: state
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: App auth session; does not grant Gmail sending access
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionResponse"
+  /opportunities:
+    get:
+      summary: List owner-scoped opportunities with pagination
+      tags: [opportunities]
+      parameters:
+        - in: query
+          name: opportunity_type
+          schema:
+            type: string
+            enum: [job]
+        - in: query
+          name: keyword
+          description: Searches title, company, source text, matched keyword, description, contact channel, and explicit contact email.
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 50
+        - in: query
+          name: min_score
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+        - in: query
+          name: send_status
+          schema:
+            type: string
+            enum: [sent, unsent]
+        - in: query
+          name: sort_order
+          schema:
+            type: string
+            enum: [newest, oldest]
+            default: newest
+      responses:
+        "200":
+          description: Paginated opportunities for the current owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpportunityPage"
+  /user-settings:
+    get:
+      summary: Read owner-scoped sender settings
+      tags: [user-settings]
+      responses:
+        "200":
+          description: Settings include optional LinkedIn URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSettings"
+    patch:
+      summary: Update owner-scoped sender settings
+      tags: [user-settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserSettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSettings"
+  /bulk-email/generate-ai:
+    post:
+      summary: Create an AI bulk generation batch
+      tags: [bulk-email]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkAIGenerateRequest"
+      responses:
+        "201":
+          description: Created generation batch with item statuses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AIGenerationBatch"
+  /bulk-email/generate-ai/{batch_id}:
+    get:
+      summary: Read AI generation batch progress
+      tags: [bulk-email]
+      parameters:
+        - in: path
+          name: batch_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Current batch and per-item progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AIGenerationBatch"
+  /job-search-runs/{run_id}:
+    get:
+      summary: Read LinkedIn capture run feedback counters
+      tags: [job-search-runs]
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Run status and counters remain available even if detail endpoints are degraded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobSearchRun"
+  /job-search-runs/{run_id}/candidates:
+    get:
+      summary: Read candidate details for a LinkedIn capture run
+      tags: [job-search-runs]
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Candidate details with tolerant AI filter signals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobSearchCandidate"
+  /job-search-runs:
+    post:
+      summary: Create LinkedIn capture run
+      tags: [job-search-runs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                search_query:
+                  type: string
+                search_sort_order:
+                  type: string
+                  enum: [recent, relevant]
+                ai_filters_enabled:
+                  type: boolean
+                accepted_regions:
+                  type: array
+                  items:
+                    type: string
+                excluded_regions:
+                  type: array
+                  items:
+                    type: string
+              description: Region fields are honored only when ai_filters_enabled is true and must not alter base LinkedIn capture.
+      responses:
+        "201":
+          description: Created run
+components:
+  schemas:
+    AuthSessionResponse:
+      type: object
+      required: [access_token, user]
+      properties:
+        access_token:
+          type: string
+        user:
+          type: object
+          required: [id, email]
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+              format: email
+            display_name:
+              type: string
+              nullable: true
+    OpportunityPage:
+      type: object
+      required: [items, page, page_size, total_items, total_pages, has_next, has_previous]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpportunityListItem"
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 50
+        total_items:
+          type: integer
+          minimum: 0
+        total_pages:
+          type: integer
+          minimum: 0
+        has_next:
+          type: boolean
+        has_previous:
+          type: boolean
+    OpportunityListItem:
+      type: object
+      required: [id, opportunity_type, captured_at]
+      properties:
+        id:
+          type: string
+        opportunity_type:
+          type: string
+          enum: [job]
+        title:
+          type: string
+          nullable: true
+        organization_name:
+          type: string
+          nullable: true
+        source_evidence:
+          type: string
+        captured_at:
+          type: string
+          format: date-time
+        job_detail:
+          type: object
+          nullable: true
+    UserSettings:
+      type: object
+      properties:
+        operator_name:
+          type: string
+          nullable: true
+        operator_email:
+          type: string
+          format: email
+          nullable: true
+        portfolio_url:
+          type: string
+          format: uri
+          nullable: true
+        operator_linkedin_url:
+          type: string
+          format: uri
+          nullable: true
+    UserSettingsUpdate:
+      type: object
+      properties:
+        operator_name:
+          type: string
+          nullable: true
+        operator_email:
+          type: string
+          format: email
+          nullable: true
+        portfolio_url:
+          type: string
+          format: uri
+          nullable: true
+        operator_linkedin_url:
+          type: string
+          format: uri
+          nullable: true
+    BulkAIGenerateRequest:
+      type: object
+      required: [opportunity_ids]
+      properties:
+        opportunity_ids:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+        resume_attachment_id:
+          type: string
+          nullable: true
+        template_id:
+          type: string
+          nullable: true
+    AIGenerationBatch:
+      type: object
+      required: [id, status, selected_count, completed_count, failed_count, skipped_count, items]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, completed, completed_with_failures, failed, cancelled]
+        selected_count:
+          type: integer
+        completed_count:
+          type: integer
+        failed_count:
+          type: integer
+        skipped_count:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AIGenerationBatchItem"
+    AIGenerationBatchItem:
+      type: object
+      required: [opportunity_id, status]
+      properties:
+        opportunity_id:
+          type: string
+        recipient_email:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [queued, running, completed, failed, skipped]
+        reason:
+          type: string
+          nullable: true
+        subject:
+          type: string
+          nullable: true
+        body:
+          type: string
+          nullable: true
+        retryable:
+          type: boolean
+          default: false
+    JobSearchRun:
+      type: object
+      required: [id, status, inspected_count, accepted_count, rejected_count, duplicate_count]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, completed_no_results, failed]
+        inspected_count:
+          type: integer
+          minimum: 0
+        accepted_count:
+          type: integer
+          minimum: 0
+        rejected_count:
+          type: integer
+          minimum: 0
+        duplicate_count:
+          type: integer
+          minimum: 0
+        ai_filter_passed_count:
+          type: integer
+          minimum: 0
+        ai_filter_rejected_count:
+          type: integer
+          minimum: 0
+        ai_filter_fallback_count:
+          type: integer
+          minimum: 0
+        ai_filter_failed_count:
+          type: integer
+          minimum: 0
+        ai_filter_skipped_count:
+          type: integer
+          minimum: 0
+    JobSearchCandidate:
+      type: object
+      required: [id, run_id, outcome, ai_filter_status]
+      properties:
+        id:
+          type: string
+        run_id:
+          type: string
+        opportunity_id:
+          type: string
+          nullable: true
+        outcome:
+          type: string
+          enum: [accepted, duplicate, rejected_no_contact, rejected_weak_match, rejected_missing_evidence, rejected_ai_filter, failed_ai_filter, failed_parse, failed_provider, blocked_source, inaccessible_source, empty_source]
+        contact_channel_value:
+          type: string
+          nullable: true
+        source_url:
+          type: string
+          nullable: true
+        dedupe_key:
+          type: string
+          nullable: true
+        ai_filter_status:
+          type: string
+          enum: [passed, rejected, fallback, failed, skipped]
+        ai_filter_signals:
+          $ref: "#/components/schemas/AIFilterSignals"
+    AIFilterSignals:
+      type: object
+      additionalProperties: true
+      properties:
+        detected_work_mode:
+          description: Composite provider values are normalized or represented as mixed/unknown-compatible values.
+          type: string
+          enum: [remote, hybrid, onsite, presential, unknown, mixed]
+        accepted_regions:
+          type: array
+          items:
+            type: string
+        rejected_regions:
+          type: array
+          items:
+            type: string

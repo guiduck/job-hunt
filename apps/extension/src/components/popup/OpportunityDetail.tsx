@@ -86,6 +86,10 @@ function OpportunityDetailPanel({
             <dt>Contact</dt>
             <dd>{opportunity.job_detail?.contact_email || opportunity.job_detail?.contact_channel_value}</dd>
           </div>
+          <div>
+            <dt>Source</dt>
+            <dd>{opportunity.source_name || "LinkedIn"}</dd>
+          </div>
         </dl>
         <div className="detail-actions">
           {presentation.contactHref ? (

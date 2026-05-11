@@ -45,3 +45,33 @@ def test_create_run_with_enabled_ai_filters_returns_additive_fields(
     assert body["ai_filters_enabled"] is True
     assert body["ai_filter_settings"]["remote_only"] is True
     assert body["ai_filter_settings"]["excluded_regions"] == ["India"]
+
+
+def test_disabled_ai_filters_ignore_region_settings(client: TestClient, auth_headers: dict[str, str]) -> None:
+    response = client.post(
+        "/job-search-runs",
+        json={
+            "search_query": "hiring typescript",
+            "search_sort_order": "recent",
+            "collection_source_types": ["authenticated_browser_search"],
+            "ai_filters_enabled": False,
+            "ai_filter_settings": {
+                "accepted_regions": ["Brazil"],
+                "excluded_regions": ["India"],
+                "remote_only": True,
+                "exclude_onsite": True,
+            },
+        },
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["ai_filters_enabled"] is False
+    assert body["ai_filter_settings"] == {
+        "remote_only": False,
+        "exclude_onsite": False,
+        "accepted_regions": [],
+        "excluded_regions": [],
+    }
+    assert "Brazil" not in (body["search_query"] or "")

@@ -103,6 +103,16 @@ export type Opportunity = {
   job_detail: JobDetail | null
 }
 
+export type OpportunityPage = {
+  items: Opportunity[]
+  page: number
+  page_size: number
+  total_items: number
+  total_pages: number
+  has_next: boolean
+  has_previous: boolean
+}
+
 export type OpportunityUpdate = {
   job_stage?: JobStage
   review_status?: JobReviewStatus
@@ -128,6 +138,8 @@ export type OpportunityFilters = {
   sort_order?: "newest" | "oldest"
   provider_status?: string
   analysis_status?: AnalysisStatus | ""
+  page?: number
+  page_size?: number
 }
 
 export type LinkedInCollectionInput = {
@@ -259,6 +271,7 @@ export type UserSettings = {
   operator_name: string | null
   operator_email: string | null
   portfolio_url: string | null
+  operator_linkedin_url: string | null
   default_mode: "full_time"
   created_at: string
   updated_at: string
@@ -268,6 +281,7 @@ export type UserSettingsUpdate = {
   operator_name?: string | null
   operator_email?: string | null
   portfolio_url?: string | null
+  operator_linkedin_url?: string | null
 }
 
 export type ResumeAttachment = {
@@ -280,6 +294,7 @@ export type ResumeAttachment = {
   sha256: string | null
   is_available: boolean
   is_default: boolean
+  include_in_field_assistant_context: boolean
   uploaded_at: string
   created_at: string
   updated_at: string
@@ -336,6 +351,11 @@ export type GoogleOAuthStartResponse = {
   auth_url: string
 }
 
+export type GooglePrimaryAuthStartResponse = {
+  auth_url: string
+  provider: "google"
+}
+
 export type SendRequest = {
   id: string
   draft_id: string | null
@@ -365,6 +385,7 @@ export type SendRequest = {
 export type BulkSendItem = {
   opportunity_id: string
   recipient_email: string | null
+  status?: AIGenerationBatchItemStatus
   outcome:
     | "sendable"
     | "skipped_missing_contact"
@@ -397,6 +418,42 @@ export type BulkSendBatch = {
   items: BulkSendItem[]
 }
 
+export type AIGenerationBatchStatus = "queued" | "running" | "completed" | "completed_with_failures" | "failed" | "cancelled"
+
+export type AIGenerationBatchItemStatus = "queued" | "running" | "completed" | "failed" | "skipped"
+
+export type AIGenerationBatchItem = {
+  id?: string
+  opportunity_id: string
+  recipient_email: string | null
+  status: AIGenerationBatchItemStatus
+  reason: string | null
+  subject: string | null
+  body: string | null
+  retryable: boolean
+  started_at?: string | null
+  completed_at?: string | null
+  updated_at?: string | null
+}
+
+export type AIGenerationBatch = {
+  id: string
+  status: AIGenerationBatchStatus
+  selected_count: number
+  completed_count: number
+  failed_count: number
+  skipped_count: number
+  items: AIGenerationBatchItem[]
+  created_at?: string
+  updated_at?: string
+}
+
+export type BulkAIGenerateRequest = {
+  opportunity_ids: string[]
+  resume_attachment_id?: string | null
+  template_id?: string | null
+}
+
 export type OutreachEvent = {
   id: string
   opportunity_id: string
@@ -411,4 +468,85 @@ export type OutreachEvent = {
   status: string
   error_message: string | null
   occurred_at: string
+}
+
+export type FieldAssistantScopeType = "base_domain" | "exact_page"
+
+export type FieldAssistantActivation = {
+  id: string
+  scope_type: FieldAssistantScopeType
+  scope_value: string
+  display_name: string | null
+  enabled: boolean
+  created_at: string
+  updated_at: string
+  last_used_at: string | null
+}
+
+export type FieldAssistantActivationCreate = {
+  scope_type: FieldAssistantScopeType
+  scope_value: string
+  display_name?: string | null
+}
+
+export type FieldAssistantActivationUpdate = {
+  display_name?: string | null
+  enabled?: boolean
+}
+
+export type FieldAnswerGenerateRequest = {
+  keyword: string
+  field_context: {
+    label_text: string
+    placeholder?: string | null
+    field_type: "textarea" | "long_text_input" | "contenteditable"
+    existing_value?: string | null
+    confidence?: number
+  }
+  page_context: {
+    origin: string
+    sanitized_url?: string | null
+    page_title?: string | null
+  }
+  template_hint?: string | null
+}
+
+export type FieldAnswerGenerateInput = {
+  scope_url: string
+  keyword: string
+  field_label?: string | null
+  field_name?: string | null
+  field_placeholder?: string | null
+  field_type?: string | null
+  question_text: string
+  surrounding_text?: string | null
+}
+
+export type FieldAnswerGenerateResponse = {
+  keyword: string
+  answer_text: string
+  rationale: string | null
+  missing_context: string[]
+  save_default: boolean
+}
+
+export type FieldResponseSuggestion = {
+  id: string
+  keyword: string
+  field_label: string | null
+  field_context_summary: string | null
+  response_text: string
+  source: "generated" | "edited" | "manual"
+  used_count: number
+  last_used_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type FieldResponseSuggestionCreate = {
+  keyword: string
+  response_text: string
+  source: "generated" | "edited" | "manual"
+  field_label?: string | null
+  field_context_summary?: string | null
 }

@@ -1,0 +1,208 @@
+.od-field-button,
+.od-assistant-shell,
+.od-field-menu {
+  box-sizing: border-box;
+  color: #f8fbff;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  z-index: 2147483647;
+}
+
+.od-field-button {
+  align-items: center;
+  background: #5b75ff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.32);
+  cursor: pointer;
+  display: flex;
+  height: 28px;
+  justify-content: center;
+  position: fixed;
+  width: 28px;
+}
+
+.od-field-button:hover {
+  background: #4763ed;
+}
+
+.od-field-menu,
+.od-assistant-shell {
+  background: #101722;
+  border: 1px solid rgba(156, 178, 255, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.36);
+  padding: 12px;
+  position: fixed;
+}
+
+.od-assistant-shell {
+  bottom: 18px;
+  max-width: min(340px, calc(100vw - 24px));
+  right: 18px;
+  width: 320px;
+}
+
+.od-assistant-shell[data-minimized="true"] {
+  padding: 8px 10px;
+  width: auto;
+}
+
+.od-shell-header,
+.od-menu-header,
+.od-menu-actions,
+.od-shell-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.od-shell-header,
+.od-menu-header {
+  justify-content: space-between;
+}
+
+.od-shell-title,
+.od-menu-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.od-shell-body,
+.od-menu-body,
+.od-suggestion-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.od-shell-buttons {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.od-shell-body,
+.od-menu-body,
+.od-suggestion-button {
+  color: #c8d6ff;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.od-icon-button,
+.od-menu-button,
+.od-shell-button,
+.od-suggestion-button {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.od-icon-button {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: #f8fbff;
+  display: inline-flex;
+  height: 26px;
+  justify-content: center;
+  width: 26px;
+}
+
+.od-menu-button {
+  background: #5b75ff;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 32px;
+  padding: 7px 10px;
+}
+
+.od-menu-button.secondary {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.od-shell-button {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #f8fbff;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 32px;
+  padding: 7px 10px;
+}
+
+.od-shell-button.primary {
+  background: #5b75ff;
+}
+
+.od-menu-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.od-field-menu {
+  max-width: min(380px, calc(100vw - 24px));
+  min-height: 0;
+  overscroll-behavior: contain;
+  width: 360px;
+}
+
+.od-answer-box {
+  background: #07101a;
+  border: 1px solid rgba(156, 178, 255, 0.22);
+  border-radius: 8px;
+  color: #f8fbff;
+  font: inherit;
+  min-height: 120px;
+  max-height: 220px;
+  padding: 10px;
+  resize: vertical;
+  width: 100%;
+}
+
+.od-question-field {
+  display: grid;
+  gap: 5px;
+}
+
+.od-question-field span {
+  color: #9fb0dc;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.od-question-field textarea {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(156, 178, 255, 0.22);
+  border-radius: 8px;
+  color: #f8fbff;
+  font: inherit;
+  min-height: 72px;
+  padding: 9px;
+  resize: vertical;
+  width: 100%;
+}
+
+.od-menu-actions {
+  flex-wrap: wrap;
+}
+
+.od-menu-actions .od-menu-button {
+  flex: 1 1 90px;
+}
+
+.od-suggestion-button {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: #f8fbff;
+  padding: 8px;
+  text-align: left;
+}
+
+.od-menu-error {
+  color: #ff9ca8;
+  font-size: 12px;
+}

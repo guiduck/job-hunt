@@ -3,6 +3,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.services.email_constants import sanitize_email_address
+
 
 class OpportunityType(StrEnum):
     JOB = "job"
@@ -81,6 +83,17 @@ class JobDetailCreate(BaseModel):
     dedupe_key: str | None = None
     job_stage: JobStage = JobStage.NEW
     review_profile: JobReviewProfile | None = None
+
+    @model_validator(mode="after")
+    def sanitize_email_contacts(self) -> "JobDetailCreate":
+        if self.contact_email:
+            self.contact_email = sanitize_email_address(self.contact_email)
+        if self.contact_channel_type == ContactChannelType.EMAIL:
+            sanitized = sanitize_email_address(self.contact_channel_value)
+            self.contact_channel_value = sanitized or self.contact_channel_value
+            if not self.contact_email:
+                self.contact_email = sanitized
+        return self
 
 
 class JobDetail(JobDetailCreate):
@@ -165,3 +178,13 @@ class OpportunityListItem(BaseModel):
     operator_notes: str | None = None
     captured_at: datetime
     job_detail: JobDetail | None = None
+
+
+class OpportunityPage(BaseModel):
+    items: list[OpportunityListItem]
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1, le=100)
+    total_items: int = Field(ge=0)
+    total_pages: int = Field(ge=1)
+    has_next: bool
+    has_previous: bool

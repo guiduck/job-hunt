@@ -6,7 +6,7 @@ from app.models.opportunity import Opportunity
 from app.models.user import User
 from app.schemas.email import EmailDraftCreate, EmailDraftUpdate
 from app.services.auth_service import ensure_default_local_user
-from app.services.email_constants import is_valid_email
+from app.services.email_constants import is_valid_email, sanitize_email_address
 from app.services.email_preview_service import render_template_preview
 from app.services.resume_service import get_newest_available_resume
 
@@ -25,7 +25,7 @@ def create_draft(db: Session, payload: EmailDraftCreate, user: User | None = Non
         resume = get_newest_available_resume(db, user_id=user.id)
         resume_id = resume.id if resume else None
 
-    recipient = opportunity.job_detail.contact_email or opportunity.job_detail.contact_channel_value
+    recipient = sanitize_email_address(opportunity.job_detail.contact_email or opportunity.job_detail.contact_channel_value)
     if not is_valid_email(recipient):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Opportunity has no valid recipient email")
 
@@ -56,6 +56,10 @@ def update_draft(db: Session, draft: EmailDraft, payload: EmailDraftUpdate, user
     if user and draft.user_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Draft not found")
     for field, value in payload.model_dump(exclude_unset=True).items():
+        if field == "to_email" and value is not None:
+            value = sanitize_email_address(str(value))
+            if not is_valid_email(value):
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Draft recipient email is invalid")
         setattr(draft, field, value)
     db.add(draft)
     db.commit()

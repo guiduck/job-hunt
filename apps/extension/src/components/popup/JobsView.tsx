@@ -1,23 +1,39 @@
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
-import type { JobReviewStatus, Opportunity } from "../../api/types"
+import type { Opportunity } from "../../api/types"
 import { StatusPill } from "../StatusPill"
 import { usePopupStore } from "../../store/popupStore"
 import { companyName, emailDomainLabel, opportunityTitle, postPresentation, scoreTone } from "../../utils/opportunity"
 import { BulkEmailPanel } from "./BulkEmailPanel"
-import { REVIEW_STATUSES } from "./constants"
 
 const MAX_BULK_EMAIL_SELECTION = 50
 
 export function JobsView() {
   const opportunities = usePopupStore((state) => state.opportunities)
+  const opportunityPage = usePopupStore((state) => state.opportunityPage)
+  const opportunityTotalPages = usePopupStore((state) => state.opportunityTotalPages)
+  const opportunityTotalItems = usePopupStore((state) => state.opportunityTotalItems)
+  const opportunityHasNext = usePopupStore((state) => state.opportunityHasNext)
+  const opportunityHasPrevious = usePopupStore((state) => state.opportunityHasPrevious)
   const filters = usePopupStore((state) => state.filters)
   const updateFilters = usePopupStore((state) => state.updateFilters)
   const deleteOpportunities = usePopupStore((state) => state.deleteOpportunities)
-  const deleteOpportunitiesBySendStatus = usePopupStore((state) => state.deleteOpportunitiesBySendStatus)
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [showBulkEmail, setShowBulkEmail] = useState(false)
+  const selectedIds = usePopupStore((state) => state.selectedJobIds)
+  const showBulkEmail = usePopupStore((state) => state.showBulkEmail)
+  const setSelectedIds = usePopupStore((state) => state.setSelectedJobIds)
+  const setShowBulkEmail = usePopupStore((state) => state.setShowBulkEmail)
   const [selectionNotice, setSelectionNotice] = useState<string | null>(null)
+  const listedIds = useMemo(() => opportunities.map((opportunity) => opportunity.id), [opportunities])
+  const listedIdSet = useMemo(() => new Set(listedIds), [listedIds])
+  const allListedSelected = listedIds.length > 0 && listedIds.every((id) => selectedIds.includes(id))
+  const canBulkEmailSelection = selectedIds.length > 0 && selectedIds.length <= MAX_BULK_EMAIL_SELECTION
+
+  useEffect(() => {
+    const nextSelectedIds = selectedIds.filter((id) => listedIdSet.has(id))
+    if (nextSelectedIds.length !== selectedIds.length) {
+      setSelectedIds(nextSelectedIds)
+    }
+  }, [listedIdSet, selectedIds, setSelectedIds])
 
   async function deleteSelectedJobs() {
     if (selectedIds.length === 0) return
@@ -26,26 +42,35 @@ export function JobsView() {
     setSelectedIds([])
   }
 
-  async function deleteBySendStatus(sendStatus: "sent" | "unsent") {
-    const label = sendStatus === "sent" ? "sent" : "not sent"
-    if (!window.confirm(`Delete all ${label} jobs? This cannot be undone.`)) return
-    await deleteOpportunitiesBySendStatus(sendStatus)
+  async function deleteAllListedJobs() {
+    if (listedIds.length === 0) return
+    if (!window.confirm(`Delete the ${listedIds.length} visible job(s) on this page? This also removes related email history.`)) return
+    await deleteOpportunities(listedIds)
     setSelectedIds([])
   }
 
   function toggleSelected(opportunityId: string) {
-    setSelectedIds((current) => {
-      if (current.includes(opportunityId)) {
-        setSelectionNotice(null)
-        return current.filter((id) => id !== opportunityId)
-      }
-      if (current.length >= MAX_BULK_EMAIL_SELECTION) {
-        setSelectionNotice(`Bulk email supports up to ${MAX_BULK_EMAIL_SELECTION} selected jobs at a time.`)
-        return current
-      }
-      setSelectionNotice(null)
-      return [...current, opportunityId]
-    })
+    setSelectionNotice(null)
+    setSelectedIds(
+      selectedIds.includes(opportunityId)
+        ? selectedIds.filter((id) => id !== opportunityId)
+        : [...selectedIds, opportunityId]
+    )
+  }
+
+  function toggleAllListed(checked: boolean) {
+    setSelectedIds(checked ? listedIds : [])
+    if (checked && listedIds.length > MAX_BULK_EMAIL_SELECTION) {
+      setSelectionNotice(
+        `${listedIds.length} listed jobs selected. Delete can use the full selection; bulk email supports up to ${MAX_BULK_EMAIL_SELECTION} at a time.`
+      )
+      return
+    }
+    setSelectionNotice(checked ? `${listedIds.length} visible job(s) selected on this page.` : null)
+  }
+
+  function goToPage(page: number) {
+    void updateFilters({ ...filters, page })
   }
 
   return (
@@ -74,32 +99,16 @@ export function JobsView() {
             onChange={(event) => void updateFilters({ ...filters, keyword: event.target.value })}
           />
         </label>
-        <div className="form-row">
-          <label className="field">
-            <span>Min score</span>
-            <input
-              max={100}
-              min={0}
-              type="number"
-              value={filters.min_score || 0}
-              onChange={(event) => void updateFilters({ ...filters, min_score: Number(event.target.value) })}
-            />
-          </label>
-          <label className="field">
-            <span>Review</span>
-            <select
-              value={filters.review_status || ""}
-              onChange={(event) =>
-                void updateFilters({ ...filters, review_status: event.target.value as JobReviewStatus | "" })
-              }>
-              {REVIEW_STATUSES.map((status) => (
-                <option key={status || "all"} value={status}>
-                  {status || "all"}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <label className="field">
+          <span>Min score</span>
+          <input
+            max={100}
+            min={0}
+            type="number"
+            value={filters.min_score || 0}
+            onChange={(event) => void updateFilters({ ...filters, min_score: Number(event.target.value) })}
+          />
+        </label>
         <label className="field">
           <span>Collected order</span>
           <select
@@ -111,9 +120,57 @@ export function JobsView() {
         </label>
       </section>
 
+      <section className="card selection-panel" aria-label="Selection controls">
+        <div>
+          <h3 className="card-title">Selection</h3>
+          <p className="message">
+            {selectedIds.length} of {opportunities.length} visible jobs selected. {opportunityTotalItems} total match current filters.
+          </p>
+        </div>
+        <div className="selection-actions">
+          <label className="select-all-row">
+            <input
+              checked={allListedSelected}
+              disabled={opportunities.length === 0}
+              onChange={(event) => toggleAllListed(event.target.checked)}
+              type="checkbox"
+            />
+            <span>All visible on this page</span>
+          </label>
+          <button className="secondary-button danger-secondary-button" disabled={listedIds.length === 0} onClick={() => void deleteAllListedJobs()} type="button">
+            Delete visible page
+          </button>
+        </div>
+      </section>
+
+      <nav className="pagination-controls" aria-label="Jobs pagination">
+        <button
+          className="secondary-button"
+          disabled={!opportunityHasPrevious}
+          onClick={() => goToPage(opportunityPage - 1)}
+          type="button">
+          Previous
+        </button>
+        <span>
+          Page {opportunityPage} of {opportunityTotalPages}
+        </span>
+        <button
+          className="secondary-button"
+          disabled={!opportunityHasNext}
+          onClick={() => goToPage(opportunityPage + 1)}
+          type="button">
+          Next
+        </button>
+      </nav>
+
       {selectionNotice ? <p className="message message--warn">{selectionNotice}</p> : null}
       {selectedIds.length === MAX_BULK_EMAIL_SELECTION ? (
-        <p className="message message--warn">Selection limit reached: review/send these 25 jobs, then select the next batch.</p>
+        <p className="message message--warn">Selection limit reached: review/send these 50 jobs, then select the next batch.</p>
+      ) : null}
+      {selectedIds.length > MAX_BULK_EMAIL_SELECTION ? (
+        <p className="message message--warn">
+          Bulk email supports up to {MAX_BULK_EMAIL_SELECTION} jobs at a time. Delete still works for all selected jobs.
+        </p>
       ) : null}
 
       {showBulkEmail ? (
@@ -129,25 +186,12 @@ export function JobsView() {
         </div>
       ) : null}
 
-      <section className="card compact-danger-panel">
-        <h3 className="card-title">Delete by status</h3>
-        <div className="form-row">
-          <button className="secondary-button" onClick={() => void deleteBySendStatus("unsent")} type="button">
-            Delete not sent
-          </button>
-          <button className="secondary-button" onClick={() => void deleteBySendStatus("sent")} type="button">
-            Delete sent
-          </button>
-        </div>
-      </section>
-
       <section className="job-list" aria-label="Captured jobs">
         {opportunities.length === 0 ? (
           <p className="empty-state">No opportunities match the current filters yet.</p>
         ) : (
           opportunities.map((opportunity) => (
             <JobCard
-              disabledSelection={selectedIds.length >= MAX_BULK_EMAIL_SELECTION && !selectedIds.includes(opportunity.id)}
               isSelected={selectedIds.includes(opportunity.id)}
               key={opportunity.id}
               onToggleSelected={() => toggleSelected(opportunity.id)}
@@ -161,16 +205,21 @@ export function JobsView() {
           <button
             aria-label={`Send email to ${selectedIds.length} selected jobs`}
             className="floating-send-button"
+            disabled={!canBulkEmailSelection}
             onClick={() => setShowBulkEmail(true)}
-            title={`Review email for ${selectedIds.length} selected`}
+            title={
+              canBulkEmailSelection
+                ? `Review email for ${selectedIds.length} selected`
+                : `Bulk email supports up to ${MAX_BULK_EMAIL_SELECTION} selected jobs`
+            }
             type="button">
             <svg aria-hidden="true" viewBox="0 0 24 24">
               <path d="M3 5h18v14H3V5Zm2.4 2 6.6 5 6.6-5H5.4Zm13.6 10V8.9l-7 5.3-7-5.3V17h14Z" />
             </svg>
             <span>{selectedIds.length}</span>
           </button>
-          {selectedIds.length === MAX_BULK_EMAIL_SELECTION ? (
-            <span className="floating-selection-note">25 max per batch</span>
+          {selectedIds.length >= MAX_BULK_EMAIL_SELECTION ? (
+            <span className="floating-selection-note">50 max per email batch</span>
           ) : null}
           <button
             aria-label={`Delete ${selectedIds.length} selected jobs`}
@@ -190,12 +239,10 @@ export function JobsView() {
 }
 
 function JobCard({
-  disabledSelection,
   opportunity,
   isSelected,
   onToggleSelected
 }: {
-  disabledSelection?: boolean
   opportunity: Opportunity
   isSelected: boolean
   onToggleSelected: () => void
@@ -222,15 +269,14 @@ function JobCard({
         <input
           aria-label="Select for bulk email"
           checked={isSelected}
-          disabled={disabledSelection}
           onChange={onToggleSelected}
-          title={disabledSelection ? "Bulk email supports up to 25 selected jobs at a time." : undefined}
           type="checkbox"
         />
         <button className="job-card-main" onClick={() => void openDetail(opportunity.id)} type="button">
           <h3>{opportunityTitle(opportunity)}</h3>
           {presentation.authorName ? <p className="job-meta">Author: {presentation.authorName}</p> : null}
           {company ? <p className="job-meta">Company: {company}</p> : null}
+          {opportunity.source_name ? <p className="job-meta">Source: {opportunity.source_name}</p> : null}
           {!company && emailDomain ? <p className="job-meta">Email domain: {emailDomain}</p> : null}
           <p className="job-meta">{opportunity.job_detail?.contact_email || opportunity.job_detail?.contact_channel_value}</p>
         </button>

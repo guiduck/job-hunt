@@ -4,16 +4,14 @@ const DEFAULT_INTENT_TERMS = new Set(["hiring", "contratando", "contratamos", "v
 
 export type LinkedInContentSearchUrlOptions = {
   keywords: string
-  region?: string
   sortMode?: "recent" | "relevant"
 }
 
 export function buildLinkedInContentSearchUrl({
   keywords,
-  region,
   sortMode
 }: LinkedInContentSearchUrlOptions) {
-  const effectiveKeywords = [keywords.trim(), region?.trim()].filter(Boolean).join(" ")
+  const effectiveKeywords = keywords.trim()
   const params = new URLSearchParams({
     keywords: effectiveKeywords,
     origin: "FACETED_SEARCH",

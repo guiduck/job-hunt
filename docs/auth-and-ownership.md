@@ -46,7 +46,11 @@ Para o primeiro recorte, usar um fluxo simples:
 4. extensao guarda apenas o token de acesso/sessao, nunca senha, OAuth token Gmail ou client secret
 5. todas as rotas protegidas resolvem `current_user`
 
-Magic link, OAuth social e SSO ficam fora do MVP.
+Google primary auth tambem faz parte do MVP atual, mas como autenticacao do app, nao como permissao
+Gmail. O fluxo cria ou vincula uma identidade Google ao usuario local quando o email verificado
+coincide. Gmail send continua exigindo OAuth separado em Settings.
+
+Magic link e SSO empresarial ficam fora do MVP.
 
 Decisoes do recorte atual:
 
@@ -54,6 +58,8 @@ Decisoes do recorte atual:
 - sem verificacao de email no MVP
 - sessoes bearer guardadas pela extensao em browser session storage; reiniciar o navegador exige login novamente
 - reset de senha user-facing com token temporario e resposta nao enumeradora para email desconhecido
+- login/cadastro com Google usando `openid` + userinfo email/profile; se o email verificado ja existir
+  em `users`, vincular o `GoogleIdentityLink` ao usuario existente em vez de criar duplicata
 
 ## Recursos que devem pertencer ao usuario
 

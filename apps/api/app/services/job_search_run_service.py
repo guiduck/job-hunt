@@ -280,6 +280,7 @@ def record_candidate(db: Session, run: JobSearchRun, candidate: dict[str, object
         str(candidate.get("post_headline") or ""),
         matched_keywords,
         contact_value,
+        str(candidate.get("source_url") or ""),
     )
 
     outcome = JobCandidateOutcome.ACCEPTED.value

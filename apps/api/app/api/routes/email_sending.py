@@ -118,6 +118,17 @@ def generate_ai_bulk_email(
     return generate_ai_bulk_send(db, payload, user=user)
 
 
+@router.get("/bulk-email/generate-ai/{batch_id}", response_model=BulkSendBatch)
+def get_ai_bulk_email_progress(
+    batch_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> BulkSendBatch:
+    from app.services.bulk_email_service import get_ai_generation_batch
+
+    return get_ai_generation_batch(db, batch_id, user=user)
+
+
 @router.patch("/bulk-email/{batch_id}/items/{opportunity_id}", response_model=BulkSendBatch)
 def update_bulk_email_item(
     batch_id: str,

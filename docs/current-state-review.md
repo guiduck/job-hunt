@@ -7,11 +7,11 @@ o guia freelance em `references/guia`.
 
 O projeto esta coerente com o caminho escolhido: primeiro tornar o modo `Full-time` util de ponta a
 ponta, depois voltar para o bot `Freelance` de Google Maps/Lovable. A base tecnica ja cobre captura,
-persistencia, revisao, scoring, templates, curriculos, drafts, envio Gmail/OAuth, historico de envio,
-bulk send com IA e filtros inteligentes pos-captura para buscas LinkedIn. A maior lacuna agora nao e
-mais "como capturar/enviar", e sim estabilizar o produto local: smoke real da extensao, testes legados
-com auth, contrato OpenAPI, OAuth/envio em ambiente publicado, feedback pos-envio ate status final e
-limpeza de riscos antes do proximo salto de produto.
+persistencia, revisao, scoring, templates, curriculos, drafts, login email/senha e Google, envio
+Gmail/OAuth, historico de envio, bulk send com IA e filtros inteligentes pos-captura para buscas
+LinkedIn. A maior lacuna de produto agora e ajudar o operador durante aplicacoes externas, onde ele
+perde tempo respondendo formularios longos. Por isso a proxima spec recomendada e um AI Field
+Assistant na extensao, com overlay em campos e respostas baseadas no curriculo.
 
 ## O que esta implementado
 
@@ -26,6 +26,8 @@ limpeza de riscos antes do proximo salto de produto.
 - Upload de curriculo PDF com conteudo salvo no PostgreSQL e curriculo default.
 - Limites globais removidos para permitir regras futuras por plano/assinatura.
 - Login email/senha, sessoes bearer, reset de senha e rotas protegidas por usuario.
+- Login/cadastro com Google como autenticacao primaria do app, com linking por email verificado e
+  separacao total do OAuth Gmail de envio.
 - `user_id` em recursos operacionais principais, com backfill para usuario local padrao.
 - Extensao Plasmo com signup/login/logout/reset e token em browser session storage.
 - Busca LinkedIn simplificada por texto/ordenacao e filtros opcionais por IA pos-captura, com campos,
@@ -34,12 +36,16 @@ limpeza de riscos antes do proximo salto de produto.
   contexto de curriculo/perfil, preferencia remota, regioes e se o post representa uma vaga real.
 - Content script da extensao tenta acionar o controle visivel de mais resultados quando a lista para
   de carregar durante uma captura iniciada pelo usuario.
+- Direcao documentada para assistente de campos externos com IA e shell persistente injetada por
+  content script/iframe.
 
 Ainda nao implementado:
 
 - atualizar todos os testes legados para enviar bearer token nas rotas protegidas
 - validar OAuth Gmail e approved-send em ambiente real publicado
 - revisar o fluxo visual da extensao depois do login para aproximar do prototipo
+- esconder header/navegacao quando usuario ainda nao esta autenticado
+- implementar assistente de campos de candidatura e substituir `Keep open` por shell persistente
 - executar o smoke manual completo de `008` com LinkedIn real, AI filters, controle de mais resultados
   e revisao de output do modelo
 
@@ -125,15 +131,19 @@ historico precisa pertencer a um usuario.
 
 ## Proxima spec recomendada
 
-A proxima spec deve ser `full-time-operational-hardening`: fechar a estabilizacao do MVP `Full-time`
-antes de abrir produto novo. O objetivo e validar o quickstart restante de `008` com LinkedIn real,
+A proxima spec deve ser `full-time-ai-field-assistant`: detectar campos externos de candidatura,
+mostrar botao de varinha magica, gerar respostas com IA usando curriculo/perfil, reaproveitar ate 3
+respostas recentes por keyword, criar uma shell persistente da extensao via content script/iframe e
+limpar a experiencia unauthenticated removendo header/menu antes do login.
+
+O hardening operacional continua logo depois: validar o quickstart restante com LinkedIn real,
 atualizar testes legados para autenticar rotas protegidas, revisar contrato OpenAPI, executar smoke de
 isolamento de dois usuarios, melhorar feedback pos-envio ate `queued/sending/sent/failed`, validar
-Gmail OAuth/approved-send em ambiente real e corrigir a falha conhecida do provider LinkedIn ou
-reclassifica-la explicitamente como comportamento esperado.
+Gmail OAuth/approved-send em ambiente real e corrigir ou reclassificar falhas conhecidas do provider.
 
 So depois dessa estabilizacao faz sentido acelerar para:
 
 1. tracking mais completo de respostas/status de candidatura no `Full-time`
-2. web app mais proxima do prototipo, se a operacao local justificar
-3. bot `Freelance` com Google Maps, analise de site e prompt Lovable
+2. retencao/limpeza automatica configuravel para oportunidades antigas
+3. web app mais proxima do prototipo, se a operacao local justificar
+4. bot `Freelance` com Google Maps, analise de site e prompt Lovable

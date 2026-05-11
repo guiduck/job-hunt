@@ -13,6 +13,7 @@ export function PopupContent() {
   const activeTab = usePopupStore((state) => state.activeTab)
   const error = usePopupStore((state) => state.error)
   const authReady = usePopupStore((state) => state.authReady)
+  const clearError = usePopupStore((state) => state.clearError)
   const currentUser = usePopupStore((state) => state.currentUser)
   const initializeAuth = usePopupStore((state) => state.initializeAuth)
 
@@ -23,7 +24,14 @@ export function PopupContent() {
 
   return (
     <section className="content">
-      {error ? <p className="message message--error">{error}</p> : null}
+      {error ? (
+        <div className="message-banner message-banner--error">
+          <span>{error}</span>
+          <button aria-label="Dismiss error" onClick={clearError} type="button">
+            x
+          </button>
+        </div>
+      ) : null}
       {!authReady ? <p className="empty-state">Checking session...</p> : currentUser ? <ActiveView activeTab={activeTab} /> : <AuthView />}
     </section>
   )

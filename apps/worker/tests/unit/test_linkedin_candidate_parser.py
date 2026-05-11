@@ -17,6 +17,20 @@ def test_email_extraction_trims_text_glued_after_common_tld() -> None:
     assert extract_public_email("manu@digitalhr.com.arThanks") == "manu@digitalhr.com.ar"
 
 
+def test_parser_uses_sanitized_email_for_contact_fields() -> None:
+    parsed = parse_candidate(
+        {
+            "company_name": "Example Co",
+            "role_title": "Engineer",
+            "source_evidence": "Apply by email jobs@example.comhashtag",
+        },
+        ["engineer"],
+    )
+
+    assert parsed["contact_channel_value"] == "jobs@example.com"
+    assert parsed["contact_email"] == "jobs@example.com"
+
+
 def test_parser_accepts_explicit_linkedin_dm_with_profile() -> None:
     parsed = parse_candidate(
         {

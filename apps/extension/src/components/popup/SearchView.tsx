@@ -1,11 +1,10 @@
 import { API_BASE_URL } from "../../api/client"
 import { CAPTURE_MAX_POSTS, CAPTURE_MAX_SCROLLS, usePopupStore } from "../../store/popupStore"
 
-const CAPTURE_BUSY_STATUSES = new Set(["opening", "capturing", "submitting"])
+const CAPTURE_BUSY_STATUSES = new Set(["opening", "capturing", "submitting", "processing"])
 
 export function SearchView() {
   const keywords = usePopupStore((state) => state.keywords)
-  const region = usePopupStore((state) => state.region)
   const aiFiltersEnabled = usePopupStore((state) => state.aiFiltersEnabled)
   const acceptedRegions = usePopupStore((state) => state.acceptedRegions)
   const excludedRegions = usePopupStore((state) => state.excludedRegions)
@@ -16,7 +15,6 @@ export function SearchView() {
   const maxScrolls = usePopupStore((state) => state.maxScrolls)
   const captureProgress = usePopupStore((state) => state.captureProgress)
   const setKeywords = usePopupStore((state) => state.setKeywords)
-  const setRegion = usePopupStore((state) => state.setRegion)
   const setAiFiltersEnabled = usePopupStore((state) => state.setAiFiltersEnabled)
   const setAcceptedRegions = usePopupStore((state) => state.setAcceptedRegions)
   const setExcludedRegions = usePopupStore((state) => state.setExcludedRegions)
@@ -37,24 +35,14 @@ export function SearchView() {
         <span>Search text</span>
         <input value={keywords} onChange={(event) => setKeywords(event.target.value)} />
       </label>
-      <div className="form-row">
-        <label className="field">
-          <span>Sort</span>
-          <select value={sortMode} onChange={(event) => setSortMode(event.target.value as "recent" | "relevant")}>
-            <option value="recent">Most recent</option>
-            <option value="relevant">Most relevant</option>
-          </select>
-        </label>
-        <label className="field">
-          <span>Region</span>
-          <input
-            placeholder="Optional text added to search query"
-            value={region}
-            onChange={(event) => setRegion(event.target.value)}
-          />
-        </label>
-      </div>
-      <p className="message">LinkedIn opens with only this search text, optional query region, and sort order.</p>
+      <label className="field">
+        <span>Sort</span>
+        <select value={sortMode} onChange={(event) => setSortMode(event.target.value as "recent" | "relevant")}>
+          <option value="recent">Most recent</option>
+          <option value="relevant">Most relevant</option>
+        </select>
+      </label>
+      <p className="message">LinkedIn opens with only this search text and sort order.</p>
       </div>
       <div className={`search-section ${aiFiltersEnabled ? "" : "search-section--disabled"}`}>
         <label className="toggle-row">
@@ -134,13 +122,43 @@ function CaptureDebugPanel() {
     return null
   }
 
+  const isCompleted = captureProgress.status === "completed"
+  const isFailed = captureProgress.status === "failed"
+  const isProcessing = captureProgress.status === "processing"
+  const runStatus = captureProgress.verification?.runStatus
+  const feedbackClass = isFailed
+    ? "capture-summary capture-summary--failed"
+    : isCompleted
+      ? "capture-summary capture-summary--completed"
+      : isProcessing
+        ? "capture-summary capture-summary--processing"
+        : "capture-summary"
+  const opportunitiesCreated = captureProgress.verification?.opportunitiesCount ?? 0
+
   return (
     <div className="debug-panel">
       <p className="section-label">Capture feedback</p>
+      <div className={feedbackClass}>
+        <strong>
+          {isCompleted ? "Analysis finished" : isFailed ? "Capture failed" : "Analysis in progress"}
+        </strong>
+        <span>{captureProgress.verification?.message || captureProgress.message}</span>
+        {isCompleted ? (
+          <div className="capture-summary-metrics">
+            <span>{captureProgress.postsFound ?? 0} posts</span>
+            <span>{captureProgress.verification?.candidatesCount ?? 0} candidates</span>
+            <span>{opportunitiesCreated} saved</span>
+          </div>
+        ) : null}
+      </div>
       <dl className="debug-list">
         <div>
-          <dt>Status</dt>
+          <dt>Capture status</dt>
           <dd>{captureProgress.status}</dd>
+        </div>
+        <div>
+          <dt>Run status</dt>
+          <dd>{runStatus || "-"}</dd>
         </div>
         <div>
           <dt>Posts captured</dt>
