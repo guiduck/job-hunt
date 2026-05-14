@@ -60,7 +60,8 @@ Estado atual:
 - o fluxo aceita conteudo publico fornecido para validacao local
 - candidatos com email publico ou convite explicito de contato no LinkedIn com link de perfil podem virar oportunidades
 - o worker consome runs `pending` no PostgreSQL, grava candidatos/oportunidades e finaliza lifecycle/metricas
-- runs `running` stale viram `failed/stale` no startup do worker, sem retry automatico
+- runs `running` stale viram `failed/stale` no startup do worker, e runs antigas em `running` tambem
+  podem virar `failed/running_timeout` por timeout configuravel, sem retry automatico
 - Docker Compose agora sobe PostgreSQL, API e worker compartilhando banco para validacao local
 
 Estado do recorte:
@@ -80,6 +81,10 @@ Estado do recorte:
   extensao/AI filters, contratos, feedback pos-envio, smoke publicado e OAuth/envio real fora do
   ambiente local; apos o login Google estar funcional, a proxima spec de maior valor de produto passa
   a ser o assistente de preenchimento de campos externos com IA
+- correcao operacional posterior: a Search UI nao fica presa para sempre quando a verificacao de uma
+  run nao completa; apos cerca de 10 minutos a extensao mostra timeout terminal e libera nova captura.
+  O dashboard `Full-time` passou a usar metricas agregadas da API, sem refletir filtros ativos da lista
+  Jobs.
 
 ### 4. Revisao operacional
 

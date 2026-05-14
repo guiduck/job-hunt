@@ -27,6 +27,8 @@ export function SettingsView() {
   const [operatorEmail, setOperatorEmail] = useState("")
   const [portfolioUrl, setPortfolioUrl] = useState("")
   const [operatorLinkedinUrl, setOperatorLinkedinUrl] = useState("")
+  const [operatorWhatsapp, setOperatorWhatsapp] = useState("")
+  const [extraContext, setExtraContext] = useState("")
   const [settingsFeedback, setSettingsFeedback] = useState<string | null>(null)
   const [assistantFeedback, setAssistantFeedback] = useState<string | null>(null)
   const defaultResume = resumes.find((resume) => resume.is_default)
@@ -42,8 +44,17 @@ export function SettingsView() {
     setOperatorEmail(userSettings?.operator_email || "")
     setPortfolioUrl(userSettings?.portfolio_url || "")
     setOperatorLinkedinUrl(userSettings?.operator_linkedin_url || "")
+    setOperatorWhatsapp(userSettings?.operator_whatsapp || "")
+    setExtraContext(userSettings?.extra_context || "")
     setSettingsFeedback(null)
-  }, [userSettings?.operator_email, userSettings?.operator_linkedin_url, userSettings?.operator_name, userSettings?.portfolio_url])
+  }, [
+    userSettings?.extra_context,
+    userSettings?.operator_email,
+    userSettings?.operator_linkedin_url,
+    userSettings?.operator_name,
+    userSettings?.operator_whatsapp,
+    userSettings?.portfolio_url
+  ])
 
   useEffect(() => {
     if (!previewResumeId) {
@@ -80,7 +91,9 @@ export function SettingsView() {
       operator_name: operatorName.trim() || null,
       operator_email: operatorEmail.trim() || null,
       portfolio_url: portfolioUrl.trim() || null,
-      operator_linkedin_url: operatorLinkedinUrl.trim() || null
+      operator_linkedin_url: operatorLinkedinUrl.trim() || null,
+      operator_whatsapp: operatorWhatsapp.trim() || null,
+      extra_context: extraContext.trim() || null
     })
     setSettingsFeedback("Profile settings saved.")
   }
@@ -128,6 +141,9 @@ export function SettingsView() {
 
       <div className="settings-card settings-card--form">
         <strong>Sender profile</strong>
+        <p className="settings-help">
+          Name, email, portfolio, LinkedIn, WhatsApp, extra notes, and your default resume are used as context when AI drafts job emails.
+        </p>
         <label className="field">
           <span>Your name</span>
           <input value={operatorName} onChange={(event) => setOperatorName(event.target.value)} placeholder="Guilherme" />
@@ -149,8 +165,21 @@ export function SettingsView() {
             type="url"
           />
         </label>
+        <label className="field">
+          <span>WhatsApp</span>
+          <input value={operatorWhatsapp} onChange={(event) => setOperatorWhatsapp(event.target.value)} placeholder="+55 11 99999-0000" inputMode="tel" />
+        </label>
+        <label className="field">
+          <span>Extra AI context</span>
+          <textarea
+            value={extraContext}
+            onChange={(event) => setExtraContext(event.target.value)}
+            placeholder="Availability, tone preferences, preferred contact details, or details AI should consider without inventing facts."
+          />
+        </label>
         <button className="primary-button" onClick={() => void saveProfileSettings()} type="button">
-          Save profile
+          <ButtonIcon name="save" />
+          <span>Save profile</span>
         </button>
         {settingsFeedback ? <p className="message">{settingsFeedback}</p> : null}
       </div>
@@ -168,10 +197,12 @@ export function SettingsView() {
             disabled={loading}
             onClick={() => void addAssistantScope("base_domain")}
             type="button">
+            <ButtonIcon name="site" />
             <span>Add current site</span>
             <small>All pages on this domain</small>
           </button>
           <button className="assistant-action-button" disabled={loading} onClick={() => void addAssistantScope("exact_page")} type="button">
+            <ButtonIcon name="target" />
             <span>Add exact page</span>
             <small>Only this URL</small>
           </button>
@@ -264,5 +295,27 @@ export function SettingsView() {
         </section>
       ) : null}
     </section>
+  )
+}
+
+function ButtonIcon({ name }: { name: "save" | "site" | "target" }) {
+  if (name === "save") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24">
+        <path d="M5 4h12l2 2v14H5V4Zm2 2v12h10V7.2L15.8 6H15v5H8V6H7Zm3 0v3h3V6h-3Zm0 8h4v2h-4v-2Z" />
+      </svg>
+    )
+  }
+  if (name === "site") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24">
+        <path d="M4 5h16v14H4V5Zm2 4h12V7H6v2Zm0 2v6h12v-6H6Z" />
+      </svg>
+    )
+  }
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-6-6V4Zm1 1v8H5v-2h4.6A8.03 8.03 0 0 1 13 5Zm4.5 1.1L19 7.6l-6.3 6.3-3-3 1.4-1.4 1.6 1.6 4.8-5Z" />
+    </svg>
   )
 }

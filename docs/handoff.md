@@ -1,16 +1,29 @@
 # Handoff
 
+## Atualizacao De Processo
+
+- `agent_sdd_boilerplate`: criado em `references/agent-sdd-boilerplate/` como kit reutilizavel para
+  novos projetos com Cursor + Codex + Spec Kit + Lovable. O pacote inclui `AGENTS.md`, `CODEX.md`,
+  rule always-on do Cursor, skills canonicas em `.cursor/skills`, mirrors em `.codex/skills`,
+  overlays para os comandos principais do Spec Kit, templates de docs e templates Lovable.
+- `validacao_boilerplate`: estrutura verificada com `rg --hidden --files
+  references\agent-sdd-boilerplate` e checagem PowerShell de frontmatter em todos os `SKILL.md`.
+  `quick_validate.py` foi tentado, mas o ambiente local nao tinha `python` no PATH e o runtime
+  embutido nao tinha `PyYAML`; a validacao formal deve ser repetida em um ambiente Python com
+  dependencia YAML instalada.
+
 ## Status Atual
 
 - `fase_atual_roadmap`: Fase 3 / 3.5 - Full-time LinkedIn MVP com filtros inteligentes pos-captura
-- `etapa_atual_action_plan`: preparar smoke manual do primeiro recorte do AI Field Assistant em
-  formularios externos reais
+- `etapa_atual_action_plan`: polir o fluxo `Full-time` local para um MVP publicavel, mantendo busca,
+  dashboard, Jobs, envio e assistente de campos estaveis antes de abrir novas frentes
 - `status_resumido`: a extensao Plasmo opera o fluxo `Full-time` local com login persistente, captura
   autenticada de posts do LinkedIn, listagem/detalhe de vagas, delete individual/bulk, templates,
   curriculos, login Google primary auth, Gmail OAuth, envio individual, bulk send revisavel com IA e
   busca LinkedIn simplificada com filtros opcionais por IA pos-captura. O feedback de captura acompanha o run do worker ate status
-  terminal antes de marcar a analise como concluida, evitando contadores finais zerados enquanto a IA
-  ainda esta processando. A tentativa de adicionar uma fonte externa de vagas com
+  terminal ou timeout amplo antes de liberar a UI, evitando contadores finais zerados enquanto a IA
+  ainda esta processando e evitando que uma run presa bloqueie novas capturas. O dashboard usa metricas
+  agregadas sem filtros da lista Jobs. A tentativa de adicionar uma fonte externa de vagas com
   enriquecimento de email foi descartada por baixa utilidade real: muitas respostas direcionavam para
   carreira/ATS/formulario, sem vantagem para o produto de outreach por email.
 - `decisao_recente`: remover codigo, specs, configs e UI da fonte externa; preservar melhorias
@@ -23,6 +36,12 @@
   viewport visivel, Settings permite marcar quais curriculos entram como contexto do assistente, e a
   shell persistente ganhou preenchimento em massa com respostas salvas primeiro e IA apenas quando o
   operador escolher.
+- `full_time_fixes_mais_recentes`: o fluxo `Full-time` foi corrigido antes das proximas specs com
+  sanitizacao real de emails colados com `hashtag`, migration de backfill para dados recuperaveis,
+  metrica explicita `unsent` baseada em ausencia de `SendRequest job_application sent`, dashboard
+  reduzido para total/nao enviados, status operacional `unsent/sent/interview` na extensao, header do
+  popup reorganizado com icones, sender profile com WhatsApp e informacoes extras, e contexto/prompt
+  de AI bulk email usando esses dados sem inventar fatos nem incluir WhatsApp vazio.
 - `validacao_mais_recente`: apos remover o spike descartado, passaram `apps/extension npm run
   typecheck`, `apps/extension npm run build`, `docker compose exec api python -m compileall app`,
   `docker compose exec worker python -m compileall app`, API focused tests
@@ -76,7 +95,18 @@
   validado com
   `apps/extension npm run typecheck`, `apps/extension npm run build` e
   `docker compose exec api python -m pytest tests/contract/test_field_assistant_contract.py tests/contract/test_resume_attachments.py`
-  (6 passed).
+  (6 passed). Depois, a captura LinkedIn ganhou timeout terminal na extensao apos cerca de 10 minutos,
+  o worker ganhou timeout configuravel de runs antigas em `running`, e o dashboard passou a chamar
+  `/opportunities/metrics?opportunity_type=job` para mostrar totais reais sem os filtros da lista Jobs.
+  Validado com `python -m pytest tests/contract/test_full_time_fixes_contract.py` em `apps/api` (5
+  passed), `python -m pytest tests/unit/test_linkedin_worker_stale_runs.py` em `apps/worker` (2 passed)
+  e `npm run typecheck` em `apps/extension`.
+  Depois, os ajustes finais do fluxo Full-time passaram em
+  `docker compose exec api python -m pytest tests/unit/test_email_sanitization.py tests/integration/test_job_email_sanitization.py tests/contract/test_user_settings.py tests/unit/test_ai_email_generation_context.py tests/contract/test_bulk_ai_email.py tests/contract/test_full_time_fixes_contract.py tests/integration/test_email_recipient_validation.py`
+  (20 passed), `docker compose exec worker python -m pytest tests/unit/test_gmail_provider.py tests/integration/test_email_sending_job.py`
+  (3 passed), `apps/extension npm run typecheck` e `apps/extension npm run build`. O build concluiu
+  com o aviso conhecido de rede do Plasmo ao buscar metadata de pacote e uma mensagem nao bloqueante
+  sobre `svgo`.
 
 ## Produto
 
@@ -97,14 +127,19 @@ O caminho funcional atual de `job` e LinkedIn-first:
 
 - Search UI com filtros de IA desligados por padrao e aplicados somente quando marcados
 - feedback visual de captura/run no painel de Search, com status do run separado do status da captura
-  e contadores atualizados durante o processamento do worker; valores compostos de modo de trabalho
-  retornados pela IA nao devem derrubar o endpoint de candidates
+  e contadores atualizados durante o processamento do worker; se a verificacao nao completar em cerca
+  de 10 minutos, a extensao deve mostrar timeout terminal e liberar nova busca. Valores compostos de
+  modo de trabalho retornados pela IA nao devem derrubar o endpoint de candidates
+- dashboard `Full-time` com metricas agregadas da API, sem recalcular totais a partir da pagina ou dos
+  filtros atuais de Jobs, mostrando foco operacional em total de vagas e vagas ainda nao enviadas
 - dedupe de vagas deve usar empresa/cargo quando disponiveis e usar a URL do post como desempate quando
   empresa/cargo nao foram extraidos
 - Jobs UI sem filtro Review
 - checkbox mestre `All listed` para selecionar/desselecionar todas as oportunidades listadas
 - `Delete all listed` sempre respeitando os filtros atuais da lista
 - bulk email limitado a 50 selecionadas por vez
+- sender profile com nome, email, portfolio, LinkedIn, WhatsApp e informacoes extras usados como
+  contexto da IA junto do curriculo, com assinatura limpa e sem WhatsApp quando o telefone estiver vazio
 - estado persistido para aba, filtros, selecao, modal bulk, detalhe selecionado e progresso de captura
 - cards usando titulo/cargo da vaga como label principal, com dedupe de nomes repetidos
 - input unico de busca em Jobs cobrindo descricao, keywords, cargo, empresa e email de contato salvo
@@ -147,6 +182,8 @@ descartada.
 - ajustar isolamento visual do assistente para iframe/shadow-root se sites reais entrarem em conflito
   com o DOM/CSS injetado atual
 - completar as partes realmente assincronas/worker-owned de AI bulk generation e feedback pos-envio
+- polir a casca publicavel: mensagens vazias, estados de erro/loading, dashboard/funil, onboarding
+  local, build extension, configuracao de API publicada e checklist de smoke
 - executar smoke manual completo de extensao com LinkedIn real, AI filters, Jobs pagination, Google
   auth e Gmail OAuth/send
 - melhorar feedback pos-envio ate status final por item
@@ -155,6 +192,10 @@ descartada.
 - planejar futuramente retencao/limpeza automatica de vagas antigas por politica configuravel
 
 ## Proximo Passo Spec Kit Recomendado
+
+O proximo prompt recomendado em `docs/next-spec-prompt.md` agora prioriza transformar AI bulk
+generation e feedback pos-envio em workflow duravel/worker-owned, preservando revisao humana,
+sanitizacao, ownership e contratos atuais da extensao.
 
 `/speckit-implement` executou o primeiro recorte de `specs/010-ai-field-assistant/tasks.md`. Entregue:
 modelos/migration/rotas API `field-assistant`, geracao de respostas usando contexto de perfil/resumo

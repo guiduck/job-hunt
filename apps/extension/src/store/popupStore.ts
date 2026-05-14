@@ -11,6 +11,7 @@ import {
   disconnectGoogleOAuth,
   getCurrentUser,
   getOpportunity,
+  getOpportunityMetrics,
   getSendingProviderAccount,
   getUserSettings,
   generateAIBulkEmail,
@@ -49,6 +50,7 @@ import type {
   JobReviewStatus,
   Opportunity,
   OpportunityFilters,
+  OpportunityMetrics,
   OutreachEvent,
   ResumeAttachment,
   SendingProviderAccount,
@@ -89,6 +91,7 @@ type PopupState = {
   selectedJobIds: string[]
   showBulkEmail: boolean
   opportunities: Opportunity[]
+  dashboardMetrics: OpportunityMetrics
   opportunityPage: number
   opportunityPageSize: number
   opportunityTotalItems: number
@@ -149,6 +152,7 @@ type PopupState = {
   startCapture: () => Promise<void>
   openDetail: (opportunityId: string) => Promise<void>
   saveOpportunityUpdate: (payload: OpportunityUpdatePayload) => Promise<void>
+  updateOpportunityStatus: (opportunityId: string, payload: OpportunityUpdatePayload) => Promise<void>
   deleteOpportunity: (opportunityId: string) => Promise<void>
   deleteOpportunities: (opportunityIds: string[]) => Promise<number>
   refreshEmailSetup: () => Promise<void>
@@ -178,6 +182,15 @@ type PopupState = {
 const DEFAULT_CAPTURE_PROGRESS: CaptureProgress = {
   status: "idle",
   message: "Ready to capture LinkedIn posts."
+}
+
+const DEFAULT_DASHBOARD_METRICS: OpportunityMetrics = {
+  total: 0,
+  with_email: 0,
+  saved: 0,
+  applied: 0,
+  interviews: 0,
+  unsent: 0
 }
 
 type PersistedPopupState = {
@@ -285,6 +298,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   selectedJobIds: persistedPopupState.selectedJobIds || [],
   showBulkEmail: persistedPopupState.showBulkEmail || false,
   opportunities: [],
+  dashboardMetrics: DEFAULT_DASHBOARD_METRICS,
   opportunityPage: persistedFilters?.page || 1,
   opportunityPageSize: persistedFilters?.page_size || 50,
   opportunityTotalItems: 0,
@@ -504,12 +518,17 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     set({ loading: true, error: null })
     try {
       const pageFilters = { ...nextFilters, page: nextFilters.page || 1, page_size: nextFilters.page_size || 50 }
-      const [opportunityPage, runs] = await Promise.all([listOpportunityPage(pageFilters), listJobSearchRuns()])
+      const [opportunityPage, runs, dashboardMetrics] = await Promise.all([
+        listOpportunityPage(pageFilters),
+        listJobSearchRuns(),
+        getOpportunityMetrics()
+      ])
       const visibleIds = new Set(opportunityPage.items.map((opportunity) => opportunity.id))
       const selectedJobIds = get().selectedJobIds.filter((id) => visibleIds.has(id))
       persistPopupState({ selectedJobIds, filters: { ...pageFilters, page: opportunityPage.page, page_size: opportunityPage.page_size } })
       set({
         opportunities: opportunityPage.items,
+        dashboardMetrics,
         opportunityPage: opportunityPage.page,
         opportunityPageSize: opportunityPage.page_size,
         opportunityTotalItems: opportunityPage.total_items,
@@ -776,6 +795,23 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       await get().refreshData()
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Could not update opportunity." })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  updateOpportunityStatus: async (opportunityId, payload) => {
+    set({ loading: true, error: null })
+    try {
+      const updated = await updateOpportunity(opportunityId, payload)
+      const { selectedOpportunity } = get()
+      set({
+        selectedOpportunity: selectedOpportunity?.id === opportunityId ? updated : selectedOpportunity,
+        opportunities: get().opportunities.map((opportunity) => (opportunity.id === opportunityId ? updated : opportunity))
+      })
+      await get().refreshData()
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Could not update job status." })
     } finally {
       set({ loading: false })
     }

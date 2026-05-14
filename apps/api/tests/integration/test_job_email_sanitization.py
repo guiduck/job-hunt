@@ -10,8 +10,8 @@ def test_captured_job_contact_email_is_sanitized_before_storage(
         **review_ready_job_payload,
         "job_detail": {
             **review_ready_job_payload["job_detail"],
-            "contact_channel_value": "jobs@example.comhashtag",
-            "contact_email": "jobs@example.comhashtag",
+            "contact_channel_value": "vagas@locus.softwarehashtag",
+            "contact_email": "vagas@locus.softwarehashtag",
         },
     }
 
@@ -19,5 +19,5 @@ def test_captured_job_contact_email_is_sanitized_before_storage(
 
     assert response.status_code == 201
     detail = response.json()["job_detail"]
-    assert detail["contact_email"] == "jobs@example.com"
-    assert detail["contact_channel_value"] == "jobs@example.com"
+    assert detail["contact_email"] == "vagas@locus.software"
+    assert detail["contact_channel_value"] == "vagas@locus.software"

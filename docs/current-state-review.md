@@ -36,18 +36,22 @@ Assistant na extensao, com overlay em campos e respostas baseadas no curriculo.
   contexto de curriculo/perfil, preferencia remota, regioes e se o post representa uma vaga real.
 - Content script da extensao tenta acionar o controle visivel de mais resultados quando a lista para
   de carregar durante uma captura iniciada pelo usuario.
-- Direcao documentada para assistente de campos externos com IA e shell persistente injetada por
-  content script/iframe.
+- Assistente de campos externos com IA implementado na extensao: ativacao por dominio/pagina, shell
+  persistente, varinha em campos elegiveis, respostas salvas por keyword, contexto de curriculos
+  selecionados e preenchimento em massa `Fill saved`/`Fill with AI`.
+- Busca LinkedIn ganhou timeout terminal na extensao para nao bloquear nova captura quando a verificacao
+  nao completa, e o worker pode marcar runs antigas em `running` como timeout.
+- Dashboard `Full-time` usa metricas agregadas da API, sem herdar filtros/paginacao da lista Jobs.
 
 Ainda nao implementado:
 
 - atualizar todos os testes legados para enviar bearer token nas rotas protegidas
 - validar OAuth Gmail e approved-send em ambiente real publicado
-- revisar o fluxo visual da extensao depois do login para aproximar do prototipo
-- esconder header/navegacao quando usuario ainda nao esta autenticado
-- implementar assistente de campos de candidatura e substituir `Keep open` por shell persistente
+- revisar e polir o fluxo visual da extensao depois do login para aproximar do prototipo e ficar
+  publicavel
 - executar o smoke manual completo de `008` com LinkedIn real, AI filters, controle de mais resultados
   e revisao de output do modelo
+- executar smoke manual ampliado do assistente de campos em formularios reais variados
 
 ## Coerencia com o prototipo
 
@@ -67,7 +71,7 @@ Pontos ainda distantes:
 
 - web app dark completa com sidebar, dashboard, campanhas, leads, templates e configuracoes por modo
 - campanhas `Full-time` com campos proprios como cargo, senioridade, modalidade e keywords negativas
-- dashboard com funil de vagas, candidaturas, respostas e entrevistas
+- dashboard com funil de vagas, candidaturas, respostas e entrevistas mais proximo de produto final
 - export CSV e acoes em massa mais polidas
 - estados de resposta, entrevista, rejeicao e follow-up com feedback loop real
 - bot `Freelance` com Google Maps, analise de site, demo URL e prompt Lovable
@@ -123,7 +127,8 @@ historico precisa pertencer a um usuario.
 - OAuth real precisa ser validado com URL publica quando houver deploy, porque redirect URI muda.
 - Armazenar PDFs no Postgres e simples, mas pode crescer demais se houver muitos usuarios/arquivos.
 - A extensao depende do DOM atual do LinkedIn e pode quebrar com mudancas visuais.
-- Bulk send precisa de mais observabilidade, retries e controles antes de uso em volume.
+- Bulk send precisa de mais observabilidade, retries, polling duravel e controles antes de uso em
+  volume.
 - O worker ainda tem uma falha conhecida fora do fluxo de email na suite completa do provider LinkedIn.
 - Parte da suite legada ainda falha porque testes antigos chamam rotas protegidas sem bearer token.
 - Login/ownership ja existe, mas ainda precisa de hardening de validacao completa e smoke test
@@ -131,15 +136,10 @@ historico precisa pertencer a um usuario.
 
 ## Proxima spec recomendada
 
-A proxima spec deve ser `full-time-ai-field-assistant`: detectar campos externos de candidatura,
-mostrar botao de varinha magica, gerar respostas com IA usando curriculo/perfil, reaproveitar ate 3
-respostas recentes por keyword, criar uma shell persistente da extensao via content script/iframe e
-limpar a experiencia unauthenticated removendo header/menu antes do login.
-
-O hardening operacional continua logo depois: validar o quickstart restante com LinkedIn real,
-atualizar testes legados para autenticar rotas protegidas, revisar contrato OpenAPI, executar smoke de
-isolamento de dois usuarios, melhorar feedback pos-envio ate `queued/sending/sent/failed`, validar
-Gmail OAuth/approved-send em ambiente real e corrigir ou reclassificar falhas conhecidas do provider.
+A proxima spec deve ser `full-time-publishable-mvp-hardening`: polir o MVP `Full-time` para uso
+publicavel, cobrindo dashboard/jobs/search, timeout/status de workflows longos, deploy/OAuth real,
+smoke checklist, observabilidade basica, retencao segura e AI bulk/post-send duravel.
+O foco deve ser reduzir atrito e risco no que ja existe antes de iniciar outra frente grande.
 
 So depois dessa estabilizacao faz sentido acelerar para:
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from io import BytesIO
 import json
 from pathlib import Path
@@ -299,24 +299,36 @@ def claim_pending_run(db: Session, run_id: str) -> dict[str, Any] | None:
     )
 
 
-def recover_stale_running_runs(db: Session) -> int:
+def recover_stale_running_runs(
+    db: Session,
+    *,
+    older_than_minutes: int | None = None,
+    provider_error_code: str = "stale_running",
+    message: str = "Run was left running before worker startup and was not retried automatically.",
+) -> int:
     now = datetime.now(UTC)
-    message = "Run was left running before worker startup and was not retried automatically."
+    timeout_filter = ""
+    params: dict[str, object] = {"message": message, "now": now, "provider_error_code": provider_error_code}
+    if older_than_minutes is not None:
+        cutoff = now - timedelta(minutes=older_than_minutes)
+        timeout_filter = "AND COALESCE(started_at, updated_at, created_at) <= :cutoff"
+        params["cutoff"] = cutoff
     result = db.execute(
         text(
-            """
+            f"""
             UPDATE job_search_runs
             SET status = 'failed',
                 provider_status = 'failed',
-                provider_error_code = 'stale_running',
+                provider_error_code = :provider_error_code,
                 provider_error_message = :message,
                 error_message = :message,
                 completed_at = :now,
                 updated_at = :now
             WHERE status = 'running'
+            {timeout_filter}
             """
         ),
-        {"message": message, "now": now},
+        params,
     )
     db.commit()
     return int(result.rowcount or 0)
@@ -949,6 +961,16 @@ def process_pending_runs(
 
         should_run_once = settings.worker_run_once if run_once is None else run_once
         while True:
+            if settings.worker_running_run_timeout_minutes > 0:
+                recover_stale_running_runs(
+                    db,
+                    older_than_minutes=settings.worker_running_run_timeout_minutes,
+                    provider_error_code="running_timeout",
+                    message=(
+                        "Run exceeded the worker running timeout and was marked failed so new captures "
+                        "are not blocked by stale processing."
+                    ),
+                )
             pending_runs = select_pending_runs(db, settings.worker_max_runs_per_loop)
             for pending_run in pending_runs:
                 if process_one_run(db, pending_run, settings=settings):

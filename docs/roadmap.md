@@ -5,6 +5,20 @@ Este arquivo descreve a direcao estavel do produto.
 Para saber onde a execucao parou, qual e a fase atual e qual foi o ultimo prompt usado, consulte
 `docs/handoff.md`.
 
+## Assets De Processo Reutilizaveis
+
+O projeto agora tambem serve como referencia para um workflow SDD reutilizavel em novos repos:
+
+- `references/agent-sdd-boilerplate/` concentra um kit copiavel para Cursor + Codex + GitHub Spec Kit
+  + Lovable, com regras, skills espelhadas, overlays dos comandos principais do Spec Kit e templates
+  iniciais de docs.
+- Cursor permanece a fonte canonica das skills longas em `.cursor/skills`; Codex usa mirrors em
+  `.codex/skills` e `AGENTS.md` como brief de topo.
+- O padrao preserva o ciclo docs-first -> prototipo navegavel -> Spec Kit -> implementacao escalavel
+  -> closeout obrigatorio em docs, handoff, roadmap e proximo prompt.
+- Gate futuro: se esse boilerplate for usado em varios projetos, criar um instalador/validador para
+  copiar o kit, substituir placeholders e rodar validacao formal das skills.
+
 ## Fase 1. Fundacao Operacional
 
 Objetivo: criar a base minima que permita captura e persistencia com qualidade.
@@ -38,8 +52,13 @@ Estado atual:
 - a extensao Plasmo usa a sessao logada do navegador para capturar posts do LinkedIn, criar runs
   autenticadas, exibir diagnosticos, acompanhar o processamento do run ate status terminal e revisar
   vagas pela API local
+- a verificacao da captura na extensao tem timeout amplo; quando o worker nao conclui a tempo, a UI
+  mostra timeout terminal e libera nova busca em vez de ficar presa em `processing`
 - o feedback da Search UI usa os counters do run como fonte principal e nao deve ficar zerado quando
   uma chamada detalhada de candidates encontra sinais de IA fora do enum esperado
+- o dashboard `Full-time` usa metricas agregadas da API para total de vagas e vagas ainda nao
+  enviadas, sem herdar filtros/paginacao da lista Jobs; campos legados como `with_email`, `saved` e
+  `interviews` seguem no contrato por compatibilidade
 - a deduplicacao de vagas usa URL do post como desempate quando empresa/cargo nao foram extraidos,
   evitando colapsar vagas diferentes do mesmo contato e mesmas keywords
 - limites globais de candidatos por run foram removidos; limites futuros devem ser regras de produto
@@ -88,8 +107,9 @@ Estado atual:
 - login/cadastro com Google funciona como autenticacao primaria da extensao, vinculando identidade
   Google ao usuario existente quando o email verificado coincide; Gmail send OAuth continua separado
 - bulk send com IA gera assunto/corpo por vaga usando oportunidade, curriculo PDF extraido, portfolio,
-  idioma detectado do post e template como referencia; o usuario revisa/edita/skip antes de clicar
-  `SEND`
+  LinkedIn, WhatsApp, informacoes extras, idioma detectado do post e template como referencia; o
+  usuario revisa/edita/skip antes de clicar `SEND`, e a IA nao deve inventar fatos nem incluir
+  WhatsApp quando o telefone estiver vazio
 - a spec `009-full-time-fixes` implementou o hardening principal do fluxo local: sanitizacao de email,
   login/cadastro com Google como autenticacao primaria separada do OAuth Gmail, regiao apenas nos
   filtros de IA, paginacao Jobs em paginas de 50, `LinkedIn URL` no sender profile e progresso por
@@ -111,6 +131,9 @@ Estado atual:
   pela janela da varinha
 - a janela da varinha permite editar a pergunta/instrucao detectada antes de gerar ou salvar resposta,
   e inputs de busca (`type=search`) ficam fora do assistente para evitar icones em caixas de navegacao
+- o popup `Full-time` foi simplificado para operacao diaria: dashboard com total/nao enviados, status
+  visual `unsent/sent/interview`, marcacao rapida de entrevista, header alinhado com email/log out e
+  acoes do assistente, e sender profile com WhatsApp/informacoes extras para contexto de emails IA
 
 Gate restante desta fase:
 
@@ -126,7 +149,8 @@ Gate restante desta fase:
 - planejar uma spec separada de retencao/limpeza operacional para arquivar ou apagar vagas antigas
   por politica configuravel, sem apagar oportunidades recentes ou dados de envio sem confirmacao
 - adicionar tracking operacional de resposta, entrevista, rejeicao, ignorado e follow-up
-- aproximar UI do prototipo com dashboard/campanhas/lista/detalhe `Full-time` mais completos
+- aproximar UI do prototipo com dashboard/campanhas/lista/detalhe `Full-time` mais completos e polish
+  de produto publicavel
 - atualizar testes legados e contratos para refletir auth/ownership e campos recentes do fluxo
   `Full-time`
 

@@ -188,3 +188,12 @@ class OpportunityPage(BaseModel):
     total_pages: int = Field(ge=1)
     has_next: bool
     has_previous: bool
+
+
+class OpportunityMetrics(BaseModel):
+    total: int = Field(ge=0)
+    with_email: int = Field(ge=0)
+    saved: int = Field(ge=0)
+    applied: int = Field(ge=0)
+    interviews: int = Field(ge=0)
+    unsent: int = Field(ge=0)

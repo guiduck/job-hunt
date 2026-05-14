@@ -39,7 +39,7 @@ let latestProgress: CaptureProgress = {
   message: "Ready to capture LinkedIn posts."
 }
 
-const RUN_VERIFICATION_MAX_ATTEMPTS = 120
+const RUN_VERIFICATION_MAX_ATTEMPTS = 300
 const RUN_VERIFICATION_POLL_INTERVAL_MS = 2000
 
 function setProgress(progress: CaptureProgress) {
@@ -341,10 +341,13 @@ async function startCapture(payload: CaptureRequest): Promise<CaptureResult> {
     }
   })
   const runReachedTerminalStatus = Boolean(verification.runStatus && verification.runStatus !== "pending" && verification.runStatus !== "running")
-  const finalStatus: CaptureProgress["status"] = verification.runStatus === "failed" ? "failed" : runReachedTerminalStatus ? "completed" : "processing"
+  const finalStatus: CaptureProgress["status"] =
+    verification.timedOut || verification.runStatus === "failed" ? "failed" : runReachedTerminalStatus ? "completed" : "processing"
   const finalMessage = runReachedTerminalStatus
     ? `Created run ${run.id}. ${verification.message}`
-    : `Created run ${run.id}, but the worker is still processing it. ${verification.message}`
+    : verification.timedOut
+      ? `Created run ${run.id}, but worker verification timed out. ${verification.message}`
+      : `Created run ${run.id}, but the worker is still processing it. ${verification.message}`
 
   setProgress({
     status: finalStatus,
@@ -448,7 +451,8 @@ async function verifyRunProcessing(
 
   return {
     ...latest,
-    message: `${latest.message} Worker verification is still pending; keep this popup open or reopen it to refresh progress.`
+    timedOut: true,
+    message: `${latest.message} Worker verification timed out after about 10 minutes. You can start a new capture; the previous run may still finish in the background or be marked failed by the worker timeout.`
   }
 }
 

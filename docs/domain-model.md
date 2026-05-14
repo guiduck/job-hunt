@@ -243,6 +243,33 @@ credenciais sensiveis nao devem ficar na extensao.
 variavel global. O token OAuth concedido pelo usuario fica em `token_json`; o
 client secret do app Google vem de secret do ambiente e nao deve ser exposto em schemas de resposta.
 
+### `user_settings`
+
+Perfil operacional owner-scoped usado por templates, emails com IA e assistentes.
+
+Campos atuais/recomendados:
+
+- `id`
+- `user_id`
+- `operator_name`
+- `operator_email`
+- `portfolio_url`
+- `operator_linkedin_url`
+- `operator_whatsapp`
+- `extra_context`
+- `default_mode`
+- `created_at`
+- `updated_at`
+
+Regras:
+
+- `operator_whatsapp` aceita validacao leve para telefone/WhatsApp humano (`+`, digitos, espacos,
+  parenteses e hifen) e deve ser omitido pela IA quando vazio.
+- `extra_context` e um campo livre para instrucoes/fatos fornecidos pelo operador; a IA pode usar esse
+  texto apenas como contexto fornecido e nao deve expandi-lo em alegacoes inventadas.
+- Nome, email, portfolio, LinkedIn, WhatsApp, informacoes extras e curriculo padrao/selecionado podem
+  entrar no contexto de geracao de email, sempre com revisao humana antes de envio.
+
 ### `email_drafts`
 
 Preview revisavel antes do envio.
@@ -514,6 +541,8 @@ Estados especificos para o fluxo de emprego:
 - A pagina de detalhe deve renderizar componentes diferentes por modo.
 - Acoes em massa devem respeitar o modo ativo.
 - Dashboards devem agregar metricas por modo, nunca em uma unica visao misturada.
+- Dashboards devem buscar agregados totais do modo ativo, sem depender dos filtros/paginacao da lista
+  operacional que o usuario esta revisando naquele momento.
 - Templates e envios devem ser sempre escopados por modo.
 - A extensao Plasmo pode operar o modo `Full-time`, mas deve consumir os mesmos contratos que uma
   futura web.

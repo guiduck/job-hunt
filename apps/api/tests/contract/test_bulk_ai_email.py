@@ -13,6 +13,14 @@ def test_bulk_ai_generate_review_edit_and_approve(
     review_ready_job_payload: dict[str, object],
 ) -> None:
     opportunity = client.post("/opportunities", headers=auth_headers, json=review_ready_job_payload).json()
+    client.patch(
+        "/user-settings",
+        headers=auth_headers,
+        json={
+            "operator_whatsapp": "+55 11 99999-0000",
+            "extra_context": "Prefer concise outreach and mention timezone overlap only if relevant.",
+        },
+    )
     client.patch("/user-settings", headers=auth_headers, json={"portfolio_url": "https://example.com"})
     monkeypatch.setattr(
         bulk_email_service,
@@ -30,7 +38,7 @@ def test_bulk_ai_generate_review_edit_and_approve(
     edited = client.patch(
         f"/bulk-email/{body['id']}/items/{opportunity['id']}",
         headers=auth_headers,
-        json={"recipient_email": "edited@example.com", "subject": "Edited subject", "body": "Edited body"},
+        json={"recipient_email": "edited@example.comhashtag", "subject": "Edited subject", "body": "Edited body"},
     )
     assert edited.status_code == 200
     assert edited.json()["items"][0]["recipient_email"] == "edited@example.com"
@@ -50,6 +58,14 @@ def test_bulk_ai_generation_uses_resume_text_and_template_reference(
 ) -> None:
     captured_context: dict[str, object] = {}
     opportunity = client.post("/opportunities", headers=auth_headers, json=review_ready_job_payload).json()
+    client.patch(
+        "/user-settings",
+        headers=auth_headers,
+        json={
+            "operator_whatsapp": "+55 11 99999-0000",
+            "extra_context": "Prefer concise outreach and mention timezone overlap only if relevant.",
+        },
+    )
     resume = client.post(
         "/user-settings/resumes",
         headers=auth_headers,
@@ -92,6 +108,8 @@ def test_bulk_ai_generation_uses_resume_text_and_template_reference(
     assert generated.status_code == 201
     assert "7 years of experience with React" in captured_context["resume"]["text_excerpt"]
     assert captured_context["template_reference"]["body_template"] == "Use a concise, direct application email."
+    assert captured_context["operator"]["whatsapp"] == "+55 11 99999-0000"
+    assert captured_context["operator"]["extra_context"] == "Prefer concise outreach and mention timezone overlap only if relevant."
     assert "Do not mention .NET" in " ".join(captured_context["strict_claim_rules"])
 
 

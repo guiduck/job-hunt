@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.email import ProviderAuthStatus, ResumeAttachment, SendingProviderAccount, SendRequest, SendRequestStatus
+from app.services.email_constants import is_valid_email, sanitize_email_address
 from app.services.email_send_service import record_send_failure, record_send_success
 
 
@@ -28,6 +29,14 @@ def send_request_via_gmail(db: Session, send_request: SendRequest) -> SendReques
     attachment = _load_attachment(db, send_request.resume_attachment_id, send_request.user_id)
     if send_request.resume_attachment_id and attachment is None:
         return record_send_failure(db, send_request, "resume_unavailable", "Selected resume is no longer available.")
+    recipient_email = sanitize_email_address(send_request.recipient_email)
+    if not is_valid_email(recipient_email):
+        return record_send_failure(db, send_request, "invalid_recipient_email", "Recipient email is invalid after sanitization.")
+    if recipient_email != send_request.recipient_email:
+        send_request.recipient_email = recipient_email
+        db.add(send_request)
+        db.commit()
+        db.refresh(send_request)
 
     try:
         service = _build_gmail_service(token_info)

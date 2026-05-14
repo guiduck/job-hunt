@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -8,6 +9,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.services.gmail_provider import GmailAttachment, GmailProvider, GmailSendInput
+
+EMAIL_RE = re.compile(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,63}$")
 
 
 def process_pending_send_requests(db: Session, provider: GmailProvider | None = None, limit: int = 5) -> int:
@@ -49,6 +52,18 @@ def process_pending_send_requests(db: Session, provider: GmailProvider | None = 
             _record_failure(db, row, "resume_unavailable", "Selected resume is no longer available.")
             processed += 1
             continue
+        recipient_email = _sanitize_email_address(row["recipient_email"])
+        if not recipient_email or not EMAIL_RE.match(recipient_email):
+            _record_failure(db, row, "invalid_recipient_email", "Recipient email is invalid after sanitization.")
+            processed += 1
+            continue
+        if recipient_email != row["recipient_email"]:
+            db.execute(
+                text("UPDATE send_requests SET recipient_email = :recipient_email, updated_at = :now WHERE id = :id"),
+                {"id": row["id"], "recipient_email": recipient_email, "now": datetime.now(UTC)},
+            )
+            row = dict(row)
+            row["recipient_email"] = recipient_email
 
         result = row_provider.send(
             GmailSendInput(
@@ -65,6 +80,31 @@ def process_pending_send_requests(db: Session, provider: GmailProvider | None = 
         processed += 1
     db.commit()
     return processed
+
+
+def _sanitize_email_address(value: str | None) -> str | None:
+    if value is None:
+        return None
+    email = value.strip()
+    if not email:
+        return None
+    if email.lower().startswith("mailto:"):
+        email = email[7:]
+    email = email.strip().strip(".,;:)]}>\"'")
+    if "#" in email:
+        email = email.split("#", 1)[0].strip().strip(".,;:)]}>\"'")
+    if any(char.isspace() for char in email):
+        email = email.split()[0].strip().strip(".,;:)]}>\"'")
+    if "@" not in email:
+        return email
+    local, domain = email.rsplit("@", 1)
+    labels = domain.split(".")
+    if len(labels) < 2:
+        return email
+    last_label = labels[-1].lower()
+    if last_label.endswith("hashtag") and last_label != "hashtag":
+        labels[-1] = last_label[: -len("hashtag")]
+    return f"{local}@{'.'.join(labels).lower()}"
 
 
 def _load_attachment(db: Session, resume_attachment_id: str | None, user_id: str) -> GmailAttachment | None:

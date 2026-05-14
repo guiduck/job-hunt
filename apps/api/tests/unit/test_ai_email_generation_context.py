@@ -11,6 +11,8 @@ def test_ai_generation_context_includes_sender_linkedin_url_when_present() -> No
             operator_email="me@example.com",
             portfolio_url="https://portfolio.example.com",
             operator_linkedin_url="https://www.linkedin.com/in/guilherme",
+            operator_whatsapp="+55 11 99999-0000",
+            extra_context="Prefer concise messages and mention US timezone overlap.",
         ),
         resume_context=None,
         template_context=None,
@@ -18,6 +20,8 @@ def test_ai_generation_context_includes_sender_linkedin_url_when_present() -> No
     )
 
     assert context["operator"]["linkedin_url"] == "https://www.linkedin.com/in/guilherme"
+    assert context["operator"]["whatsapp"] == "+55 11 99999-0000"
+    assert context["operator"]["extra_context"] == "Prefer concise messages and mention US timezone overlap."
 
 
 def test_ai_generation_context_does_not_invent_sender_linkedin_url() -> None:
@@ -28,6 +32,8 @@ def test_ai_generation_context_does_not_invent_sender_linkedin_url() -> None:
             operator_email="me@example.com",
             portfolio_url=None,
             operator_linkedin_url=None,
+            operator_whatsapp=None,
+            extra_context=None,
         ),
         resume_context=None,
         template_context=None,
@@ -35,6 +41,7 @@ def test_ai_generation_context_does_not_invent_sender_linkedin_url() -> None:
     )
 
     assert context["operator"]["linkedin_url"] is None
+    assert context["operator"]["whatsapp"] is None
 
 
 def _opportunity() -> SimpleNamespace:

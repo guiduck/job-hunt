@@ -266,6 +266,8 @@ def _ai_generation_context(
             "email": settings.operator_email,
             "portfolio_url": settings.portfolio_url,
             "linkedin_url": settings.operator_linkedin_url,
+            "whatsapp": settings.operator_whatsapp,
+            "extra_context": settings.extra_context,
         },
         "resume": resume_context,
         "template_reference": template_context,
@@ -442,6 +444,9 @@ def _validate_review_item(db: Session, item: dict[str, object], *, user_id: str)
 
 
 def _create_ai_send_request(db: Session, batch: BulkSendBatch, item: dict[str, object], *, user: User) -> SendRequest:
+    recipient_email = sanitize_email_address(str(item["recipient_email"]))
+    if not is_valid_email(recipient_email):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Bulk item recipient email is invalid")
     send_request = SendRequest(
         user_id=user.id,
         draft_id=None,
@@ -449,7 +454,7 @@ def _create_ai_send_request(db: Session, batch: BulkSendBatch, item: dict[str, o
         template_id=None,
         template_kind=TemplateKind.JOB_APPLICATION.value,
         resume_attachment_id=batch.resume_attachment_id,
-        recipient_email=str(item["recipient_email"]),
+        recipient_email=recipient_email,
         subject_snapshot=str(item["subject"]),
         body_snapshot=str(item["body"]),
         resume_snapshot={},

@@ -27,6 +27,7 @@ import type {
   OpportunityBulkDeleteRequest,
   OpportunityBulkDeleteResponse,
   OpportunityFilters,
+  OpportunityMetrics,
   OpportunityPage,
   OpportunityUpdate,
   OutreachEvent,
@@ -202,6 +203,10 @@ export async function listOpportunityPage(filters: OpportunityFilters = {}, opti
   appendIfPresent(params, "page_size", filters.page_size)
 
   return request<OpportunityPage>(`/opportunities?${params.toString()}`, {}, options)
+}
+
+export function getOpportunityMetrics(options?: RequestOptions) {
+  return request<OpportunityMetrics>("/opportunities/metrics?opportunity_type=job", {}, options)
 }
 
 export function getOpportunity(id: string, options?: RequestOptions) {

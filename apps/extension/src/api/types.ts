@@ -113,6 +113,15 @@ export type OpportunityPage = {
   has_previous: boolean
 }
 
+export type OpportunityMetrics = {
+  total: number
+  with_email: number
+  saved: number
+  applied: number
+  interviews: number
+  unsent: number
+}
+
 export type OpportunityUpdate = {
   job_stage?: JobStage
   review_status?: JobReviewStatus
@@ -272,6 +281,8 @@ export type UserSettings = {
   operator_email: string | null
   portfolio_url: string | null
   operator_linkedin_url: string | null
+  operator_whatsapp: string | null
+  extra_context: string | null
   default_mode: "full_time"
   created_at: string
   updated_at: string
@@ -282,6 +293,8 @@ export type UserSettingsUpdate = {
   operator_email?: string | null
   portfolio_url?: string | null
   operator_linkedin_url?: string | null
+  operator_whatsapp?: string | null
+  extra_context?: string | null
 }
 
 export type ResumeAttachment = {

@@ -35,8 +35,12 @@ def generate_job_application_email(context: dict[str, object]) -> dict[str, str]
                     "instead focus on relevant confirmed strengths. Never mention .NET, Java, Python, or any other "
                     "technology unless it appears in the resume/profile context. If a template reference is provided, "
                     "use it for tone and structure, but still obey the no-false-claims rule. Write the email in the "
-                    "detected job post language from the provided language context. If portfolio_url or linkedin_url is "
-                    "present, include the strongest relevant profile link naturally in the closing or signature."
+                    "detected job post language from the provided language context. Use operator extra_context only as "
+                    "provided; never expand it into facts not present in the context. Keep the signature concise and "
+                    "consistent. If linkedin_url and whatsapp are both present, end with a clean contact line like "
+                    "'LinkedIn: {linkedin_url} | WhatsApp: {whatsapp}'. If only one contact link/phone exists, include "
+                    "only that item. Include portfolio_url only when it is useful and does not make the signature noisy. "
+                    "Never include WhatsApp when whatsapp is empty or null."
                 ),
             },
             {

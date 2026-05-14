@@ -17,7 +17,8 @@ SUPPORTED_TEMPLATE_VARIABLES = {
     "operator_email",
 }
 
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+EMAIL_RE = re.compile(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,63}$")
+EMAIL_CANDIDATE_RE = re.compile(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+[A-Za-z0-9]")
 COMMON_EMAIL_TLDS = [
     "com.br",
     "com",
@@ -28,6 +29,7 @@ COMMON_EMAIL_TLDS = [
     "ai",
     "dev",
     "tech",
+    "software",
     "global",
     "br",
     "us",
@@ -52,7 +54,15 @@ TEMPLATE_VAR_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
 def sanitize_email_address(value: str | None) -> str | None:
     if value is None:
         return None
-    email = value.strip().removeprefix("mailto:").strip().strip(".,;:)]}>\"'")
+    email = value.strip()
+    if not email:
+        return None
+    if email.lower().startswith("mailto:"):
+        email = email[7:]
+    match = EMAIL_CANDIDATE_RE.search(email)
+    if match:
+        email = match.group(0)
+    email = email.strip().strip(".,;:)]}>\"'")
     if "@" not in email:
         return email
     if "#" in email:
@@ -78,14 +88,19 @@ def sanitize_email_address(value: str | None) -> str | None:
         return f"{local}@{'.'.join(labels).lower()}"
 
     last_label = lower_labels[-1]
+    if last_label.endswith("hashtag") and last_label != "hashtag":
+        recovered_label = last_label[: -len("hashtag")]
+        if re.fullmatch(r"[a-z]{2,63}", recovered_label):
+            labels[-1] = recovered_label
+            recovered = f"{local}@{'.'.join(labels).lower()}"
+            if EMAIL_RE.match(recovered):
+                return recovered
+
     for tld in sorted(COMMON_EMAIL_TLDS, key=len, reverse=True):
         if "." in tld:
             continue
         if last_label == tld:
             return f"{local}@{domain.lower()}"
-        if last_label.startswith(tld) and last_label != tld:
-            labels[-1] = tld
-            return f"{local}@{'.'.join(labels).lower()}"
 
     return f"{local}@{domain.lower()}"
 

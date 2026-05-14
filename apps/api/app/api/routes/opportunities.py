@@ -11,6 +11,7 @@ from app.schemas.opportunity import (
     OpportunityBulkDeleteResponse,
     OpportunityCreate,
     OpportunityListItem,
+    OpportunityMetrics,
     OpportunityPage,
     OpportunityUpdate,
 )
@@ -19,6 +20,7 @@ from app.services.opportunity_service import (
     delete_opportunities,
     delete_opportunity,
     get_opportunity,
+    get_opportunity_metrics,
     list_opportunity_page,
     list_opportunities,
     update_opportunity,
@@ -79,6 +81,15 @@ def list_opportunities_endpoint(
     if page is not None or page_size is not None:
         return list_opportunity_page(db, page=page or 1, page_size=page_size or 50, **filters)
     return list_opportunities(db, **filters)
+
+
+@router.get("/metrics", response_model=OpportunityMetrics)
+def get_opportunity_metrics_endpoint(
+    opportunity_type: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> OpportunityMetrics:
+    return get_opportunity_metrics(db, opportunity_type=opportunity_type, user=user)
 
 
 @router.post("/bulk-delete", response_model=OpportunityBulkDeleteResponse)

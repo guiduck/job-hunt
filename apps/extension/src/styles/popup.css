@@ -69,7 +69,38 @@ a {
   gap: 12px;
 }
 
+.header-controls {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  min-width: 0;
+  max-width: 290px;
+}
+
+.header-account-row,
+.header-assistant-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.header-email {
+  min-width: 0;
+  overflow: hidden;
+  color: #aab4cc;
+  font-size: 11px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .header-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   flex: 0 0 auto;
   border-radius: 999px;
   padding: 8px 10px;
@@ -77,6 +108,12 @@ a {
   color: #b9c7ff;
   font-size: 11px;
   font-weight: 800;
+}
+
+.header-action svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
 }
 
 .eyebrow {
@@ -543,6 +580,13 @@ a {
   font-size: 12px;
 }
 
+.settings-help {
+  margin: 0;
+  color: #aab4cc;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .field-assistant-settings {
   gap: 14px;
 }
@@ -567,6 +611,7 @@ a {
 
 .assistant-action-button {
   display: grid;
+  grid-template-columns: auto 1fr;
   gap: 4px;
   min-height: 58px;
   border: 1px solid rgba(157, 178, 255, 0.12);
@@ -590,9 +635,17 @@ a {
 }
 
 .assistant-action-button small {
+  grid-column: 2;
   color: #aab4cc;
   font-size: 11px;
   line-height: 1.25;
+}
+
+.assistant-action-button svg,
+.primary-button svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
 }
 
 .assistant-empty-state {
@@ -780,6 +833,10 @@ a {
 .secondary-button,
 .danger-button,
 .primary-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
   padding: 11px 12px;
 }
@@ -1371,6 +1428,15 @@ a {
 .status-pill--danger {
   background: rgba(255, 102, 120, 0.18);
   color: #ffa5b0;
+}
+
+.status-inline-action {
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: rgba(64, 196, 126, 0.16);
+  color: #9ee6b6;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .detail-panel {

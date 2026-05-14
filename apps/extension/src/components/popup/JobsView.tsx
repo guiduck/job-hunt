@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 
-import type { Opportunity } from "../../api/types"
+import type { JobStage, Opportunity } from "../../api/types"
 import { StatusPill } from "../StatusPill"
 import { usePopupStore } from "../../store/popupStore"
 import { companyName, emailDomainLabel, opportunityTitle, postPresentation, scoreTone } from "../../utils/opportunity"
@@ -250,12 +250,14 @@ function JobCard({
   const [expanded, setExpanded] = useState(false)
   const openDetail = usePopupStore((state) => state.openDetail)
   const deleteOpportunity = usePopupStore((state) => state.deleteOpportunity)
+  const updateOpportunityStatus = usePopupStore((state) => state.updateOpportunityStatus)
   const profile = opportunity.job_detail?.review_profile
   const score = profile?.match_score
   const presentation = postPresentation(opportunity)
   const description = expanded ? presentation.message : presentation.excerpt
   const company = companyName(opportunity)
   const emailDomain = emailDomainLabel(opportunity)
+  const operationalStatus = toOperationalStatus(opportunity.job_detail?.job_stage || "new")
 
   function confirmDelete() {
     if (window.confirm("Delete this collected job? This removes it from the list and related email history.")) {
@@ -306,9 +308,19 @@ function JobCard({
 
       <div className="pill-row">
         <StatusPill label={`score ${score ?? "-"}`} tone={scoreTone(score)} />
-        <StatusPill label={profile?.review_status || "unreviewed"} />
-        <StatusPill label={opportunity.job_detail?.job_stage || "new"} />
+        <StatusPill label={operationalStatus} tone={operationalStatus === "interview" ? "good" : operationalStatus === "sent" ? "warn" : undefined} />
+        {operationalStatus === "sent" ? (
+          <button className="status-inline-action" onClick={() => void updateOpportunityStatus(opportunity.id, { job_stage: "interview" })} type="button">
+            Mark interview
+          </button>
+        ) : null}
       </div>
     </article>
   )
+}
+
+function toOperationalStatus(stage: JobStage): "unsent" | "sent" | "interview" {
+  if (stage === "interview") return "interview"
+  if (stage === "applied" || stage === "responded") return "sent"
+  return "unsent"
 }

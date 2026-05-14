@@ -108,6 +108,8 @@ A extensao e a primeira interface operacional real do modo `Full-time`. Ela deve
 - usar a sessao autenticada do navegador do operador para abrir buscas do LinkedIn, rolar resultados
   e capturar publicacoes visiveis
 - exibir dashboard, busca, lista, detalhe, filtros, diagnosticos de captura e acoes de candidatura
+- consumir metricas agregadas da API para o dashboard, mantendo totais independentes dos filtros e da
+  pagina atual da lista Jobs
 - acionar drafts/envios de email pela API, sem guardar segredo sensivel dentro do bundle da extensao
 - injetar overlays leves em inputs, textareas e campos `contenteditable` de paginas externas quando
   houver criterios de candidatura/pergunta, mostrando um botao de varinha magica e dropdown de

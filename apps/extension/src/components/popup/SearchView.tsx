@@ -124,6 +124,7 @@ function CaptureDebugPanel() {
 
   const isCompleted = captureProgress.status === "completed"
   const isFailed = captureProgress.status === "failed"
+  const isTimedOut = Boolean(captureProgress.verification?.timedOut)
   const isProcessing = captureProgress.status === "processing"
   const runStatus = captureProgress.verification?.runStatus
   const feedbackClass = isFailed
@@ -140,7 +141,7 @@ function CaptureDebugPanel() {
       <p className="section-label">Capture feedback</p>
       <div className={feedbackClass}>
         <strong>
-          {isCompleted ? "Analysis finished" : isFailed ? "Capture failed" : "Analysis in progress"}
+          {isCompleted ? "Analysis finished" : isTimedOut ? "Analysis timed out" : isFailed ? "Capture failed" : "Analysis in progress"}
         </strong>
         <span>{captureProgress.verification?.message || captureProgress.message}</span>
         {isCompleted ? (

@@ -4,9 +4,10 @@ import type { JobStage, JobReviewStatus, Opportunity, OutreachEvent } from "../.
 import { StatusPill } from "../StatusPill"
 import { usePopupStore } from "../../store/popupStore"
 import { companyName, emailDomainLabel, opportunityTitle, postPresentation, scoreTone } from "../../utils/opportunity"
-import { JOB_STAGES, REVIEW_STATUSES } from "./constants"
 import { EmailDraftPanel } from "./EmailDraftPanel"
 import { EmailHistoryTimeline } from "./EmailHistoryTimeline"
+
+type OperationalJobStatus = "unsent" | "sent" | "interview"
 
 export function OpportunityDetail() {
   const opportunity = usePopupStore((state) => state.selectedOpportunity)
@@ -40,9 +41,6 @@ function OpportunityDetailPanel({
   onSave: (payload: { job_stage?: JobStage; review_status?: JobReviewStatus; operator_notes?: string | null }) => void
 }) {
   const [jobStage, setJobStage] = useState<JobStage>(opportunity.job_detail?.job_stage || "new")
-  const [reviewStatus, setReviewStatus] = useState<JobReviewStatus>(
-    opportunity.job_detail?.review_profile?.review_status || "unreviewed"
-  )
   const [notes, setNotes] = useState(opportunity.operator_notes || "")
   const profile = opportunity.job_detail?.review_profile
   const presentation = postPresentation(opportunity)
@@ -51,9 +49,10 @@ function OpportunityDetailPanel({
 
   useEffect(() => {
     setJobStage(opportunity.job_detail?.job_stage || "new")
-    setReviewStatus(opportunity.job_detail?.review_profile?.review_status || "unreviewed")
     setNotes(opportunity.operator_notes || "")
   }, [opportunity])
+
+  const operationalStatus = toOperationalStatus(jobStage)
 
   return (
     <aside className="detail-panel">
@@ -106,6 +105,7 @@ function OpportunityDetailPanel({
         <div className="pill-row">
           <StatusPill label={`score ${profile?.match_score ?? "-"}`} tone={scoreTone(profile?.match_score)} />
           <StatusPill label={profile?.analysis_status || "deterministic_only"} />
+          <StatusPill label={operationalStatus} tone={operationalStatus === "interview" ? "good" : operationalStatus === "sent" ? "warn" : undefined} />
         </div>
       </section>
 
@@ -117,38 +117,24 @@ function OpportunityDetailPanel({
       </section>
 
       <section className="card">
-        <h3 className="card-title">Review</h3>
-        <div className="form-row">
-          <label className="field">
-            <span>Review status</span>
-            <select value={reviewStatus} onChange={(event) => setReviewStatus(event.target.value as JobReviewStatus)}>
-              {REVIEW_STATUSES.filter(Boolean).map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Job stage</span>
-            <select value={jobStage} onChange={(event) => setJobStage(event.target.value as JobStage)}>
-              {JOB_STAGES.filter(Boolean).map((stage) => (
-                <option key={stage} value={stage}>
-                  {stage}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <h3 className="card-title">Job status</h3>
+        <label className="field">
+          <span>Status</span>
+          <select value={operationalStatus} onChange={(event) => setJobStage(toJobStage(event.target.value as OperationalJobStatus))}>
+            <option value="unsent">Unsent</option>
+            <option value="sent">Sent</option>
+            <option value="interview">Interview</option>
+          </select>
+        </label>
         <label className="field">
           <span>Notes</span>
           <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
         </label>
         <button
           className="primary-button"
-          onClick={() => onSave({ job_stage: jobStage, review_status: reviewStatus, operator_notes: notes })}
+          onClick={() => onSave({ job_stage: jobStage, operator_notes: notes })}
           type="button">
-          Save review
+          Save status
         </button>
       </section>
 
@@ -186,4 +172,16 @@ function OpportunityDetailPanel({
       </section>
     </aside>
   )
+}
+
+function toOperationalStatus(stage: JobStage): OperationalJobStatus {
+  if (stage === "interview") return "interview"
+  if (stage === "applied" || stage === "responded") return "sent"
+  return "unsent"
+}
+
+function toJobStage(status: OperationalJobStatus): JobStage {
+  if (status === "interview") return "interview"
+  if (status === "sent") return "applied"
+  return "new"
 }

@@ -286,7 +286,10 @@ Ja existe implementacao inicial para:
 - worker gravar candidatos/oportunidades sem chamada manual intermediaria
 - persistencia dos `collection_inputs` para consumo assincrono
 - lifecycle e metricas de run com `pending -> running -> completed/completed_no_results/failed`
-- recuperacao de runs `running` stale como `failed/stale`, sem retry automatico
+- recuperacao de runs `running` stale como `failed/stale` no startup e timeout configuravel para runs
+  antigas que ficarem presas em `running`, sem retry automatico
+- endpoint agregado de metricas `Full-time` para o dashboard mostrar totais reais de vagas, contatos
+  com email, salvas e entrevistas sem depender dos filtros ativos da lista Jobs
 - Docker Compose com PostgreSQL, API e worker compartilhando banco
 - review intelligence para oportunidades aceitas: score 0-100, explicacao, fatores, keywords ausentes,
   campos normalizados, `review_status` e `analysis_status`

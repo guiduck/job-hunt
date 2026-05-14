@@ -15,8 +15,11 @@ def test_email_sanitization_preserves_valid_addresses() -> None:
 
 
 def test_email_sanitization_removes_attached_invalid_suffixes() -> None:
+    assert sanitize_email_address("vagas@locus.softwarehashtag") == "vagas@locus.software"
+    assert sanitize_email_address("Contact: email@dominio.comhashtag") == "email@dominio.com"
     assert sanitize_email_address("jobs@example.comhashtag") == "jobs@example.com"
     assert sanitize_email_address("jobs@example.com#hashtag") == "jobs@example.com"
+    assert sanitize_email_address("jobs@example.com #hashtag") == "jobs@example.com"
     assert sanitize_email_address("jobs@example.com,") == "jobs@example.com"
     assert sanitize_email_address("jobs@example.com apply here") == "jobs@example.com"
 

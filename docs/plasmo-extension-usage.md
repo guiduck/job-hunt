@@ -10,10 +10,14 @@ Este guia cobre a primeira versao da extensao Chrome para o modo `Full-time`.
 - Quando a lista visivel para de carregar e aparece um controle de mais resultados, tenta acionar esse
   controle como parte do fluxo iniciado pelo usuario.
 - Envia os textos para a API como `authenticated_browser_search`.
-- Lista oportunidades `job` ja processadas pelo worker.
-- Permite atualizar `review_status`, `job_stage` e notas.
+- Lista oportunidades `job` ja processadas pelo worker e mostra dashboard focado em jobs totais e
+  jobs ainda nao enviados, sem reaproveitar filtros ativos da lista Jobs.
+- Permite atualizar status operacional `unsent/sent/interview` e notas, preservando campos legados de
+  `review_status`/`job_stage` no contrato.
 - Permite conectar uma conta Google/Gmail pelo backend, subir um curriculo PDF, escolher o curriculo
   padrao e preparar/enviar emails pela API/worker.
+- Permite salvar sender profile com nome, email, portfolio, LinkedIn, WhatsApp e informacoes extras;
+  esses dados, junto do curriculo, entram como contexto para emails gerados por IA.
 - Inclui um assistente de campos externos: content script detecta campos longos de candidatura em
   dominios habilitados, posiciona um botao de varinha magica no fim do campo e chama a API para gerar
   respostas com IA usando curriculo/perfil do usuario.
@@ -136,7 +140,8 @@ apps/extension/build/chrome-mv3-prod
 7. Ajuste `max posts` e `max scrolls`.
 8. Clique em `Open LinkedIn and capture`.
 9. A extensao abre uma aba do LinkedIn, rola os resultados, captura posts e cria uma run autenticada na API.
-10. Aguarde o worker processar a run.
+10. Aguarde o worker processar a run. A verificacao da extensao acompanha o status por ate cerca de 10
+   minutos; se estourar esse tempo, a captura vira um timeout terminal na UI e libera uma nova busca.
 11. Volte para a aba `jobs` e clique em `Refresh`.
 
 ## Validacao Rapida
@@ -152,6 +157,8 @@ Depois de capturar posts pela extensao, confira a API:
 ```bash
 TOKEN="<TOKEN_DA_EXTENSAO_OU_LOGIN>"
 curl http://localhost:8000/job-search-runs -H "Authorization: Bearer $TOKEN"
+curl "http://localhost:8000/opportunities/metrics?opportunity_type=job" \
+  -H "Authorization: Bearer $TOKEN"
 curl "http://localhost:8000/opportunities?opportunity_type=job&contact_available=true" \
   -H "Authorization: Bearer $TOKEN"
 ```
@@ -161,7 +168,9 @@ curl "http://localhost:8000/opportunities?opportunity_type=job&contact_available
 - A extracao depende do DOM atual do LinkedIn e pode precisar de ajuste se a pagina mudar.
 - A extensao trata apenas controles visiveis de mais resultados na pagina de resultados; mudancas de
   DOM/idioma podem exigir novos labels ou seletores.
-- A primeira versao usa metricas derivadas no popup, sem endpoint agregado dedicado.
+- O worker marca runs `running` muito antigas como falha por timeout configuravel; isso nao cancela um
+  processo Python preso no meio da execucao, mas evita que reinicios/loops posteriores deixem runs
+  antigas bloqueando a operacao.
 - O coletor Playwright local continua sendo fallback caso a extensao precise ser comparada ou depurada.
 - O estado de login fica em browser session storage; reiniciar o navegador exige login novamente.
 - O assistente de campos usa host permissions amplas para poder operar nos dominios escolhidos pelo

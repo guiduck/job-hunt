@@ -1,4 +1,4 @@
-from sqlalchemy import delete, exists, or_, select, update
+from sqlalchemy import case, delete, exists, func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.opportunity import (
@@ -14,7 +14,7 @@ from app.models.opportunity import (
 from app.models.job_search_run import JobSearchCandidate
 from app.models.email import EmailDraft, OutreachEvent, SendRequest, SendRequestStatus, TemplateKind
 from app.models.user import User
-from app.schemas.opportunity import OpportunityCreate, OpportunityPage, OpportunityUpdate
+from app.schemas.opportunity import OpportunityCreate, OpportunityMetrics, OpportunityPage, OpportunityUpdate
 from app.services.auth_service import ensure_default_local_user
 from app.services.email_constants import sanitize_email_address
 from app.services.job_dedupe import build_job_dedupe_key
@@ -265,11 +265,14 @@ def list_opportunities(
             )
         )
     if send_status in {"sent", "unsent"}:
-        sent_application = exists().where(
+        sent_application_conditions = [
             SendRequest.opportunity_id == Opportunity.id,
             SendRequest.template_kind == TemplateKind.JOB_APPLICATION.value,
             SendRequest.status == SendRequestStatus.SENT.value,
-        )
+        ]
+        if user:
+            sent_application_conditions.append(SendRequest.user_id == user.id)
+        sent_application = exists().where(*sent_application_conditions)
         statement = statement.where(sent_application if send_status == "sent" else ~sent_application)
     if provider_status or run_id or campaign_id:
         statement = statement.join(JobSearchCandidate, JobSearchCandidate.opportunity_id == Opportunity.id)
@@ -304,6 +307,70 @@ def list_opportunity_page(
         total_pages=total_pages,
         has_next=safe_page < total_pages,
         has_previous=safe_page > 1,
+    )
+
+
+def get_opportunity_metrics(
+    db: Session,
+    *,
+    opportunity_type: str | None = None,
+    user: User | None = None,
+) -> OpportunityMetrics:
+    sent_application_conditions = [
+        SendRequest.opportunity_id == Opportunity.id,
+        SendRequest.template_kind == TemplateKind.JOB_APPLICATION.value,
+        SendRequest.status == SendRequestStatus.SENT.value,
+    ]
+    if user:
+        sent_application_conditions.append(SendRequest.user_id == user.id)
+    sent_application = exists().where(*sent_application_conditions)
+    statement = select(
+        func.count(Opportunity.id),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        (JobOpportunityDetail.contact_channel_type == ContactChannelType.EMAIL.value)
+                        & JobOpportunityDetail.contact_email.is_not(None)
+                        & JobOpportunityDetail.contact_email.contains("@")
+                        & (JobOpportunityDetail.contact_email != ""),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        ),
+        func.coalesce(
+            func.sum(case((JobOpportunityDetail.review_status == "saved", 1), else_=0)),
+            0,
+        ),
+        func.coalesce(
+            func.sum(case((JobOpportunityDetail.job_stage == JobStage.APPLIED.value, 1), else_=0)),
+            0,
+        ),
+        func.coalesce(
+            func.sum(case((JobOpportunityDetail.job_stage == JobStage.INTERVIEW.value, 1), else_=0)),
+            0,
+        ),
+        func.coalesce(
+            func.sum(case((~sent_application, 1), else_=0)),
+            0,
+        ),
+    ).outerjoin(JobOpportunityDetail)
+    if user:
+        statement = statement.where(Opportunity.user_id == user.id)
+    if opportunity_type:
+        statement = statement.where(Opportunity.opportunity_type == opportunity_type)
+
+    total, with_email, saved, applied, interviews, unsent = db.execute(statement).one()
+    return OpportunityMetrics(
+        total=int(total or 0),
+        with_email=int(with_email or 0),
+        saved=int(saved or 0),
+        applied=int(applied or 0),
+        interviews=int(interviews or 0),
+        unsent=int(unsent or 0),
     )
 
 
@@ -347,11 +414,14 @@ def delete_opportunities(
         statement = select(Opportunity.id).where(Opportunity.opportunity_type == OpportunityType.JOB.value)
         if user:
             statement = statement.where(Opportunity.user_id == user.id)
-        sent_application = exists().where(
+        sent_application_conditions = [
             SendRequest.opportunity_id == Opportunity.id,
             SendRequest.template_kind == TemplateKind.JOB_APPLICATION.value,
             SendRequest.status == SendRequestStatus.SENT.value,
-        )
+        ]
+        if user:
+            sent_application_conditions.append(SendRequest.user_id == user.id)
+        sent_application = exists().where(*sent_application_conditions)
         statement = statement.where(sent_application if send_status == "sent" else ~sent_application)
         ids.update(db.scalars(statement).all())
 

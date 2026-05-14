@@ -9,6 +9,7 @@ class WorkerSettings(BaseSettings):
     worker_run_once: bool = False
     worker_max_runs_per_loop: int = 1
     worker_mark_stale_running_on_startup: bool = True
+    worker_running_run_timeout_minutes: int = 90
     linkedin_hiring_intent_terms: list[str] = ["hiring", "contratando", "contratamos"]
     linkedin_request_timeout_seconds: float = 10.0
     linkedin_user_agent: str = "scrapper-freelance-worker/0.1 public-data-validation"

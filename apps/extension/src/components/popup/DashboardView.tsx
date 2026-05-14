@@ -1,9 +1,7 @@
-import { useMemo } from "react"
-
 import { usePopupStore } from "../../store/popupStore"
 
 export function DashboardView() {
-  const opportunities = usePopupStore((state) => state.opportunities)
+  const dashboardMetrics = usePopupStore((state) => state.dashboardMetrics)
   const runsCount = usePopupStore((state) => state.runsCount)
   const loading = usePopupStore((state) => state.loading)
   const currentUser = usePopupStore((state) => state.currentUser)
@@ -18,34 +16,13 @@ export function DashboardView() {
     )
   }
 
-  const metrics = useMemo(() => {
-    return opportunities.reduce(
-      (totals, opportunity) => {
-        const detail = opportunity.job_detail
-        const reviewStatus = detail?.review_profile?.review_status
-        const jobStage = detail?.job_stage
-
-        return {
-          total: totals.total + 1,
-          withEmail: totals.withEmail + (detail?.contact_email ? 1 : 0),
-          saved: totals.saved + (reviewStatus === "saved" ? 1 : 0),
-          applied: totals.applied + (jobStage === "applied" ? 1 : 0),
-          interviews: totals.interviews + (jobStage === "interview" ? 1 : 0)
-        }
-      },
-      { total: 0, withEmail: 0, saved: 0, applied: 0, interviews: 0 }
-    )
-  }, [opportunities])
-
   return (
     <>
       <section className="card">
         <h2 className="card-title">Local API snapshot</h2>
         <div className="metric-grid">
-          <Metric value={metrics.total} label="job opportunities" />
-          <Metric value={metrics.withEmail} label="with email" />
-          <Metric value={metrics.saved} label="saved" />
-          <Metric value={metrics.interviews} label="interviews" />
+          <Metric value={dashboardMetrics.total} label="jobs total" />
+          <Metric value={dashboardMetrics.unsent} label="jobs still unsent" />
         </div>
       </section>
       <section className="card">
