@@ -8,10 +8,15 @@ const POST_SELECTORS = [
   'div[data-urn*="activity"]',
   "div.feed-shared-update-v2",
   "li.reusable-search__result-container",
+  "li.search-results__result-item",
+  "div.entity-result",
+  '[data-view-name="search-entity-result-universal-template"]',
+  'li[data-view-name*="search"]',
   'div[role="article"]'
 ]
 const SCROLL_PROGRESS_TIMEOUT_MS = 12000
 const SCROLL_PROGRESS_POLL_MS = 500
+const INITIAL_RESULTS_TIMEOUT_MS = 15000
 const MAX_NO_PROGRESS_SCROLLS = 5
 const SHOW_MORE_RESULTS_LABELS = [
   "exibir mais resultados",
@@ -26,12 +31,203 @@ type CaptureState = {
   seenTexts: Set<string>
 }
 
+type ScrollMetrics = {
+  scrollTop: number
+  scrollHeight: number
+  clientHeight: number
+  maxScrollTop: number
+  targetLabel: string
+}
+
+type ScrollTarget = {
+  element: Element | Window
+  isWindow: boolean
+  label: string
+  score: number
+}
+
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function cleanText(text: string) {
   return text.replace(/\s+/g, " ").trim()
+}
+
+function elementLabel(element: Element | null) {
+  if (!element) {
+    return "unknown"
+  }
+  const id = element.id ? `#${element.id}` : ""
+  const className =
+    typeof (element as HTMLElement).className === "string"
+      ? `.${(element as HTMLElement).className.split(/\s+/).filter(Boolean).slice(0, 3).join(".")}`
+      : ""
+  return `${element.tagName.toLowerCase()}${id}${className}` || element.tagName.toLowerCase()
+}
+
+function isVisibleElement(element: Element) {
+  const rect = element.getBoundingClientRect()
+  return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight
+}
+
+function getWindowScrollMetrics(): ScrollMetrics {
+  const root = document.scrollingElement || document.documentElement || document.body
+  const scrollHeight = Math.max(root?.scrollHeight || 0, document.documentElement.scrollHeight || 0, document.body.scrollHeight || 0)
+  const clientHeight = window.innerHeight || document.documentElement.clientHeight || root?.clientHeight || 0
+  return {
+    scrollTop: window.scrollY || root?.scrollTop || document.documentElement.scrollTop || document.body.scrollTop || 0,
+    scrollHeight,
+    clientHeight,
+    maxScrollTop: Math.max(0, scrollHeight - clientHeight),
+    targetLabel: "window"
+  }
+}
+
+function getElementScrollMetrics(element: Element, label = elementLabel(element)): ScrollMetrics {
+  const htmlElement = element as HTMLElement
+  const scrollHeight = htmlElement.scrollHeight || 0
+  const clientHeight = htmlElement.clientHeight || 0
+  return {
+    scrollTop: htmlElement.scrollTop || 0,
+    scrollHeight,
+    clientHeight,
+    maxScrollTop: Math.max(0, scrollHeight - clientHeight),
+    targetLabel: label
+  }
+}
+
+function findBestScrollTarget(): ScrollTarget {
+  const windowMetrics = getWindowScrollMetrics()
+  let best: ScrollTarget = {
+    element: window,
+    isWindow: true,
+    label: "window",
+    score: windowMetrics.maxScrollTop
+  }
+
+  const candidates = Array.from(document.querySelectorAll("main, [role='main'], .scaffold-layout__main, .scaffold-layout__content, .scaffold-finite-scroll, .search-results-container, .application-outlet, div, section"))
+  for (const element of candidates) {
+    if (!isVisibleElement(element)) {
+      continue
+    }
+
+    const metrics = getElementScrollMetrics(element)
+    if (metrics.maxScrollTop <= 24) {
+      continue
+    }
+
+    const style = window.getComputedStyle(element)
+    const overflowSignal = /(auto|scroll|overlay)/i.test(`${style.overflowY} ${style.overflow}`)
+    const postSignal = POST_SELECTORS.some((selector) => Boolean(element.querySelector(selector)))
+    const rect = element.getBoundingClientRect()
+    const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0))
+    const score = metrics.maxScrollTop + visibleHeight + (postSignal ? 2000 : 0) + (overflowSignal ? 600 : 0)
+
+    if (score > best.score) {
+      best = {
+        element,
+        isWindow: false,
+        label: elementLabel(element),
+        score
+      }
+    }
+  }
+
+  return best
+}
+
+function getScrollMetrics(target = findBestScrollTarget()): ScrollMetrics {
+  return target.isWindow ? getWindowScrollMetrics() : getElementScrollMetrics(target.element as Element, target.label)
+}
+
+function hasScrollablePage() {
+  const metrics = getScrollMetrics()
+  return metrics.maxScrollTop > 24
+}
+
+function dispatchWheel(target: ScrollTarget, deltaY: number) {
+  const eventTarget = target.isWindow ? document.body : target.element
+  eventTarget.dispatchEvent(
+    new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+      deltaY,
+      clientX: Math.floor(window.innerWidth / 2),
+      clientY: Math.floor(window.innerHeight / 2)
+    })
+  )
+}
+
+function scrollPageDown() {
+  const target = findBestScrollTarget()
+  const before = getScrollMetrics(target)
+  const step = Math.max(Math.floor(before.clientHeight * 0.85), 600)
+  const targetTop = Math.min(before.maxScrollTop, before.scrollTop + step)
+
+  dispatchWheel(target, step)
+  if (target.isWindow) {
+    window.scrollTo({ top: targetTop, behavior: "auto" })
+    document.documentElement.scrollTop = targetTop
+    document.body.scrollTop = targetTop
+  } else {
+    const element = target.element as HTMLElement
+    element.scrollTop = targetTop
+    element.scrollTo({ top: targetTop, behavior: "auto" })
+  }
+
+  return { before, targetTop }
+}
+
+function scrollPageToTop() {
+  const target = findBestScrollTarget()
+  if (target.isWindow) {
+    window.scrollTo({ top: 0, behavior: "auto" })
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+    return
+  }
+
+  const element = target.element as HTMLElement
+  element.scrollTop = 0
+  element.scrollTo({ top: 0, behavior: "auto" })
+}
+
+function countReadablePostElements() {
+  const elements = getPostElements()
+  const readable = elements.filter((element) => cleanText(element.textContent || "").length >= 80).length
+  return { elements: elements.length, readable }
+}
+
+function getPostElements() {
+  const elements: Element[] = []
+  const seen = new Set<Element>()
+
+  for (const selector of POST_SELECTORS) {
+    for (const element of Array.from(document.querySelectorAll(selector))) {
+      if (!seen.has(element)) {
+        seen.add(element)
+        elements.push(element)
+      }
+    }
+  }
+
+  if (elements.length > 0) {
+    return elements
+  }
+
+  const main = document.querySelector("main") || document.querySelector("[role='main']") || document.body
+  for (const element of Array.from(main.querySelectorAll("li, article, div"))) {
+    const text = cleanText(element.textContent || "")
+    const hasActionText = /(gostar|curtir|comentar|compartilhar|enviar|seguir|like|comment|share|send|follow)/i.test(text)
+    const hasResultText = /(vaga|hiring|remote|remoto|developer|frontend|backend|react|typescript|engenheiro|desenvolvedor)/i.test(text)
+    if (text.length >= 120 && hasActionText && hasResultText && isVisibleElement(element)) {
+      elements.push(element)
+    }
+  }
+
+  return elements
 }
 
 function findShowMoreResultsButton() {
@@ -166,12 +362,65 @@ function extractVisiblePosts(
     }
   }
 
+  const fallbackElements = getPostElements()
+  if (recordDiagnostics) {
+    const selectorScan = {
+      selector: "fallback:visible-search-result-blocks",
+      elements: fallbackElements.length,
+      postsFoundSoFar: state.posts.length
+    }
+    diagnostics.selectorScans.push(selectorScan)
+    console.info("[Opportunity Desk] selector scan", selectorScan)
+  }
+
+  for (const element of fallbackElements) {
+    if (state.posts.length >= maxPosts) {
+      return state.posts
+    }
+
+    const providedText = cleanText(element.textContent || "")
+    if (providedText.length < 80) {
+      if (recordDiagnostics) {
+        diagnostics.skipped.shortText += 1
+      }
+      continue
+    }
+
+    if (state.seenTexts.has(providedText)) {
+      if (recordDiagnostics) {
+        diagnostics.skipped.duplicateText += 1
+      }
+      continue
+    }
+
+    state.seenTexts.add(providedText)
+    const authorName = findAuthorName(element)
+    const post = {
+      label: authorName || `LinkedIn post ${state.posts.length + 1}`,
+      providedText,
+      sourceUrl: findPostUrl(element)
+    }
+    state.posts.push(post)
+    const sample = {
+      label: post.label,
+      sourceUrl: post.sourceUrl,
+      textLength: providedText.length,
+      textPreview: providedText.slice(0, 180)
+    }
+    if (recordDiagnostics && diagnostics.samples.length < 8) {
+      diagnostics.samples.push(sample)
+    }
+    if (recordDiagnostics) {
+      console.info("[Opportunity Desk] captured post candidate", sample)
+    }
+  }
+
   return state.posts
 }
 
 async function waitForScrollProgress(
   previousPostsFound: number,
-  previousScrollHeight: number,
+  previousMetrics: ScrollMetrics,
   maxPosts: number,
   diagnostics: CaptureDiagnostics,
   state: CaptureState
@@ -189,12 +438,16 @@ async function waitForScrollProgress(
       }
     }
     const currentPostsFound = extractVisiblePosts(maxPosts, diagnostics, state, { recordDiagnostics: false }).length
-    const currentScrollHeight = document.body.scrollHeight
-    if (currentPostsFound > previousPostsFound || currentScrollHeight > previousScrollHeight) {
+    const currentMetrics = getScrollMetrics()
+    if (
+      currentPostsFound > previousPostsFound ||
+      currentMetrics.scrollHeight > previousMetrics.scrollHeight ||
+      currentMetrics.scrollTop > previousMetrics.scrollTop + 8
+    ) {
       return {
         progressed: true,
         currentPostsFound,
-        currentScrollHeight,
+        currentMetrics,
         showMoreResult
       }
     }
@@ -203,9 +456,36 @@ async function waitForScrollProgress(
   return {
     progressed: false,
     currentPostsFound: extractVisiblePosts(maxPosts, diagnostics, state, { recordDiagnostics: false }).length,
-    currentScrollHeight: document.body.scrollHeight,
+    currentMetrics: getScrollMetrics(),
     showMoreResult
   }
+}
+
+async function waitForInitialReadablePosts(maxPosts: number, diagnostics: CaptureDiagnostics, state: CaptureState) {
+  const startedAt = Date.now()
+  let lastCount = countReadablePostElements()
+
+  while (Date.now() - startedAt < INITIAL_RESULTS_TIMEOUT_MS) {
+    lastCount = countReadablePostElements()
+    if (lastCount.readable > 0) {
+      const posts = extractVisiblePosts(maxPosts, diagnostics, state)
+      console.info("[Opportunity Desk] LinkedIn initial posts ready", {
+        postsFound: posts.length,
+        waitedMs: Date.now() - startedAt,
+        ...lastCount
+      })
+      return posts
+    }
+
+    await delay(SCROLL_PROGRESS_POLL_MS)
+  }
+
+  console.info("[Opportunity Desk] LinkedIn initial posts wait timed out", {
+    waitedMs: Date.now() - startedAt,
+    ...lastCount,
+    scroll: getScrollMetrics()
+  })
+  return extractVisiblePosts(maxPosts, diagnostics, state, { recordDiagnostics: false })
 }
 
 async function capturePosts(payload: ContentCaptureMessage["payload"]): Promise<ContentCaptureResponse> {
@@ -231,23 +511,23 @@ async function capturePosts(payload: ContentCaptureMessage["payload"]): Promise<
     posts: [],
     seenTexts: new Set<string>()
   }
-  let posts = extractVisiblePosts(payload.maxPosts, diagnostics, state)
+  let posts = await waitForInitialReadablePosts(payload.maxPosts, diagnostics, state)
+  posts = extractVisiblePosts(payload.maxPosts, diagnostics, state)
   let noProgressCount = 0
 
   for (let index = 0; index < payload.maxScrolls && posts.length < payload.maxPosts; index += 1) {
     const previousPostsFound = posts.length
-    const previousScrollHeight = document.body.scrollHeight
-    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" })
+    const scrollAttempt = scrollPageDown()
     await delay(payload.scrollDelayMs)
-    let progress = await waitForScrollProgress(previousPostsFound, previousScrollHeight, payload.maxPosts, diagnostics, state)
+    let progress = await waitForScrollProgress(previousPostsFound, scrollAttempt.before, payload.maxPosts, diagnostics, state)
     let showMoreResult = progress.showMoreResult
-    if (!progress.progressed) {
+    if (!progress.progressed || !hasScrollablePage()) {
       showMoreResult = await clickShowMoreResultsIfPresent()
       if (showMoreResult.clicked) {
         await delay(payload.scrollDelayMs)
         progress = await waitForScrollProgress(
           previousPostsFound,
-          previousScrollHeight,
+          scrollAttempt.before,
           payload.maxPosts,
           diagnostics,
           state
@@ -260,7 +540,11 @@ async function capturePosts(payload: ContentCaptureMessage["payload"]): Promise<
     const scrollProgress = {
       scroll: index + 1,
       postsFound: posts.length,
-      scrollHeight: document.body.scrollHeight,
+      scrollHeight: progress.currentMetrics.scrollHeight,
+      scrollTop: progress.currentMetrics.scrollTop,
+      clientHeight: progress.currentMetrics.clientHeight,
+      scrollTarget: progress.currentMetrics.targetLabel,
+      scrollRange: progress.currentMetrics.maxScrollTop,
       postsAdded,
       noProgressCount,
       clickedShowMoreResults: showMoreResult.clicked,
@@ -280,7 +564,6 @@ async function capturePosts(payload: ContentCaptureMessage["payload"]): Promise<
     }
   }
 
-  window.scrollTo({ top: 0, behavior: "smooth" })
   console.info("[Opportunity Desk] capture finished in LinkedIn tab", {
     postsFound: posts.length,
     sampleLabels: posts.slice(0, 5).map((post) => post.label),

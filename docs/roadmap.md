@@ -52,6 +52,10 @@ Estado atual:
 - a extensao Plasmo usa a sessao logada do navegador para capturar posts do LinkedIn, criar runs
   autenticadas, exibir diagnosticos, acompanhar o processamento do run ate status terminal e revisar
   vagas pela API local
+- a captura LinkedIn espera conteudo renderizavel antes do primeiro scroll, descobre o container
+  scrollavel real e mede progresso por `scrollTarget`, `scrollTop`, altura e posts encontrados,
+  reduzindo travamentos quando o LinkedIn carrega resultados depois do `complete` da aba ou quando a
+  altura do documento nao muda a cada avancada
 - a verificacao da captura na extensao tem timeout amplo; quando o worker nao conclui a tempo, a UI
   mostra timeout terminal e libera nova busca em vez de ficar presa em `processing`
 - o feedback da Search UI usa os counters do run como fonte principal e nao deve ficar zerado quando

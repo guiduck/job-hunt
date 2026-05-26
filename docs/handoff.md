@@ -41,7 +41,11 @@
   metrica explicita `unsent` baseada em ausencia de `SendRequest job_application sent`, dashboard
   reduzido para total/nao enviados, status operacional `unsent/sent/interview` na extensao, header do
   popup reorganizado com icones, sender profile com WhatsApp e informacoes extras, e contexto/prompt
-  de AI bulk email usando esses dados sem inventar fatos nem incluir WhatsApp vazio.
+  de AI bulk email usando esses dados sem inventar fatos nem incluir WhatsApp vazio. A captura
+  LinkedIn da extensao tambem foi hardenizada contra render tardio e containers internos do LinkedIn:
+  o content script agora espera posts legiveis antes do primeiro scroll, descobre dinamicamente o alvo
+  scrollavel real, usa wheel/scroll incremental imediato e registra `scrollTarget`, `scrollTop`,
+  `clientHeight` e `scrollRange` nos diagnosticos.
 - `validacao_mais_recente`: apos remover o spike descartado, passaram `apps/extension npm run
   typecheck`, `apps/extension npm run build`, `docker compose exec api python -m compileall app`,
   `docker compose exec worker python -m compileall app`, API focused tests
@@ -189,6 +193,10 @@ descartada.
 - melhorar feedback pos-envio ate status final por item
 - revisar contratos/testes legados de auth/ownership e campos recentes do fluxo `Full-time`
 - smoke manual do LinkedIn real depois de build/restart
+- observar em novo smoke real se a captura LinkedIn volta a registrar `LinkedIn initial posts ready`
+  e multiplos `scroll capture progress` com `scrollTarget` diferente de `window` quando o LinkedIn
+  usar container interno; os avisos de WebSocket/HMR do Plasmo continuam nao bloqueantes quando o dev
+  server nao esta conectado
 - planejar futuramente retencao/limpeza automatica de vagas antigas por politica configuravel
 
 ## Proximo Passo Spec Kit Recomendado

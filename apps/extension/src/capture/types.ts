@@ -57,6 +57,10 @@ export type CaptureDiagnostics = {
     scroll: number
     postsFound: number
     scrollHeight: number
+    scrollTop?: number
+    clientHeight?: number
+    scrollTarget?: string
+    scrollRange?: number
     postsAdded?: number
     noProgressCount?: number
     clickedShowMoreResults?: boolean

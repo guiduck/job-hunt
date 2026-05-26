@@ -22,6 +22,10 @@ visibilidade operacional ate cada item terminar como `sent` ou `failed`.
 - Preservar: contratos publicos existentes, ownership por usuario, Gmail OAuth separado do login
   Google, envio com revisao humana, curriculos como fonte de verdade para IA.
 - Estado atual importante:
+  - A captura LinkedIn da extensao foi recentemente hardenizada para esperar posts legiveis antes do
+    primeiro scroll, descobrir o container scrollavel real, medir progresso por
+    `scrollTarget`/`scrollTop`/altura/posts e diagnosticar `clientHeight`/`scrollRange`; preservar
+    esse comportamento ao mexer no fluxo de Search/captura.
   - `send_status=sent|unsent` e metricas `unsent` usam ausencia/presenca de `SendRequest`
     `job_application` com status `sent`.
   - `job_stage` e `review_status` continuam no contrato por compatibilidade, mas a UI operacional
