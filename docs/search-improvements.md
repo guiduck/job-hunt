@@ -11,6 +11,7 @@ freelance vem depois.
 - usar queries simples e rastreaveis
 - para `job`, combinar texto de busca, stack, senioridade e sinais de trabalho remoto/local
 - guardar sempre a `source_query` que originou a captura
+- lembrar a ultima busca confirmada pelo operador e renderizar keywords salvas como badges
 - registrar fonte e evidencia da oportunidade
 - deduplicar por empresa, titulo, contato e origem
 - criar opportunities apenas quando houver contato publico util para acao
@@ -86,6 +87,12 @@ A tela Search foi separada em duas responsabilidades: busca simples no LinkedIn 
 uma secao `AI filters` opcional/desligada por padrao. A extensao captura posts de forma ampla e envia
 filtros apenas quando habilitados; o worker registra motivo, confianca, sinais e counters antes de
 criar oportunidade.
+
+A Search UI tambem persiste a ultima busca usada na captura para preencher o input na proxima sessao.
+Cada palavra nova do input vira uma keyword salva, respeitando limite de 30 badges por usuario. Esses
+badges ficam abaixo do input para acesso rapido: clicar no texto adiciona a keyword ao input atual, e
+clicar em `X` remove somente o badge. A captura continua usando apenas o texto presente no input no
+momento do start, sem misturar automaticamente todos os badges salvos.
 
 ## Sinais Positivos
 

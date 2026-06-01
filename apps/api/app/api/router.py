@@ -5,6 +5,7 @@ from app.api.routes import (
     email_sending,
     email_templates,
     field_assistant,
+    job_search_preferences,
     job_search_runs,
     linkedin_browser_collector,
     opportunities,
@@ -14,6 +15,7 @@ from app.api.routes import (
 api_router = APIRouter()
 api_router.include_router(auth.router)
 api_router.include_router(opportunities.router)
+api_router.include_router(job_search_preferences.router)
 api_router.include_router(job_search_runs.router)
 api_router.include_router(linkedin_browser_collector.router)
 api_router.include_router(user_settings.router)

@@ -10,6 +10,7 @@ from app.models.email import (
     SendRequest,
 )
 from app.models.field_assistant import FieldAnswerGeneration, FieldAssistantActivation, FieldResponseSuggestion
+from app.models.job_search_preferences import JobSearchPreference
 from app.models.job_search_run import JobSearchCandidate, JobSearchRun, LinkedInCollectionInput
 from app.models.opportunity import JobOpportunityDetail, KeywordSet, Opportunity, OpportunityKeywordMatch
 from app.models.user import AuthSession, PasswordResetRequest, User
@@ -24,6 +25,7 @@ __all__ = [
     "FieldAssistantActivation",
     "FieldResponseSuggestion",
     "JobOpportunityDetail",
+    "JobSearchPreference",
     "JobSearchCandidate",
     "JobSearchRun",
     "KeywordSet",

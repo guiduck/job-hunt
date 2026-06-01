@@ -1,6 +1,7 @@
 import type { LinkedInCapturedPost } from "./types"
 
 const DEFAULT_INTENT_TERMS = new Set(["hiring", "contratando", "contratamos", "vaga", "vagas", "job", "jobs"])
+export const MAX_SAVED_SEARCH_KEYWORDS = 30
 
 export type LinkedInContentSearchUrlOptions = {
   keywords: string
@@ -47,6 +48,11 @@ export function filterCapturedPosts(
 }
 
 export function normalizeKeywords(input: string) {
+  const keywords = normalizeSearchKeywords(input)
+  return keywords.length > 0 ? keywords : [input.trim()].filter(Boolean)
+}
+
+export function normalizeSearchKeywords(input: string) {
   const keywords: string[] = []
   const seen = new Set<string>()
 
@@ -59,7 +65,37 @@ export function normalizeKeywords(input: string) {
     keywords.push(normalized)
   }
 
-  return keywords.length > 0 ? keywords : [input.trim()].filter(Boolean)
+  return keywords
+}
+
+export function mergeSavedSearchKeywords(existing: string[], input: string, limit = MAX_SAVED_SEARCH_KEYWORDS) {
+  const merged: string[] = []
+  const seen = new Set<string>()
+  for (const keyword of [...existing, ...normalizeSearchKeywords(input)]) {
+    const normalized = keyword.trim().toLowerCase()
+    if (!normalized || DEFAULT_INTENT_TERMS.has(normalized) || seen.has(normalized)) {
+      continue
+    }
+    seen.add(normalized)
+    merged.push(normalized)
+    if (merged.length >= limit) {
+      break
+    }
+  }
+  return merged
+}
+
+export function appendKeywordToSearchText(searchText: string, keyword: string) {
+  const normalizedKeyword = normalizeSearchKeywords(keyword)[0]
+  if (!normalizedKeyword) {
+    return searchText
+  }
+  const currentKeywords = new Set(normalizeSearchKeywords(searchText))
+  if (currentKeywords.has(normalizedKeyword)) {
+    return searchText.trim()
+  }
+  const currentSearchText = searchText.trim()
+  return currentSearchText ? `${currentSearchText} ${normalizedKeyword}` : normalizedKeyword
 }
 
 function splitTerms(input: string) {

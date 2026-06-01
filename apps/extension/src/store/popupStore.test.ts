@@ -1,4 +1,5 @@
 import { resolveOpportunityPageFilters } from "./popupStore"
+import type { usePopupStore } from "./popupStore"
 
 const current = { keyword: "react", sort_order: "newest" as const, page: 3, page_size: 50 }
 
@@ -15,3 +16,12 @@ if (changedCriteria.page !== 1) {
 if (changedCriteria.page_size !== 50) {
   throw new Error("Opportunity pagination should keep the default page size.")
 }
+
+type PopupStoreState = ReturnType<typeof usePopupStore.getState>
+
+const searchPreferenceStateContract: Pick<
+  PopupStoreState,
+  "searchPreference" | "savedSearchKeywords" | "refreshSearchPreference" | "appendSavedSearchKeyword" | "deleteSavedSearchKeyword"
+> = {} as PopupStoreState
+
+void searchPreferenceStateContract

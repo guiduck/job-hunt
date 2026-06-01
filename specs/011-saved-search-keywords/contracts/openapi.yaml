@@ -1,0 +1,181 @@
+openapi: 3.0.3
+info:
+  title: Saved Search Keywords API
+  version: 0.1.0
+  description: Owner-scoped Full-time search preference contract for last search text and saved keyword badges.
+paths:
+  /job-search-preferences:
+    get:
+      summary: Get the authenticated user's Full-time search preference
+      tags: [job-search-preferences]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: opportunity_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [job]
+            default: job
+      responses:
+        "200":
+          description: Current search preference for the authenticated owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobSearchPreferenceRead"
+        "401":
+          description: Missing or invalid authentication
+    put:
+      summary: Persist current Search input as last search and merge new saved keyword badges
+      tags: [job-search-preferences]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobSearchPreferenceUpdate"
+      responses:
+        "200":
+          description: Updated search preference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobSearchPreferenceRead"
+        "400":
+          description: Invalid search preference input
+        "401":
+          description: Missing or invalid authentication
+  /job-search-preferences/keywords/{keyword}:
+    delete:
+      summary: Delete one saved keyword badge for the authenticated owner
+      tags: [job-search-preferences]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: keyword
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated search preference after badge deletion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobSearchPreferenceRead"
+        "401":
+          description: Missing or invalid authentication
+        "404":
+          description: Saved keyword badge not found for this owner
+  /job-search-runs:
+    post:
+      summary: Start a job search run using current Search input keywords
+      tags: [job-search-runs]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobSearchRunCreate"
+      responses:
+        "202":
+          description: Run accepted with immutable requested keywords and search query
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobSearchRunRead"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    JobSearchPreferenceRead:
+      type: object
+      required:
+        - opportunity_type
+        - last_search_text
+        - last_search_keywords
+        - saved_keywords
+        - max_saved_keywords
+      properties:
+        opportunity_type:
+          type: string
+          enum: [job]
+        last_search_text:
+          type: string
+          description: Last Search field text confirmed when capture started.
+        last_search_keywords:
+          type: array
+          items:
+            type: string
+          description: Normalized keywords parsed from last_search_text.
+        saved_keywords:
+          type: array
+          maxItems: 30
+          items:
+            type: string
+          description: Owner-scoped quick-access keyword badges.
+        max_saved_keywords:
+          type: integer
+          enum: [30]
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+    JobSearchPreferenceUpdate:
+      type: object
+      required:
+        - search_text
+      properties:
+        opportunity_type:
+          type: string
+          enum: [job]
+          default: job
+        search_text:
+          type: string
+          minLength: 1
+          description: Current Search field text. Saved as last search and parsed for newly added badges.
+      additionalProperties: false
+    JobSearchRunCreate:
+      type: object
+      properties:
+        keywords:
+          type: array
+          items:
+            type: string
+          description: Normalized terms from the current Search field only.
+        search_query:
+          type: string
+          description: Current Search field text/source query recorded for traceability.
+        search_sort_order:
+          type: string
+          enum: [recent, relevant]
+        ai_filters_enabled:
+          type: boolean
+        ai_filter_settings:
+          type: object
+      additionalProperties: true
+    JobSearchRunRead:
+      type: object
+      required:
+        - id
+        - requested_keywords
+        - search_query
+      properties:
+        id:
+          type: string
+        requested_keywords:
+          type: array
+          items:
+            type: string
+        search_query:
+          type: string
+          nullable: true

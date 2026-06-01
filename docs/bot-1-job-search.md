@@ -24,6 +24,8 @@ ao modo `Full-time` e nao deve compartilhar lista, templates ou detalhe com o mo
 O bot deve receber ou usar:
 
 - keywords configuradas pelo usuario
+- ultima busca usada pelo operador como valor inicial do campo Search
+- badges de keywords salvas para reutilizacao rapida, limitadas a 30 por usuario
 - keywords mockadas enquanto o usuario nao configurar nada
 - futuras keywords extraidas do curriculo
 - localidade, remoto ou preferencia de mercado quando houver
@@ -39,16 +41,19 @@ Keywords mockadas iniciais:
 ## Fluxo Recomendado
 
 1. carregar keywords do usuario ou fallback mockado
-2. abrir/capturar publicacoes e anuncios no LinkedIn usando a sessao local do navegador
-3. filtrar textos com keywords relevantes
-4. detectar empresa, cargo, email publico ou convite claro de contato e link da publicacao/vaga
-5. registrar a fonte e o trecho que justificou a captura
-6. aplicar review scoring e filtros de IA apenas quando habilitados
-7. salvar a oportunidade como `opportunity_type=job`
-8. listar no painel em uma aba ou modo `Full-time Job`
-9. permitir revisao individual antes de envio
-10. permitir selecao em massa para envio real de email com curriculo anexado, com aprovacao humana
-11. apoiar preenchimento de formularios externos de candidatura com respostas geradas por IA a partir
+2. preencher a Search UI com a ultima busca salva, quando existir
+3. permitir que badges salvos adicionem keywords ao input sem alterar a busca automaticamente
+4. abrir/capturar publicacoes e anuncios no LinkedIn usando a sessao local do navegador
+5. salvar o texto atual como ultima busca e adicionar novas palavras aos badges salvos
+6. filtrar textos com keywords relevantes
+7. detectar empresa, cargo, email publico ou convite claro de contato e link da publicacao/vaga
+8. registrar a fonte e o trecho que justificou a captura
+9. aplicar review scoring e filtros de IA apenas quando habilitados
+10. salvar a oportunidade como `opportunity_type=job`
+11. listar no painel em uma aba ou modo `Full-time Job`
+12. permitir revisao individual antes de envio
+13. permitir selecao em massa para envio real de email com curriculo anexado, com aprovacao humana
+14. apoiar preenchimento de formularios externos de candidatura com respostas geradas por IA a partir
     do curriculo e perfil do operador
 
 ## UI Esperada No Modo Full-Time
@@ -185,6 +190,7 @@ limitada e auditavel.
 - enriquecimento automatico irrestrito de emails de empresas
 - buscar vagas em fontes externas que entregam apenas links de candidatura ou ATS
 - bot de prospeccao freelance
+- gerar curriculo ATS especifico por vaga neste recorte de busca
 
 ## Uso Recomendado De IA
 

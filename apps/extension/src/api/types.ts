@@ -45,6 +45,20 @@ export type AIFilterStatus = "passed" | "rejected" | "fallback" | "failed" | "sk
 export type SearchSortOrder = "recent" | "relevant"
 export type DetectedWorkMode = "remote" | "hybrid" | "onsite" | "presential" | "unknown" | "mixed"
 
+export type JobSearchPreference = {
+  opportunity_type: "job"
+  last_search_text: string
+  last_search_keywords: string[]
+  saved_keywords: string[]
+  max_saved_keywords: number
+  updated_at: string | null
+}
+
+export type JobSearchPreferenceUpdate = {
+  opportunity_type?: "job"
+  search_text: string
+}
+
 export type LinkedInCollectionSourceType = "authenticated_browser_search"
 
 export type JobReviewProfile = {

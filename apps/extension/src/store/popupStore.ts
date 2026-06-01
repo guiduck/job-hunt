@@ -7,9 +7,11 @@ import {
   bulkDeleteOpportunities,
   confirmPasswordReset,
   createEmailDraft,
+  deleteSavedSearchKeyword as apiDeleteSavedSearchKeyword,
   deleteFieldAssistantActivation as apiDeleteFieldAssistantActivation,
   disconnectGoogleOAuth,
   getCurrentUser,
+  getJobSearchPreference,
   getOpportunity,
   getOpportunityMetrics,
   getSendingProviderAccount,
@@ -33,6 +35,7 @@ import {
   updateEmailDraft,
   updateBulkEmailItem,
   updateFieldAssistantActivation as apiUpdateFieldAssistantActivation,
+  updateJobSearchPreference,
   updateUserSettings as apiUpdateUserSettings,
   uploadResume,
   updateOpportunity,
@@ -46,6 +49,7 @@ import type {
   CurrentUser,
   FieldAssistantActivation,
   FieldAssistantScopeType,
+  JobSearchPreference,
   JobStage,
   JobReviewStatus,
   Opportunity,
@@ -58,6 +62,7 @@ import type {
   UserSettingsUpdate
 } from "../api/types"
 import type { CaptureProgress, CaptureRequest, CaptureResult } from "../capture/types"
+import { appendKeywordToSearchText } from "../capture/linkedin"
 import { FIELD_ASSISTANT_MESSAGE_TYPES, normalizeActivationScope } from "../utils/fieldAssistant"
 import { clearStoredAuthSession, loadStoredAuthSession, saveStoredAuthSession } from "./authSession"
 
@@ -114,6 +119,8 @@ type PopupState = {
   error: string | null
   captureProgress: CaptureProgress
   keywords: string
+  searchPreference: JobSearchPreference | null
+  savedSearchKeywords: string[]
   region: string
   aiFiltersEnabled: boolean
   acceptedRegions: string
@@ -140,6 +147,9 @@ type PopupState = {
   setMaxScrolls: (maxScrolls: number) => void
   setCaptureProgress: (captureProgress: CaptureProgress) => void
   setSelectedOpportunity: (selectedOpportunity: Opportunity | null) => void
+  refreshSearchPreference: () => Promise<void>
+  appendSavedSearchKeyword: (keyword: string) => void
+  deleteSavedSearchKeyword: (keyword: string) => Promise<void>
   initializeAuth: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
   loginWithGoogle: () => Promise<void>
@@ -321,6 +331,8 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   error: null,
   captureProgress: persistedPopupState.captureProgress || DEFAULT_CAPTURE_PROGRESS,
   keywords: "hiring typescript",
+  searchPreference: null,
+  savedSearchKeywords: [],
   region: "",
   aiFiltersEnabled: false,
   acceptedRegions: "",
@@ -370,6 +382,45 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     persistPopupState({ selectedOpportunityId: selectedOpportunity?.id || null })
     set({ selectedOpportunity })
   },
+  refreshSearchPreference: async () => {
+    try {
+      const searchPreference = await getJobSearchPreference()
+      set({
+        searchPreference,
+        savedSearchKeywords: searchPreference.saved_keywords,
+        keywords: searchPreference.last_search_text || get().keywords
+      })
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        setApiAccessToken(null)
+        await clearStoredAuthSession()
+        set({ currentUser: null, searchPreference: null, savedSearchKeywords: [] })
+        return
+      }
+      set({ error: errorMessage(error, "Could not load saved search keywords.") })
+    }
+  },
+  appendSavedSearchKeyword: (keyword) => {
+    set({ keywords: appendKeywordToSearchText(get().keywords, keyword) })
+  },
+  deleteSavedSearchKeyword: async (keyword) => {
+    const currentKeywords = get().keywords
+    const currentCaptureProgress = get().captureProgress
+    set({ loading: true, error: null })
+    try {
+      const searchPreference = await apiDeleteSavedSearchKeyword(keyword)
+      set({
+        searchPreference,
+        savedSearchKeywords: searchPreference.saved_keywords,
+        keywords: currentKeywords,
+        captureProgress: currentCaptureProgress
+      })
+    } catch (error) {
+      set({ error: errorMessage(error, "Could not remove saved keyword.") })
+    } finally {
+      set({ loading: false })
+    }
+  },
 
   initializeAuth: async () => {
     console.info("[Opportunity Desk] initializeAuth started")
@@ -388,6 +439,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       await saveStoredAuthSession({ accessToken: session.accessToken, user: currentUser })
       set({ authReady: true, currentUser })
       console.info("[Opportunity Desk] stored auth session validated", { userEmail: currentUser.email })
+      await get().refreshSearchPreference()
       await get().refreshData()
     } catch (error) {
       console.info("[Opportunity Desk] stored auth session is invalid or expired", describeError(error))
@@ -407,6 +459,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       await saveStoredAuthSession({ accessToken: session.access_token, user: session.user })
       set({ currentUser: session.user })
       console.info("[Opportunity Desk] login session saved and state updated", { userEmail: session.user.email })
+      await get().refreshSearchPreference()
       await get().refreshData()
     } catch (error) {
       console.info("[Opportunity Desk] login failed", describeError(error))
@@ -439,6 +492,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       }
       await persistAuthSession(session)
       set({ currentUser: session.user })
+      await get().refreshSearchPreference()
       await get().refreshData()
     } catch (error) {
       console.info("[Opportunity Desk] Google primary auth failed", describeError(error))
@@ -458,6 +512,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       await saveStoredAuthSession({ accessToken: session.access_token, user: session.user })
       set({ currentUser: session.user })
       console.info("[Opportunity Desk] register session saved and state updated", { userEmail: session.user.email })
+      await get().refreshSearchPreference()
       await get().refreshData()
     } catch (error) {
       console.info("[Opportunity Desk] register failed", describeError(error))
@@ -485,7 +540,10 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         showBulkEmail: false,
         emailTemplates: [],
         resumes: [],
-        fieldAssistantActivations: []
+        fieldAssistantActivations: [],
+        searchPreference: null,
+        savedSearchKeywords: [],
+        keywords: "hiring typescript"
       })
       console.info("[Opportunity Desk] logout finished and local auth state cleared")
     }
@@ -745,9 +803,24 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       error: null,
       captureProgress
     })
+    let preferenceWarning: string | null = null
+    const searchText = keywords.trim()
+    if (searchText) {
+      try {
+        const searchPreference = await updateJobSearchPreference({ search_text: searchText })
+        set({
+          searchPreference,
+          savedSearchKeywords: searchPreference.saved_keywords,
+          keywords: searchPreference.last_search_text || searchText
+        })
+      } catch (error) {
+        console.info("[Opportunity Desk] could not save search preference before capture", describeError(error))
+        preferenceWarning = errorMessage(error, "Could not save search keywords; capture will continue.")
+      }
+    }
 
     const response = await sendCaptureRequest({
-      keywords,
+      keywords: searchText || keywords,
       region,
       aiFiltersEnabled,
       acceptedRegions,
@@ -766,6 +839,9 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     }
 
     await get().refreshData()
+    if (preferenceWarning) {
+      set({ error: preferenceWarning })
+    }
   },
 
   openDetail: async (opportunityId) => {

@@ -17,6 +17,7 @@
 - `fase_atual_roadmap`: Fase 3 / 3.5 - Full-time LinkedIn MVP com filtros inteligentes pos-captura
 - `etapa_atual_action_plan`: polir o fluxo `Full-time` local para um MVP publicavel, mantendo busca,
   dashboard, Jobs, envio e assistente de campos estaveis antes de abrir novas frentes
+- `plano_ativo_spec_kit`: `specs/011-saved-search-keywords/plan.md`
 - `status_resumido`: a extensao Plasmo opera o fluxo `Full-time` local com login persistente, captura
   autenticada de posts do LinkedIn, listagem/detalhe de vagas, delete individual/bulk, templates,
   curriculos, login Google primary auth, Gmail OAuth, envio individual, bulk send revisavel com IA e
@@ -25,7 +26,10 @@
   ainda esta processando e evitando que uma run presa bloqueie novas capturas. O dashboard usa metricas
   agregadas sem filtros da lista Jobs. A tentativa de adicionar uma fonte externa de vagas com
   enriquecimento de email foi descartada por baixa utilidade real: muitas respostas direcionavam para
-  carreira/ATS/formulario, sem vantagem para o produto de outreach por email.
+  carreira/ATS/formulario, sem vantagem para o produto de outreach por email. A spec
+  `011-saved-search-keywords` foi implementada: Search hidrata a ultima busca, salva novas palavras
+  como badges owner-scoped com limite de 30, permite clicar no badge para adicionar ao input, remove
+  badges somente por `X` e mantem a captura usando apenas o texto atual do input.
 - `decisao_recente`: remover codigo, specs, configs e UI da fonte externa; preservar melhorias
   independentes como feedback de captura, checkbox mestre de selecao, `Delete all listed`, dedupe visual
   de nomes, filtro Review removido e estado persistido do popup. Apos estabilizar login Google, a spec
@@ -111,6 +115,10 @@
   (3 passed), `apps/extension npm run typecheck` e `apps/extension npm run build`. O build concluiu
   com o aviso conhecido de rede do Plasmo ao buscar metadata de pacote e uma mensagem nao bloqueante
   sobre `svgo`.
+  Para `011-saved-search-keywords`, passaram `docker compose exec api python -m compileall app alembic`,
+  `docker compose exec api python -m pytest tests/unit/test_job_search_preferences_service.py tests/contract/test_job_search_preferences_contract.py tests/integration/test_job_search_preferences.py tests/integration/test_job_search_preferences_ownership.py tests/integration/test_linkedin_ai_filters_compatibility.py`
+  (14 passed), `apps/extension npm.cmd run typecheck` e `apps/extension npm.cmd run build`. O build
+  concluiu com o aviso nao bloqueante conhecido sobre `svgo`.
 
 ## Produto
 
@@ -130,6 +138,9 @@ O caminho funcional atual de `job` e LinkedIn-first:
 ## Melhorias Que Devem Permanecer
 
 - Search UI com filtros de IA desligados por padrao e aplicados somente quando marcados
+- Search UI preenchida pela ultima busca confirmada, com keywords salvas como badges abaixo do input,
+  limite de 30 por usuario, reutilizacao por clique no badge e remocao manual por `X`; a captura usa
+  somente o texto atual do input
 - feedback visual de captura/run no painel de Search, com status do run separado do status da captura
   e contadores atualizados durante o processamento do worker; se a verificacao nao completar em cerca
   de 10 minutos, a extensao deve mostrar timeout terminal e liberar nova busca. Valores compostos de
@@ -188,7 +199,7 @@ descartada.
 - completar as partes realmente assincronas/worker-owned de AI bulk generation e feedback pos-envio
 - polir a casca publicavel: mensagens vazias, estados de erro/loading, dashboard/funil, onboarding
   local, build extension, configuracao de API publicada e checklist de smoke
-- executar smoke manual completo de extensao com LinkedIn real, AI filters, Jobs pagination, Google
+- executar smoke manual completo de extensao com LinkedIn real, AI filters, Search badges, Jobs pagination, Google
   auth e Gmail OAuth/send
 - melhorar feedback pos-envio ate status final por item
 - revisar contratos/testes legados de auth/ownership e campos recentes do fluxo `Full-time`
@@ -201,9 +212,26 @@ descartada.
 
 ## Proximo Passo Spec Kit Recomendado
 
-O proximo prompt recomendado em `docs/next-spec-prompt.md` agora prioriza transformar AI bulk
-generation e feedback pos-envio em workflow duravel/worker-owned, preservando revisao humana,
-sanitizacao, ownership e contratos atuais da extensao.
+O proximo passo recomendado e executar `/speckit-specify` usando `docs/next-spec-prompt.md`. Esse
+prompt volta a priorizar transformar AI bulk generation e feedback pos-envio em workflow
+duravel/worker-owned, preservando revisao humana, sanitizacao, ownership e contratos atuais da
+extensao.
+
+`/speckit-implement` concluiu `specs/011-saved-search-keywords/tasks.md` com a melhoria pequena da
+Search UI: ultima busca persistida, badges abaixo do input, captura usando apenas o input atual,
+adicao de novas palavras com limite de 30 e remocao manual por `X`. Validacao focada de API e extensao
+passou; smoke manual em LinkedIn real ainda deve ser feito.
+
+`/speckit-plan` gerou `specs/011-saved-search-keywords/plan.md`, `research.md`, `data-model.md`,
+`quickstart.md`, `contracts/openapi.yaml` e `contracts/extension-search.md`, e atualizou `AGENTS.md`
+e `.cursor/rules/specify-rules.mdc` para apontarem para o plano ativo `011`. O script oficial
+`setup-plan.sh` nao pode rodar porque `bash` no Windows chamou WSL sem distribuicao instalada; o
+setup foi feito manualmente a partir de `.specify/feature.json` e dos templates.
+Em seguida, `/speckit-tasks` gerou `specs/011-saved-search-keywords/tasks.md` com 57 tarefas
+organizadas por setup, fundacao, US1 ultima busca/persistencia na captura, US2 badges reutilizaveis
+e removiveis, US3 ownership/compatibilidade, e polish/validacao. O script oficial
+`check-prerequisites.sh` tambem depende de `bash`/WSL neste ambiente, entao a feature ativa foi
+resolvida manualmente por `.specify/feature.json`.
 
 `/speckit-implement` executou o primeiro recorte de `specs/010-ai-field-assistant/tasks.md`. Entregue:
 modelos/migration/rotas API `field-assistant`, geracao de respostas usando contexto de perfil/resumo

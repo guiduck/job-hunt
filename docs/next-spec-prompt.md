@@ -63,4 +63,3 @@ visibilidade operacional ate cada item terminar como `sent` ou `failed`.
 - `unsent` muda para `sent` apenas quando existe `SendRequest job_application sent`.
 - Testes de contrato, unidade, integracao worker e build/typecheck da extensao passam.
 - Docs afetados, `docs/handoff.md`, `docs/roadmap.md` e este arquivo ficam atualizados ao fim da implementacao.
-cd

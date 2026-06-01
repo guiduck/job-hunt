@@ -47,7 +47,7 @@ For general prompt refinement or change-risk review, consider:
 
 The active plan reference mirrored from Cursor is:
 
-- `specs/010-ai-field-assistant/plan.md`
+- `specs/011-saved-search-keywords/plan.md`
 
 ## Conflict Handling
 

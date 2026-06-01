@@ -35,3 +35,9 @@ Thumbs.db
 *.swp
 .vscode/
 .idea/
+
+*.sql
+.env
+.env.local
+.local/
+docker-compose.vps.backup.yml

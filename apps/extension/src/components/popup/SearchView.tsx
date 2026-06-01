@@ -13,8 +13,11 @@ export function SearchView() {
   const sortMode = usePopupStore((state) => state.sortMode)
   const maxPosts = usePopupStore((state) => state.maxPosts)
   const maxScrolls = usePopupStore((state) => state.maxScrolls)
+  const savedSearchKeywords = usePopupStore((state) => state.savedSearchKeywords)
   const captureProgress = usePopupStore((state) => state.captureProgress)
   const setKeywords = usePopupStore((state) => state.setKeywords)
+  const appendSavedSearchKeyword = usePopupStore((state) => state.appendSavedSearchKeyword)
+  const deleteSavedSearchKeyword = usePopupStore((state) => state.deleteSavedSearchKeyword)
   const setAiFiltersEnabled = usePopupStore((state) => state.setAiFiltersEnabled)
   const setAcceptedRegions = usePopupStore((state) => state.setAcceptedRegions)
   const setExcludedRegions = usePopupStore((state) => state.setExcludedRegions)
@@ -35,6 +38,31 @@ export function SearchView() {
         <span>Search text</span>
         <input value={keywords} onChange={(event) => setKeywords(event.target.value)} />
       </label>
+      {savedSearchKeywords.length ? (
+        <div aria-label="Saved search keywords" className="saved-keyword-badges">
+          {savedSearchKeywords.map((keyword) => (
+            <span className="saved-keyword-badge" key={keyword}>
+              <button
+                className="saved-keyword-badge__term"
+                onClick={() => appendSavedSearchKeyword(keyword)}
+                title={`Add ${keyword} to search`}
+                type="button"
+              >
+                {keyword}
+              </button>
+              <button
+                aria-label={`Remove ${keyword}`}
+                className="saved-keyword-badge__remove"
+                onClick={() => void deleteSavedSearchKeyword(keyword)}
+                title={`Remove ${keyword}`}
+                type="button"
+              >
+                x
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
       <label className="field">
         <span>Sort</span>
         <select value={sortMode} onChange={(event) => setSortMode(event.target.value as "recent" | "relevant")}>

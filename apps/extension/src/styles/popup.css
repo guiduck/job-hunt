@@ -779,6 +779,53 @@ a {
   opacity: 0.82;
 }
 
+.saved-keyword-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.saved-keyword-badge {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(129, 224, 175, 0.28);
+  border-radius: 999px;
+  background: rgba(64, 196, 126, 0.14);
+}
+
+.saved-keyword-badge button {
+  border: 0;
+  background: transparent;
+  color: #baf5d6;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.saved-keyword-badge__term {
+  min-width: 0;
+  overflow: hidden;
+  padding: 7px 8px 7px 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saved-keyword-badge__remove {
+  width: 28px;
+  flex: 0 0 28px;
+  cursor: pointer;
+  color: #effff6;
+}
+
+.saved-keyword-badge__term:hover,
+.saved-keyword-badge__remove:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .toggle-row {
   display: flex;
   align-items: flex-start;

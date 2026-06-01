@@ -67,6 +67,9 @@ Estado atual:
   evitando colapsar vagas diferentes do mesmo contato e mesmas keywords
 - limites globais de candidatos por run foram removidos; limites futuros devem ser regras de produto
   por plano/assinatura
+- a Search UI agora lembra a ultima busca usada pelo operador, salva novas palavras como badges
+  owner-scoped com limite de 30, permite reutilizar/remover badges manualmente e continua iniciando
+  captura somente com o texto atual do input
 
 Gate restante desta fase:
 

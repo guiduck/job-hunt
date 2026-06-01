@@ -27,7 +27,7 @@ def create_job_search_run(db: Session, payload: JobSearchRunCreate, user: User |
     keyword_set = None
     keywords = payload.keywords
     if not keywords:
-        keyword_set, keywords = get_active_job_keywords(db)
+        keyword_set, keywords = get_active_job_keywords(db, user=user)
 
     run = JobSearchRun(
         user_id=user.id,

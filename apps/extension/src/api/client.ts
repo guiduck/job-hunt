@@ -20,6 +20,8 @@ import type {
   GoogleOAuthStartResponse,
   GooglePrimaryAuthStartResponse,
   LoginRequest,
+  JobSearchPreference,
+  JobSearchPreferenceUpdate,
   JobSearchCandidate,
   JobSearchRun,
   JobSearchRunCreate,
@@ -207,6 +209,22 @@ export async function listOpportunityPage(filters: OpportunityFilters = {}, opti
 
 export function getOpportunityMetrics(options?: RequestOptions) {
   return request<OpportunityMetrics>("/opportunities/metrics?opportunity_type=job", {}, options)
+}
+
+export function getJobSearchPreference(options?: RequestOptions) {
+  return request<JobSearchPreference>("/job-search-preferences?opportunity_type=job", {}, options)
+}
+
+export function updateJobSearchPreference(payload: JobSearchPreferenceUpdate, options?: RequestOptions) {
+  return request<JobSearchPreference>(
+    "/job-search-preferences",
+    { method: "PUT", body: JSON.stringify({ opportunity_type: "job", ...payload }) },
+    options
+  )
+}
+
+export function deleteSavedSearchKeyword(keyword: string, options?: RequestOptions) {
+  return request<JobSearchPreference>(`/job-search-preferences/keywords/${encodeURIComponent(keyword)}`, { method: "DELETE" }, options)
 }
 
 export function getOpportunity(id: string, options?: RequestOptions) {
