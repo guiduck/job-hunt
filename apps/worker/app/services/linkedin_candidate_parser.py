@@ -58,6 +58,11 @@ CONTACT_INVITATION_PATTERNS = [
     r"\b(entre em contato|fale comigo|fale conosco|me envie mensagem|envie mensagem|mande mensagem)\b",
 ]
 CONTACT_INVITATION_RES = [re.compile(pattern, re.IGNORECASE) for pattern in CONTACT_INVITATION_PATTERNS]
+POSTER_NAME_PATTERNS = [
+    re.compile(r"^Publicacao no feed\s+(.+?)(?:\s+-\s+|\s+\d|\s*$)", re.IGNORECASE),
+    re.compile(r"^Publica(?:ç|c)[aã]o no feed\s+(.+?)(?:\s+•|\s+\d|\s*$)", re.IGNORECASE),
+    re.compile(r"^Publica(?:Ã§|c)[aÃ£]o no feed\s+(.+?)(?:\s+â€¢|\s+\d|\s*$)", re.IGNORECASE),
+]
 
 
 def extract_public_email(text: str) -> str | None:
@@ -109,6 +114,35 @@ def invites_linkedin_dm(text: str) -> bool:
     return any(pattern.search(text) for pattern in CONTACT_INVITATION_RES)
 
 
+def extract_poster_name(text: str) -> str | None:
+    for pattern in POSTER_NAME_PATTERNS:
+        match = pattern.search(text.strip())
+        if not match:
+            continue
+        name = dedupe_repeated_name(match.group(1).strip().rstrip("."))
+        return name if 0 < len(name) <= 120 else None
+    return None
+
+
+def dedupe_repeated_name(name: str) -> str:
+    compact = name.strip()
+    if len(compact) % 2 == 0:
+        midpoint = len(compact) // 2
+        first_half = compact[:midpoint]
+        second_half = compact[midpoint:]
+        if first_half.lower() == second_half.lower():
+            return first_half.strip()
+
+    parts = [part for part in name.split() if part]
+    if len(parts) % 2 != 0:
+        return name
+
+    midpoint = len(parts) // 2
+    first_half = " ".join(parts[:midpoint])
+    second_half = " ".join(parts[midpoint:])
+    return first_half if first_half == second_half else name
+
+
 def parse_candidate(raw: dict[str, object], requested_keywords: list[str]) -> dict[str, object]:
     text = " ".join(
         str(raw.get(key) or "")
@@ -124,8 +158,10 @@ def parse_candidate(raw: dict[str, object], requested_keywords: list[str]) -> di
     evidence = str(raw.get("source_evidence") or "")
     if not evidence and contact:
         evidence = f"Public contact found: {contact}"
+    poster_name = str(raw.get("poster_name") or "") or (extract_poster_name(evidence or text) or "")
 
     return {
+        "poster_name": poster_name,
         "company_name": str(raw.get("company_name") or ""),
         "role_title": str(raw.get("role_title") or ""),
         "post_headline": str(raw.get("post_headline") or ""),

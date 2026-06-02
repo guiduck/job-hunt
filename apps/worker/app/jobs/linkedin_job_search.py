@@ -61,6 +61,10 @@ def truncate_string(value: object, max_length: int) -> str | None:
     return text_value[:max_length]
 
 
+def linkedin_poster_title(candidate: dict[str, object]) -> str:
+    return str(candidate.get("poster_name") or "").strip()
+
+
 def normalize_key_part(value: str) -> str:
     return " ".join(value.lower().strip().split())
 
@@ -432,7 +436,7 @@ def create_job_opportunity(db: Session, user_id: str, candidate: dict[str, objec
     source_evidence = str(candidate.get("source_evidence") or "")
     contact_channel_type = str(candidate.get("contact_channel_type") or "email")
     contact_value = str(candidate.get("contact_channel_value") or "")
-    title = str(candidate.get("role_title") or candidate.get("post_headline") or "")
+    title = linkedin_poster_title(candidate)
     company = str(candidate.get("company_name") or "")
 
     db.execute(

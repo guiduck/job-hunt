@@ -1,4 +1,4 @@
-from app.services.linkedin_candidate_parser import extract_public_email, invites_linkedin_dm, parse_candidate
+from app.services.linkedin_candidate_parser import extract_poster_name, extract_public_email, invites_linkedin_dm, parse_candidate
 
 
 def test_parser_extracts_public_email_and_keywords(sample_linkedin_candidate: dict[str, object]) -> None:
@@ -6,6 +6,15 @@ def test_parser_extracts_public_email_and_keywords(sample_linkedin_candidate: di
     assert parsed["contact_channel_value"] == "jobs@example.com"
     assert parsed["matched_keywords"] == ["typescript"]
     assert parsed["source_evidence"]
+
+
+def test_parser_extracts_linkedin_poster_name_from_feed_evidence() -> None:
+    evidence = "Publicação no feed Alice Recruiter • Seguir Vaga React remoto. Email jobs@example.com"
+
+    parsed = parse_candidate({"source_evidence": evidence}, ["react"])
+
+    assert extract_poster_name(evidence) == "Alice Recruiter"
+    assert parsed["poster_name"] == "Alice Recruiter"
 
 
 def test_email_extraction_trims_text_glued_after_common_tld() -> None:

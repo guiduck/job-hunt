@@ -1,65 +1,61 @@
 ## Command
-speckit.specify
+speckit.plan
 
 ## Objective
-Especificar o proximo hardening operacional do fluxo `Full-time`: transformar AI bulk generation e
-feedback pos-envio em um workflow duravel/worker-owned, mantendo revisao humana, ownership por usuario
-e contratos atuais da extensao.
+Planejar a implementacao de `specs/013-serpapi-career-search/spec.md`: busca de vagas em career
+pages/ATS curados sem exigir nome de empresa, separacao de vagas com email e candidaturas externas,
+avaliacao por IA e aplicacao manual por URL.
 
 ## Source Request
-O fluxo Full-time foi corrigido antes das proximas specs: emails vindos de LinkedIn/hashtags sao
-sanitizados antes de chegar em drafts, bulk review, SendRequest e Gmail; o dashboard agora foca em
-`jobs total` e `jobs ainda nao enviados`; o popup reduziu status para `unsent/sent/interview`; o
-sender profile ganhou WhatsApp e informacoes extras para IA; e a geracao AI bulk recebe esse contexto
-sem inventar fatos.
-
-O proximo passo deve tirar o trabalho longo de geracao/envio do caminho sincrono da API e melhorar a
-visibilidade operacional ate cada item terminar como `sent` ou `failed`.
+O usuario quer expandir o modo `Full-time` com um botao abaixo da busca LinkedIn para procurar vagas
+externas em sites curados usando a chave de busca ja configurada no projeto. A busca deve aceitar
+keywords como `react frontend remoto`, permitir marcar/desmarcar fontes, nao exigir empresa/board/tenant
+do operador e salvar vagas sem email como candidaturas externas com URL oficial para aplicar.
 
 ## Project Context
-- Stack: FastAPI, PostgreSQL, worker, extensao Plasmo/React.
+- Stack: FastAPI, PostgreSQL, worker separado, extensao Plasmo/React.
 - Modo prioritario: `job` / Full-time.
-- Preservar: contratos publicos existentes, ownership por usuario, Gmail OAuth separado do login
-  Google, envio com revisao humana, curriculos como fonte de verdade para IA.
-- Estado atual importante:
-  - A captura LinkedIn da extensao foi recentemente hardenizada para esperar posts legiveis antes do
-    primeiro scroll, descobrir o container scrollavel real, medir progresso por
-    `scrollTarget`/`scrollTop`/altura/posts e diagnosticar `clientHeight`/`scrollRange`; preservar
-    esse comportamento ao mexer no fluxo de Search/captura.
-  - `send_status=sent|unsent` e metricas `unsent` usam ausencia/presenca de `SendRequest`
-    `job_application` com status `sent`.
-  - `job_stage` e `review_status` continuam no contrato por compatibilidade, mas a UI operacional
-    foca `unsent/sent/interview`.
-  - `user_settings` inclui `operator_linkedin_url`, `operator_whatsapp` e `extra_context`.
-  - AI email usa oportunidade, curriculo, portfolio, LinkedIn, WhatsApp e extra context sem inventar
-    fatos.
+- LinkedIn continua como captura assistida pelo usuario e usa scroll/captura propria.
+- Career-page search nao usa `max scrolls`; usa apenas keywords, fontes selecionadas e numero maximo
+  de oportunidades.
+- O spike antigo de fonte externa com descoberta de email foi descartado; esta feature nao retoma esse
+  objetivo.
+- Nova direcao: encontrar URLs oficiais de candidatura simples, avaliar aderencia com IA, separar
+  revisao de vagas com email e vagas externas.
+- Preservar: ownership por usuario, source_query/source_url/source_evidence, dedupe, filtros atuais,
+  envio Gmail apenas para vagas com email, AI field assistant backend-only.
 
 ## Requirements
-- Mover a geracao AI bulk para processamento duravel do worker ou job assíncrono recuperavel.
-- Retornar rapidamente da API com batch/item status inicial e permitir polling idempotente.
-- Persistir status por item (`queued`, `running`, `completed`, `failed`, `skipped`) e erros
-  estruturados.
-- Preservar limite operacional de 50 itens por batch no popup.
-- Permitir retomar/reconciliar batches interrompidos depois de restart do worker/API.
-- Melhorar feedback pos-envio: cada item aprovado deve evoluir ate `sent` ou `failed`, com erro
-  legivel quando Gmail/OAuth/curriculo falhar.
-- Manter bloqueio de duplicata para `job_application` ja enviada.
-- Nao enviar nenhum email sem revisao/aprovacao humana.
-- Atualizar extensao para mostrar progresso de geracao e envio sem travar o popup.
-- Manter sanitizacao de recipient em edicoes manuais, SendRequest e camada final antes de Gmail.
-- Incluir testes de ownership para batches e send requests.
+- Criar plano para uma busca de career pages curadas via provider de busca configurado no backend.
+- Fontes ativas iniciais: InHire, Ashby, Lever, Greenhouse, SmartRecruiters, Trampos e Catho.
+- Fontes brasileiras futuras devem ficar comentadas/documentadas para pesquisa: Programathor, Remotar,
+  GeekHunter, Vagas.com.br e InfoJobs.
+- Search UI deve ter botao separado para career-page search e checkboxes de fontes.
+- Jobs UI deve separar `With email` e `External applications`.
+- Cards de vagas externas devem reaproveitar a mesma estrutura dos cards atuais quando houver dados.
+- Vagas externas devem ter uma unica acao primaria para abrir a URL da vaga/candidatura.
+- Selecao multipla em vagas externas deve existir apenas para deletar; nao abrir varias abas em massa.
+- Detalhe de vaga externa nao deve criar uma experiencia rica nova alem da descricao/evidencia.
+- Dashboard deve mostrar contagem de vagas com email e vagas externas ainda nao aplicadas.
+- Vagas externas devem poder ser marcadas manualmente como aplicadas.
+- IA avaliadora deve avaliar o payload/texto da vaga e registrar decisao, score/motivo e sinais.
+- O plano deve cobrir cache/rate limit/custo para nao gastar chamadas duplicadas sem necessidade.
 
-## Non-Goals
-- Reabrir fonte externa de vagas descartada.
-- Remover `job_stage` ou `review_status` legados.
-- Submeter formularios externos automaticamente.
-- Criar app web Next.js antes de validar o fluxo extension-first.
+## Existing Artifact Considerations
+- `.specify/feature.json` aponta para `specs/013-serpapi-career-search`.
+- `docs/search-improvements.md`, `docs/roadmap.md` e `docs/handoff.md` ja registram a mudanca de
+  direcao.
+- A implementacao deve preservar contratos existentes sempre que possivel e fazer mudancas aditivas.
+- O proximo fechamento de implementacao deve atualizar docs, handoff, roadmap e este arquivo.
 
-## Acceptance Criteria
-- Criar batch AI retorna rapido e pode ser acompanhado por polling.
-- Um restart do worker/API nao perde itens pendentes nem duplica emails.
-- Popup mostra progresso claro por item durante geracao e envio.
-- Email final respeita sanitizacao, contexto do sender profile e revisao humana.
-- `unsent` muda para `sent` apenas quando existe `SendRequest job_application sent`.
-- Testes de contrato, unidade, integracao worker e build/typecheck da extensao passam.
-- Docs afetados, `docs/handoff.md`, `docs/roadmap.md` e este arquivo ficam atualizados ao fim da implementacao.
+## Risks / Assumptions
+- Risco principal: resultados de busca podem trazer paginas antigas ou nao serem paginas de vaga; o
+  plano deve incluir filtro de recencia, validacao de URL, dedupe e rejeicao segura.
+- Assumimos que a chave de busca existente fica no backend/worker e nao sera exposta na extensao.
+- Assumimos que aplicar em sites externos permanece manual e apoiado pelo AI field assistant, sem
+  submissao automatica de formularios.
+
+## Expected Output
+- `plan.md` completo para a spec 013.
+- Artefatos de design necessarios: research, data-model, quickstart e contratos relevantes.
+- Evitar plano que dependa de empresa/board/tenant digitado pelo usuario como requisito central.

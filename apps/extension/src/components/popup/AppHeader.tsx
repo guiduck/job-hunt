@@ -9,10 +9,6 @@ export function AppHeader() {
     return null
   }
 
-  function openAssistantShell() {
-    chrome.runtime.sendMessage({ type: "FIELD_ASSISTANT_OPEN_SHELL" }).catch(() => undefined)
-  }
-
   return (
     <header className="app-header">
       <div className="app-header-row">
@@ -33,10 +29,6 @@ export function AppHeader() {
               <HeaderIcon name="site" />
               <span>Enable site</span>
             </button>
-            <button className="header-action" onClick={openAssistantShell} type="button">
-              <HeaderIcon name="pin" />
-              <span>Pin assistant</span>
-            </button>
           </div>
         </div>
       </div>
@@ -45,7 +37,7 @@ export function AppHeader() {
   )
 }
 
-function HeaderIcon({ name }: { name: "logout" | "site" | "pin" }) {
+function HeaderIcon({ name }: { name: "logout" | "site" }) {
   if (name === "logout") {
     return (
       <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -60,9 +52,5 @@ function HeaderIcon({ name }: { name: "logout" | "site" | "pin" }) {
       </svg>
     )
   }
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24">
-      <path d="M14 3 21 10l-2 2-1.2-1.2-3.5 3.5.4 3.2-1.5 1.5-3.8-3.8L5 19.6 4.4 19l4.4-4.4L5 10.8l1.5-1.5 3.2.4 3.5-3.5L12 5l2-2Z" />
-    </svg>
-  )
+  return null
 }

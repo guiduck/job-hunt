@@ -16,7 +16,6 @@ export function SettingsView() {
   const refreshEmailSetup = usePopupStore((state) => state.refreshEmailSetup)
   const refreshFieldAssistantActivations = usePopupStore((state) => state.refreshFieldAssistantActivations)
   const enableFieldAssistantForCurrent = usePopupStore((state) => state.enableFieldAssistantForCurrent)
-  const updateFieldAssistantActivation = usePopupStore((state) => state.updateFieldAssistantActivation)
   const deleteFieldAssistantActivation = usePopupStore((state) => state.deleteFieldAssistantActivation)
   const updateUserSettings = usePopupStore((state) => state.updateUserSettings)
   const loading = usePopupStore((state) => state.loading)
@@ -111,7 +110,7 @@ export function SettingsView() {
 
   return (
     <section className="panel">
-      <h2>Full-time settings</h2>
+      <h2>Settings</h2>
       <p className="muted">Connect Gmail sending separately from Google sign-in, choose sender details, and upload your default PDF resume.</p>
 
       <div className="settings-card">
@@ -218,24 +217,14 @@ export function SettingsView() {
             {fieldAssistantActivations.map((activation) => (
               <li className="assistant-site-card" key={activation.id}>
                 <div className="assistant-site-main">
-                  <div>
-                    <strong>{activation.display_name || activation.scope_value}</strong>
-                    <span>{activation.scope_value}</span>
-                  </div>
-                  <div className="assistant-site-badges">
-                    <span>{activation.scope_type === "base_domain" ? "Domain" : "Exact page"}</span>
-                    <span>{activation.enabled ? "Active" : "Paused"}</span>
-                  </div>
-                </div>
-                <div className="assistant-site-actions">
+                  <strong>{activation.display_name || activation.scope_value}</strong>
                   <button
-                    className="assistant-small-button"
-                    onClick={() => void updateFieldAssistantActivation(activation.id, { enabled: !activation.enabled })}
+                    aria-label={`Remove ${activation.display_name || activation.scope_value}`}
+                    className="assistant-remove-button"
+                    onClick={() => void deleteFieldAssistantActivation(activation.id)}
+                    title="Remove site"
                     type="button">
-                    {activation.enabled ? "Disable" : "Enable"}
-                  </button>
-                  <button className="assistant-small-button assistant-small-button--danger" onClick={() => void deleteFieldAssistantActivation(activation.id)} type="button">
-                    Remove
+                    <ButtonIcon name="trash" />
                   </button>
                 </div>
               </li>
@@ -298,7 +287,7 @@ export function SettingsView() {
   )
 }
 
-function ButtonIcon({ name }: { name: "save" | "site" | "target" }) {
+function ButtonIcon({ name }: { name: "save" | "site" | "target" | "trash" }) {
   if (name === "save") {
     return (
       <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -310,6 +299,13 @@ function ButtonIcon({ name }: { name: "save" | "site" | "target" }) {
     return (
       <svg aria-hidden="true" viewBox="0 0 24 24">
         <path d="M4 5h16v14H4V5Zm2 4h12V7H6v2Zm0 2v6h12v-6H6Z" />
+      </svg>
+    )
+  }
+  if (name === "trash") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24">
+        <path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-1 6h2v10h1V9h2v10h1V9h2v10h1V9h2v11c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2V9h3Z" />
       </svg>
     )
   }

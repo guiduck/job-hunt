@@ -73,10 +73,9 @@ O assistente fica desativado por padrao em sites externos. Depois de logar:
 
 1. Abra uma pagina de candidatura.
 2. Clique em `Enable site` no header autenticado, ou use `settings > AI field assistant`.
-3. Escolha `Enable current site` para liberar o dominio base, ou `Enable exact page` para uma URL
-   especifica.
-4. Em campos elegiveis, use o botao `Pin assistant` para abrir a shell persistente e a varinha magica
-   ao lado de perguntas de texto.
+3. Use `Add current site` para liberar o dominio base, ou `Add exact page` para uma URL especifica.
+4. Em campos elegiveis, use a varinha magica ao lado de perguntas de texto para gerar, revisar,
+   inserir ou salvar respostas.
 
 O content script ignora campos sensiveis como senha, token, OTP, cartao, CPF/CNPJ e campos ocultos ou
 readonly. Ele envia ao backend apenas metadados seguros do campo, label/pergunta proxima e URL
@@ -86,12 +85,11 @@ explicito do operador. A extensao nunca submete formularios externos automaticam
 Respostas salvas sao owner-scoped por keyword e limitadas a 3 por usuario + keyword. O salvamento e
 manual: gerar uma resposta nao persiste sugestao automaticamente.
 
-## UI Persistente
+## UI Do Assistente
 
-O popup nativo do Chrome fecha quando perde foco. O fluxo autenticado agora substitui `Keep open` por
-`Pin assistant`, que pede ao content script para abrir uma shell fixa/minimizavel dentro da aba ativa,
-sem depender da janela popup do Chrome. O documento `PERSISTENT_EXTENSION_SHELL.md` explica a diferenca
-entre popup, janela separada e UI injetada persistente.
+O popup nativo do Chrome fecha quando perde foco. O assistente de campos nao depende mais de uma shell
+persistente no popup: depois que o dominio ou pagina esta autorizado, o content script injeta apenas os
+controles de varinha magica nos campos elegiveis da pagina ativa.
 
 Enquanto o usuario nao estiver autenticado, a extensao deve mostrar apenas a experiencia de login. O
 titulo, abas (`dashboard`, `search`, `jobs`, `templates`, `settings`) e acoes operacionais devem ficar

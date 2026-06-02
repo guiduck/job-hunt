@@ -39,10 +39,9 @@ vaga real de posts de pessoas procurando emprego.
 
 O proximo recorte recomendado volta a ser produto util para o operador: um assistente de navegador
 que detecta campos longos de candidatura em abas abertas, mostra um botao de varinha magica no fim do
-campo e gera ou reutiliza respostas com IA usando curriculo/perfil do usuario. Esse recorte deve
-incluir tambem uma shell persistente da extensao em iframe/content script para substituir o botao
-`Keep open` e esconder header/navegacao enquanto o usuario nao esta autenticado. O hardening
-assincrono de bulk AI/post-send continua importante, mas pode vir depois dessa spec.
+campo e gera ou reutiliza respostas com IA usando curriculo/perfil do usuario. O fluxo atual usa
+autorizacao por dominio/pagina e controles injetados no campo, sem shell persistente no popup. O
+hardening assincrono de bulk AI/post-send continua importante, mas pode vir depois dessa spec.
 
 Para IA, chaves de API devem ficar somente no backend/worker via variaveis de ambiente. A extensao
 nao deve armazenar nem receber `OPENAI_API_KEY` ou segredo equivalente.

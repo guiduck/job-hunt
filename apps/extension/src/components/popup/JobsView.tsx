@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react"
 import type { JobStage, Opportunity } from "../../api/types"
 import { StatusPill } from "../StatusPill"
 import { usePopupStore } from "../../store/popupStore"
-import { companyName, emailDomainLabel, opportunityTitle, postPresentation, scoreTone } from "../../utils/opportunity"
+import { companyName, opportunityTitle, postPresentation, scoreTone } from "../../utils/opportunity"
 import { BulkEmailPanel } from "./BulkEmailPanel"
 
 const MAX_BULK_EMAIL_SELECTION = 50
@@ -256,7 +256,6 @@ function JobCard({
   const presentation = postPresentation(opportunity)
   const description = expanded ? presentation.message : presentation.excerpt
   const company = companyName(opportunity)
-  const emailDomain = emailDomainLabel(opportunity)
   const operationalStatus = toOperationalStatus(opportunity.job_detail?.job_stage || "new")
 
   function confirmDelete() {
@@ -279,7 +278,6 @@ function JobCard({
           {presentation.authorName ? <p className="job-meta">Author: {presentation.authorName}</p> : null}
           {company ? <p className="job-meta">Company: {company}</p> : null}
           {opportunity.source_name ? <p className="job-meta">Source: {opportunity.source_name}</p> : null}
-          {!company && emailDomain ? <p className="job-meta">Email domain: {emailDomain}</p> : null}
           <p className="job-meta">{opportunity.job_detail?.contact_email || opportunity.job_detail?.contact_channel_value}</p>
         </button>
         {presentation.contactHref ? (

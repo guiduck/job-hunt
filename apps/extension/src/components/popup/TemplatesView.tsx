@@ -73,7 +73,7 @@ export function TemplatesView() {
 
   return (
     <section className="panel">
-      <h2>Full-time templates</h2>
+      <h2>Templates</h2>
       <p className="muted">Manage job application and follow-up email templates.</p>
       <form className="template-form" onSubmit={submitTemplate}>
         {isEditing ? <p className="message message--warn">Editing template. Save or cancel before creating another one.</p> : null}

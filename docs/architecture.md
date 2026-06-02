@@ -114,8 +114,8 @@ A extensao e a primeira interface operacional real do modo `Full-time`. Ela deve
 - injetar overlays leves em inputs, textareas e campos `contenteditable` de paginas externas quando
   houver criterios de candidatura/pergunta, mostrando um botao de varinha magica e dropdown de
   respostas recentes
-- oferecer uma shell persistente via content script, semelhante ao padrao do projeto de referencia
-  `references/chrome-plugin-v3`, substituindo a janela `Keep open` no fluxo autenticado
+- manter a assistencia externa opt-in por dominio/pagina, sem shell persistente no popup enquanto o
+  fluxo nao for validado em sites reais
 
 ### Envio de email
 

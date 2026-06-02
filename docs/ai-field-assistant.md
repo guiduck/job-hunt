@@ -9,8 +9,8 @@ submitted automatically.
 
 - The assistant is disabled by default on external sites.
 - Authenticated users can enable the current base domain from the popup header with `Enable site`.
-- Settings also supports enabling the current base domain or the exact current page, then disabling or
-  removing those activations later.
+- Settings also supports adding the current base domain or the exact current page, then removing those
+  activations later.
 - A Plasmo content script runs on `http/https` pages, but only injects controls when the user is logged
   in and the page matches an enabled owner-scoped activation.
 - Eligible text fields receive a small magic-wand button. Sensitive fields such as password, token,
@@ -28,8 +28,7 @@ submitted automatically.
 - The answer menu is constrained to the visible viewport using `visualViewport`/window dimensions and
   clamps its top/left/max-height so action buttons remain reachable near the bottom of the screen.
 - Saved suggestions are owner-scoped by keyword and capped at 3 per user + keyword.
-- The persistent shell includes `Fill saved` and `Fill with AI`: saved suggestions are applied to
-  empty matching fields first; the AI option generates only for remaining fields without saved answers.
+- The field menu includes saved suggestions and AI generation for the current application question.
 - Generic field keywords fall back to normalized meaningful terms from the question text instead of
   collapsing everything to one broad bucket.
 - Search inputs (`input[type="search"]`) are ignored so site navigation/search boxes do not receive
@@ -37,8 +36,8 @@ submitted automatically.
 - Each uploaded resume has a Settings checkbox for `Use as AI assistant context`. Selected available
   resumes are owner-scoped and sent to backend generation as extracted PDF text excerpts; if none are
   selected, the assistant falls back to the default/newest available resume.
-- The authenticated `Keep open` window flow was replaced by `Pin assistant`, which opens a persistent
-  content-script shell in the active tab.
+- The old persistent shell entry was removed from the popup; the assistant now runs from enabled sites
+  and the magic-wand field controls.
 - Unauthenticated users see only auth views; app title, tabs, logout, and operational actions are
   hidden until a valid session exists.
 
@@ -54,8 +53,7 @@ submitted automatically.
    review.
 6. The operator explicitly replaces/appends the field value or saves the edited answer as a reusable
    suggestion.
-7. From the shell, the operator can autofill visible empty fields using saved suggestions only, or use
-   saved suggestions first and AI for the remaining fields.
+7. The operator can reuse saved suggestions from the field menu or generate a reviewed answer with AI.
 
 ## Boundaries
 

@@ -45,8 +45,42 @@ Decisao de produto:
 - preservar apenas melhorias independentes de UI: feedback de captura, filtros de IA opcionais,
   selecao em massa por checkbox, `Delete all listed`, dedupe visual de nomes e estado persistido do
   popup
-- tratar novas fontes de vagas como fora do roadmap imediato ate que exista uma hipotese melhor que
-  gere contato publico realmente acionavel
+- retomar novas fontes de vagas somente quando a hipotese nao depender de email: a nova direcao
+  `013-serpapi-career-search` busca links oficiais de candidatura em career pages/ATS curados, separa
+  essas vagas em `External applications` e usa IA para avaliar aderencia antes de salvar oportunidades
+
+## Nova Direcao Para Career Pages
+
+O recorte `013-serpapi-career-search` muda o objetivo das fontes externas: a busca nao tenta mais
+descobrir email da empresa. Ela deve encontrar URLs de vagas em sites de candidatura simples e oficiais,
+sem exigir que o operador saiba o nome da empresa, board, tenant ou client id.
+
+Fontes ativas iniciais:
+
+- InHire
+- Ashby
+- Lever
+- Greenhouse
+- SmartRecruiters
+- Trampos
+- Catho
+
+Fontes brasileiras em observacao, ainda fora da lista ativa ate pesquisa posterior:
+
+- Programathor
+- Remotar
+- GeekHunter
+- Vagas.com.br
+- InfoJobs
+
+Regras:
+
+- a busca deve usar keywords do operador e uma lista curada de sites/fonte
+- `max scrolls` continua pertencendo apenas ao fluxo LinkedIn
+- jobs com email ficam no fluxo de envio por Gmail
+- jobs sem email e com URL oficial ficam no fluxo `External applications`
+- acoes em massa em vagas externas permitem deletar, mas nao abrir varias candidaturas ao mesmo tempo
+- a aplicacao externa e manual; o assistente de campos ajuda no site aberto pelo operador
 
 ## Papel De IA Na Busca
 
@@ -78,6 +112,8 @@ A camada inicial de revisao para vagas `Full-time` ja existe no backend/worker:
   provider, analysis status e status de envio
 - o input unico de busca da lista Jobs consulta keywords, titulo/cargo, empresa, descricao/evidencia e
   email de contato explicito da vaga
+- no fluxo LinkedIn, o titulo visivel da opportunity representa a pessoa que publicou o post; cargo e
+  headline continuam em `job_detail` para matching, dedupe e templates
 - a lista Jobs usa pagina de 50 itens por padrao para manter o popup leve; selecao `All visible on this
   page` e acoes em massa usam apenas os itens visiveis da pagina atual
 - contatos de email capturados ou editados passam por sanitizacao antes de persistir/usar em envio,

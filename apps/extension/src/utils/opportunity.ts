@@ -39,14 +39,7 @@ const LINKEDIN_NOISE_PATTERNS = [
 ]
 
 export function opportunityTitle(opportunity: Opportunity) {
-  const title =
-    opportunity.job_detail?.role_title ||
-    opportunity.title ||
-    opportunity.job_detail?.post_headline ||
-    postPresentation(opportunity).authorName ||
-    companyName(opportunity) ||
-    "Untitled job"
-  return dedupeRepeatedName(title)
+  return dedupeRepeatedName(opportunity.title || "Unknown poster")
 }
 
 export function companyName(opportunity: Opportunity) {

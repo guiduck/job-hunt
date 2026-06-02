@@ -126,33 +126,47 @@ Estado atual:
   OAuth separado em Settings
 - a spec `010-ai-field-assistant` foi implementada em primeiro recorte: API owner-scoped para
   ativacoes por dominio/pagina, geracao de resposta de campo com IA backend-only, sugestoes salvas por
-  keyword com limite de 3, content script com botao de varinha magica, shell persistente via `Pin
-  assistant`, Settings para dominios habilitados e popup sem header/menu antes do login
+  keyword com limite de 3, content script com botao de varinha magica, Settings para dominios
+  habilitados e popup sem header/menu antes do login
 - o assistente de campos foi hardenizado para paginas dinamicas: revarredura periodica/por mutacao/por
   foco, menu de autocomplete limitado ao viewport visivel e checkboxes por curriculo para escolher
   quais PDFs entram como contexto de IA; o backend agora extrai texto dos curriculos selecionados para
   respostas de formulario em vez de enviar apenas metadados
-- a shell persistente do assistente agora oferece preenchimento em massa de campos visiveis: `Fill
-  saved` reutiliza respostas salvas por keyword sem IA, enquanto `Fill with AI` usa respostas salvas
-  primeiro e gera apenas o que faltar; respostas manuais ja digitadas no campo tambem podem ser salvas
-  pela janela da varinha
+- a janela da varinha permite gerar respostas com IA, reutilizar sugestoes salvas por keyword sem IA e
+  salvar respostas manuais ja digitadas no campo
 - a janela da varinha permite editar a pergunta/instrucao detectada antes de gerar ou salvar resposta,
   e inputs de busca (`type=search`) ficam fora do assistente para evitar icones em caixas de navegacao
 - o popup `Full-time` foi simplificado para operacao diaria: dashboard com total/nao enviados, status
   visual `unsent/sent/interview`, marcacao rapida de entrevista, header alinhado com email/log out e
   acoes do assistente, e sender profile com WhatsApp/informacoes extras para contexto de emails IA
+- o polish `012-extension-settings-polish` removeu o botao quebrado `Pin assistant` do header,
+  renomeou as telas compactas para `Templates` e `Settings`, aumentou o respiro visual dos cards de
+  configuracao e simplificou a lista de sites autorizados do AI field assistant para um dominio/URL
+  por linha com acao direta de remocao
+- no fluxo LinkedIn, `opportunities.title` agora representa o nome da pessoa que publicou o post; a
+  lista `/jobs` usa esse campo como titulo do card e nao mostra mais `Email domain`
+- a spec `013-serpapi-career-search` foi criada para retomar fontes externas com outro objetivo:
+  buscar URLs oficiais de vagas em career pages/ATS curados sem exigir nome de empresa, separar vagas
+  com email de candidaturas externas em `/jobs`, avaliar resultados com IA e permitir marcar
+  candidaturas externas como aplicadas manualmente
 
 Gate restante desta fase:
 
 - fazer smoke manual real do assistente de campos em formularios de candidatura variados, validando
-  revarredura sem refresh, posicionamento no fim da tela, influencia do curriculo selecionado e campos
-  `contenteditable`, alem de `Fill saved`/`Fill with AI` em formularios com multiplos campos
-- evoluir a shell persistente para iframe/shadow-root mais isolado se sites reais entrarem em conflito
-  com CSS/layout do content script inicial
+  revarredura sem refresh, posicionamento no fim da tela, influencia do curriculo selecionado, sugestoes
+  salvas e campos `contenteditable`
+- evoluir os controles injetados para iframe/shadow-root mais isolado se sites reais entrarem em
+  conflito com CSS/layout do content script inicial
 - validar OAuth e envio real em ambiente publicado
 - melhorar feedback pos-envio ate status final `sent/failed` por item
 - mover a geracao AI em massa para processamento worker-owned realmente assincrono com polling/recovery
   de batches ativos; hoje o endpoint ja expoe status por item, mas ainda processa no caminho da API
+- especificar um gerador de curriculo ATS revisavel a partir do curriculo base, perfil do operador e
+  vagas para as quais emails ja foram enviados, evitando prometer treino de modelo ATS proprietario
+  sem dados/validacao
+- planejar e implementar `013-serpapi-career-search`: busca em career pages curadas, checkboxes de
+  fontes, abas `With email` e `External applications`, dashboard separado e status manual de aplicado
+  para vagas externas
 - planejar uma spec separada de retencao/limpeza operacional para arquivar ou apagar vagas antigas
   por politica configuravel, sem apagar oportunidades recentes ou dados de envio sem confirmacao
 - adicionar tracking operacional de resposta, entrevista, rejeicao, ignorado e follow-up
@@ -196,8 +210,9 @@ Resultado da decisao:
   descartada, sem reintroduzir schema ou comportamento da fonte externa
 - manter o pipeline LinkedIn como caminho principal
 - preservar melhorias gerais de UI/estado/filtros que continuam valiosas
-- nao planejar outra fonte de vagas ate existir uma hipotese clara de contato publico realmente
-  acionavel
+- nao retomar fonte externa com descoberta posterior de email; a retomada valida e a spec
+  `013-serpapi-career-search`, que usa career pages/ATS como candidaturas externas manuais com URL
+  oficial e avaliacao por IA
 
 ## Fase 4. Prospeccao Freelance
 

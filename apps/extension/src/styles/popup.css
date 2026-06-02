@@ -561,7 +561,7 @@ a {
 .settings-card {
   display: grid;
   gap: 10px;
-  margin: 12px 0;
+  margin: 16px 0;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.06);
@@ -588,7 +588,7 @@ a {
 }
 
 .field-assistant-settings {
-  gap: 14px;
+  gap: 16px;
 }
 
 .settings-section-header {
@@ -664,7 +664,7 @@ a {
 
 .assistant-site-list {
   display: grid;
-  gap: 10px;
+  gap: 14px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -672,73 +672,43 @@ a {
 
 .assistant-site-card {
   display: grid;
-  gap: 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.045);
-  padding: 12px;
+  padding: 10px 12px;
 }
 
 .assistant-site-main {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
 }
 
-.assistant-site-main strong,
-.assistant-site-main span {
-  margin: 0;
-}
-
 .assistant-site-main strong {
+  margin: 0;
   overflow: hidden;
   color: #f8fbff;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.assistant-site-main > div:first-child span {
-  overflow-wrap: anywhere;
-  line-height: 1.35;
-}
-
-.assistant-site-badges {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.assistant-site-badges span {
-  margin: 0;
-  border-radius: 999px;
-  background: rgba(91, 124, 250, 0.18);
-  color: #dce4ff;
-  font-size: 10px;
-  font-weight: 800;
-  padding: 4px 7px;
-}
-
-.assistant-site-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.assistant-small-button {
-  min-height: 34px;
+.assistant-remove-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #dce4ff;
-  font-size: 12px;
-  font-weight: 800;
-  padding: 8px 10px;
-}
-
-.assistant-small-button--danger {
   background: rgba(255, 102, 120, 0.12);
   color: #ffb3bb;
+}
+
+.assistant-remove-button svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
 }
 
 .pdf-preview {

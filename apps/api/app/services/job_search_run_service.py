@@ -22,6 +22,49 @@ from app.services.job_review_scoring import default_review_profile
 from app.services.opportunity_service import create_opportunity, get_active_job_keywords, get_opportunity_by_dedupe_key
 
 
+POSTER_NAME_PREFIXES = ("Publicação no feed ", "Publicacao no feed ", "PublicaÃ§Ã£o no feed ")
+
+
+def extract_poster_name_from_evidence(text: str) -> str:
+    value = text.strip()
+    for prefix in POSTER_NAME_PREFIXES:
+        if not value.startswith(prefix):
+            continue
+        remainder = value[len(prefix) :]
+        if " - " in remainder:
+            remainder = remainder.split(" - ", 1)[0]
+            return dedupe_repeated_name(remainder.strip().rstrip("."))[:500]
+        for separator in (" •", " â€¢"):
+            if separator in remainder:
+                remainder = remainder.split(separator, 1)[0]
+                break
+        else:
+            parts = remainder.split()
+            digit_index = next((index for index, part in enumerate(parts) if part[:1].isdigit()), None)
+            remainder = " ".join(parts[:digit_index]) if digit_index is not None else remainder
+        return dedupe_repeated_name(remainder.strip().rstrip("."))[:500]
+    return ""
+
+
+def dedupe_repeated_name(name: str) -> str:
+    compact = name.strip()
+    if len(compact) % 2 == 0:
+        midpoint = len(compact) // 2
+        first_half = compact[:midpoint]
+        second_half = compact[midpoint:]
+        if first_half.lower() == second_half.lower():
+            return first_half.strip()
+
+    parts = [part for part in name.split() if part]
+    if len(parts) % 2 != 0:
+        return name
+
+    midpoint = len(parts) // 2
+    first_half = " ".join(parts[:midpoint])
+    second_half = " ".join(parts[midpoint:])
+    return first_half if first_half == second_half else name
+
+
 def create_job_search_run(db: Session, payload: JobSearchRunCreate, user: User | None = None) -> JobSearchRun:
     user = user or ensure_default_local_user(db)
     keyword_set = None
@@ -321,7 +364,7 @@ def record_candidate(db: Session, run: JobSearchRun, candidate: dict[str, object
             opportunity = create_opportunity(
                 db,
                 OpportunityCreate(
-                    title=str(candidate.get("role_title") or candidate.get("post_headline") or ""),
+                    title=str(candidate.get("poster_name") or "") or extract_poster_name_from_evidence(source_evidence),
                     organization_name=str(candidate.get("company_name") or ""),
                     source_name="LinkedIn",
                     source_url=str(candidate.get("source_url") or ""),

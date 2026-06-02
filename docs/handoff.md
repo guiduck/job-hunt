@@ -17,7 +17,8 @@
 - `fase_atual_roadmap`: Fase 3 / 3.5 - Full-time LinkedIn MVP com filtros inteligentes pos-captura
 - `etapa_atual_action_plan`: polir o fluxo `Full-time` local para um MVP publicavel, mantendo busca,
   dashboard, Jobs, envio e assistente de campos estaveis antes de abrir novas frentes
-- `plano_ativo_spec_kit`: `specs/011-saved-search-keywords/plan.md`
+- `plano_ativo_spec_kit`: spec ativa `specs/013-serpapi-career-search/spec.md`; ultimo plano completo
+  ainda e `specs/011-saved-search-keywords/plan.md`
 - `status_resumido`: a extensao Plasmo opera o fluxo `Full-time` local com login persistente, captura
   autenticada de posts do LinkedIn, listagem/detalhe de vagas, delete individual/bulk, templates,
   curriculos, login Google primary auth, Gmail OAuth, envio individual, bulk send revisavel com IA e
@@ -30,16 +31,31 @@
   `011-saved-search-keywords` foi implementada: Search hidrata a ultima busca, salva novas palavras
   como badges owner-scoped com limite de 30, permite clicar no badge para adicionar ao input, remove
   badges somente por `X` e mantem a captura usando apenas o texto atual do input.
+- `polish_atual`: `specs/012-extension-settings-polish/spec.md` foi criada via `/speckit-specify` para
+  registrar a limpeza compacta da extensao antes de producao. Implementado: removido o botao quebrado
+  `Pin assistant` do header, headings trocados para `Templates` e `Settings`, cards de settings com
+  mais espacamento, lista de sites do AI field assistant simplificada para um dominio/URL por linha,
+  sem badges `Domain/Active` e sem acao `Disable`, mantendo apenas remocao por icone de lixeira. Em
+  seguida, o fluxo LinkedIn passou a preencher `opportunities.title` com o nome da pessoa que publicou
+  o post; a lista `/jobs` usa esse campo como titulo do card e removeu `Email domain` dos cards.
+- `estudo_fontes_ats`: criado `docs/ats-job-sources-pre-spec-study.md` como estudo pre-spec para
+  reposicionar o produto como assistente de candidatura: ATS/career pages + AI matching + email
+  assistido, com Greenhouse, Ashby e Lever como primeiros providers, Gupy/InHire em research-only, e
+  `/jobs` dividido entre vagas com email e candidaturas externas.
+- `spec_013_serpapi_career_search`: criada `specs/013-serpapi-career-search/spec.md` via
+  `/speckit-specify`. A nova direcao evita o spike antigo de enriquecimento de email: busca career
+  pages/ATS curados por keywords sem exigir nome de empresa/board/tenant do operador, usa fontes
+  selecionaveis, avalia resultados com IA, salva vagas externas com URL oficial de candidatura, separa
+  `/jobs` entre vagas com email e candidaturas externas, permite selecao multipla apenas para deletar e
+  adiciona status manual de aplicado para vagas externas.
 - `decisao_recente`: remover codigo, specs, configs e UI da fonte externa; preservar melhorias
   independentes como feedback de captura, checkbox mestre de selecao, `Delete all listed`, dedupe visual
   de nomes, filtro Review removido e estado persistido do popup. Apos estabilizar login Google, a spec
   `010-ai-field-assistant` foi implementada em primeiro recorte com API owner-scoped, botao de varinha
-  em campos externos, respostas recentes por keyword, shell `Pin assistant`, Settings para ativacoes e
-  popup sem header/menu antes do login. O recorte foi hardenizado depois de smoke real no LinkedIn:
+  em campos externos, respostas recentes por keyword, Settings para ativacoes e popup sem header/menu
+  antes do login. O recorte foi hardenizado depois de smoke real no LinkedIn:
   campos dinamicos passam a receber o botao sem refresh manual, o menu de resposta fica contido no
-  viewport visivel, Settings permite marcar quais curriculos entram como contexto do assistente, e a
-  shell persistente ganhou preenchimento em massa com respostas salvas primeiro e IA apenas quando o
-  operador escolher.
+  viewport visivel, e Settings permite marcar quais curriculos entram como contexto do assistente.
 - `full_time_fixes_mais_recentes`: o fluxo `Full-time` foi corrigido antes das proximas specs com
   sanitizacao real de emails colados com `hashtag`, migration de backfill para dados recuperaveis,
   metrica explicita `unsent` baseada em ausencia de `SendRequest job_application sent`, dashboard
@@ -119,6 +135,12 @@
   `docker compose exec api python -m pytest tests/unit/test_job_search_preferences_service.py tests/contract/test_job_search_preferences_contract.py tests/integration/test_job_search_preferences.py tests/integration/test_job_search_preferences_ownership.py tests/integration/test_linkedin_ai_filters_compatibility.py`
   (14 passed), `apps/extension npm.cmd run typecheck` e `apps/extension npm.cmd run build`. O build
   concluiu com o aviso nao bloqueante conhecido sobre `svgo`.
+  Para `012-extension-settings-polish`, passaram `apps/extension npm.cmd run typecheck` e
+  `apps/extension npm.cmd run build`; o build concluiu com o aviso nao bloqueante conhecido sobre
+  `svgo`/htmlnano. Depois da correcao de `opportunities.title` como nome do poster no fluxo LinkedIn
+  e remocao de `Email domain` em `/jobs`, `apps/extension npm.cmd run typecheck` e
+  `apps/extension npm.cmd run build` passaram novamente com o mesmo aviso nao bloqueante de
+  `svgo`/htmlnano.
 
 ## Produto
 
@@ -161,15 +183,20 @@ O caminho funcional atual de `job` e LinkedIn-first:
 - login Google do app separado do OAuth Gmail de envio, com linking por email verificado
 - logs estruturados de AI filter no worker
 - assistente de campos externos com botao de varinha magica e respostas recentes por keyword, usando
-  IA backend-only, curriculos selecionados como contexto extraido no backend, menu contido no viewport
-  e shell persistente injetada por content script com acoes `Fill saved` e `Fill with AI`; primeiro
-  recorte implementado e aguardando smoke manual ampliado em sites reais
+  IA backend-only, curriculos selecionados como contexto extraido no backend e menu contido no viewport;
+  a acao quebrada `Pin assistant` foi removida do popup, e o proximo hardening visual deve focar nos
+  controles injetados em campos reais
 
 ## Decisao Sobre Fonte Externa De Vagas
 
 A fonte externa de vagas com enriquecimento posterior de email nao deve entrar na aplicacao agora.
 Motivo: mesmo quando acha emails publicos, o retorno pratico tende a ser "aplique pelo site de
 carreiras" ou "use este portal", o que torna o fluxo pouco util para outreach direto.
+
+A excecao planejada agora e `013-serpapi-career-search`: fonte externa nao tenta encontrar email e nao
+abre envio automatico; ela encontra URLs oficiais de candidatura em sites curados, classifica vagas sem
+email como `External applications` e deixa o operador aplicar manualmente com apoio do assistente de
+campos.
 
 Remover/evitar:
 
@@ -191,9 +218,9 @@ descartada.
 ## Pendencias Prioritarias
 
 - fazer smoke manual completo de `specs/010-ai-field-assistant` em paginas externas: ativar dominio,
-  abrir `Pin assistant`, confirmar botoes sem refresh, gerar resposta com curriculo marcado como
-  contexto, inserir/substituir/anexar no fim da tela, salvar sugestao manual, usar `Fill saved`/`Fill
-  with AI` e confirmar que campos sensiveis nao recebem botao
+  confirmar botoes sem refresh, gerar resposta com curriculo marcado como contexto,
+  inserir/substituir/anexar no fim da tela, salvar sugestao manual, reutilizar sugestoes salvas no menu
+  de campo e confirmar que campos sensiveis nao recebem botao
 - ajustar isolamento visual do assistente para iframe/shadow-root se sites reais entrarem em conflito
   com o DOM/CSS injetado atual
 - completar as partes realmente assincronas/worker-owned de AI bulk generation e feedback pos-envio
@@ -212,10 +239,15 @@ descartada.
 
 ## Proximo Passo Spec Kit Recomendado
 
-O proximo passo recomendado e executar `/speckit-specify` usando `docs/next-spec-prompt.md`. Esse
-prompt volta a priorizar transformar AI bulk generation e feedback pos-envio em workflow
-duravel/worker-owned, preservando revisao humana, sanitizacao, ownership e contratos atuais da
-extensao.
+O proximo passo recomendado agora e `/speckit-plan` para `specs/013-serpapi-career-search/spec.md`,
+usando a pesquisa de SerpApi/lista curada, normalizacao de vagas externas, abas em `/jobs`, metricas
+de dashboard e status manual de aplicado.
+O hook de branch tentou `codex/013-serpapi-career-search`, mas o Git local nao conseguiu criar refs
+aninhados; a branch criada com sucesso foi `codex-013-serpapi-career-search`.
+
+Durante `012-extension-settings-polish`, a tentativa de criar a branch `codex/012-extension-settings-polish`
+falhou porque o Git local nao conseguiu criar o diretorio de ref aninhado; a implementacao continuou
+na branch atual sem reverter o arquivo nao rastreado `Untitled`.
 
 `/speckit-implement` concluiu `specs/011-saved-search-keywords/tasks.md` com a melhoria pequena da
 Search UI: ultima busca persistida, badges abaixo do input, captura usando apenas o input atual,
@@ -236,28 +268,26 @@ resolvida manualmente por `.specify/feature.json`.
 `/speckit-implement` executou o primeiro recorte de `specs/010-ai-field-assistant/tasks.md`. Entregue:
 modelos/migration/rotas API `field-assistant`, geracao de respostas usando contexto de perfil/resumo
 no backend, sugestoes salvas owner-scoped por keyword com limite de 3, clientes/tipos da extensao,
-content script `field-assistant`, shell `Pin assistant`, Settings para ativacoes, ocultacao de header e
-tabs sem sessao e documentacao atualizada. `tasks.md` ficou com 84/88 tarefas marcadas; continuam
+content script `field-assistant`, Settings para ativacoes, ocultacao de header e tabs sem sessao e
+documentacao atualizada. `tasks.md` ficou com 84/88 tarefas marcadas; continuam
 abertas apenas duas tarefas de teste especifico de UI/auth e dois smokes manuais. Validacao: API 17
 passed, extension typecheck passed, extension build passed com aviso de rede pos-build do Plasmo. O
 hardening posterior adicionou selecao de curriculos para contexto, extracao de texto real do PDF no
 assistente, varredura dinamica de campos, menu responsivo ao viewport, salvar respostas manuais e
-preenchimento em massa via shell; a API local esta em `016_field_assistant_ctx`.
+reuso de respostas salvas no menu de campo; a API local esta em `016_field_assistant_ctx`.
 
 Antes disso, `/speckit-specify` criou `specs/010-ai-field-assistant/spec.md` a partir de
 `docs/next-spec-prompt.md`. A spec cobre assistente de campos externos com IA, respostas recentes por
-keyword, shell persistente da extensao, comportamento authenticated-only e nao-objetivos como
+keyword, comportamento authenticated-only e nao-objetivos como
 submissao automatica de formularios, limpeza de vagas antigas e retomada da fonte externa descartada.
 Durante `/speckit-clarify`, foram adicionadas decisoes: ativacao por dominio base com opcao de pagina
-exata, respostas salvas apenas por acao explicita, e substituicao do `Keep open` pela shell
-persistente para usuarios autenticados. O documento raiz `PERSISTENT_EXTENSION_SHELL.md` explica a
-diferenca entre popup, janela `Keep open` e UI injetada persistente. Em seguida, `/speckit-plan`
+exata e respostas salvas apenas por acao explicita. Em seguida, `/speckit-plan`
 gerou `specs/010-ai-field-assistant/plan.md`, `research.md`, `data-model.md`, `quickstart.md`,
 `contracts/openapi.yaml` e `contracts/extension-messages.md`, e atualizou `AGENTS.md` e
 `.cursor/rules/specify-rules.mdc` para apontarem para o plano ativo `010`. Depois, `/speckit-tasks`
 gerou `specs/010-ai-field-assistant/tasks.md` com 88 tarefas: setup/fundacao, US1 geracao e insercao
-em campo, US2 respostas salvas por keyword, US3 shell persistente/ativacao por dominio, US4 UI
-authenticated-only e polish/validacao.
+em campo, US2 respostas salvas por keyword, US3 ativacao por dominio, US4 UI authenticated-only e
+polish/validacao.
 
 Antes disso, `/speckit-implement` avancou `specs/009-full-time-fixes/tasks.md` ate 105/114 tasks concluidas. Foram
 implementados e validados: US2 Google primary auth com `GoogleIdentityLink`, rotas
