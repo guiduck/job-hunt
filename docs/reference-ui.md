@@ -233,30 +233,38 @@ Campos esperados:
 - nome gerado automaticamente, editavel
 - taxa/score de conversao por nicho quando disponivel
 
-O select de nicho observado mostra opcoes com percentual de conversao:
+O select de nicho observado mostra opcoes com percentual de conversao. A fonte inicial para o webapp
+deve ser `references/opportunity-desk-pro/src/lib/mockData.ts` (`NICHE_OPTIONS`), espelhada aqui:
 
-- Clinica de Estetica
-- Clinica Odontologica
-- Dentista
-- Salao de Beleza
-- Psicologo
-- Terapeuta
-- Nutricionista
-- Barbearia
-- Fotografo
-- Personal Trainer
-- Clinica de Fisioterapia
-- Arquiteto
-- Designer de Interiores
-- Academia
-- Clinica Veterinaria
-- Pet Shop
-- Escola de Idiomas
-- Restaurante
-- Pizzaria
-- Hamburgueria
-- Oficina Mecanica
-- Dentista, Med Spa, HVAC, Plumber, Lawyer, Real Estate Agent, Chiropractor, Landscaping, Cleaning Service
+- Clinica de Estetica - 18.5%
+- Clinica Odontologica - 17.2%
+- Dentista - 16.8%
+- Salao de Beleza - 15.4%
+- Psicologo - 15.2%
+- Terapeuta - 15.0%
+- Nutricionista - 14.8%
+- Barbearia - 14.7%
+- Fotografo - 14.2%
+- Personal Trainer - 13.5%
+- Clinica de Fisioterapia - 13.2%
+- Arquiteto - 13.0%
+- Designer de Interiores - 12.9%
+- Academia - 12.8%
+- Clinica Veterinaria - 12.3%
+- Imobiliaria - 11.0%
+- Pet Shop - 9.5%
+- Escola de Idiomas - 9.2%
+- Restaurante - 5.8%
+- Pizzaria - 5.5%
+- Hamburgueria - 5.3%
+- Oficina Mecanica - 5.0%
+- Med Spa - 18.0%
+- HVAC - 15.8%
+- Plumber - 16.2%
+- Lawyer - 15.0%
+- Real Estate Agent - 14.5%
+- Landscaping - 13.0%
+- Cleaning Service - 14.0%
 
 Card deve mostrar:
 
@@ -267,6 +275,15 @@ Card deve mostrar:
 - total de leads
 - contadores por temperatura/status
 - acoes: `Ver Leads`, `Prospectar`, `Pausar`, `Parar`
+
+Requisito tecnico do fluxo:
+
+- a acao `Prospectar` inicia um job de busca local realista no Google/Google Maps por provider externo
+  configurado, preferencialmente Apify ou SerpApi no MVP
+- o job deve exibir etapa atual: buscando negocios, normalizando resultados, baixando sites,
+  calculando scores e salvando leads
+- o app deve deixar claro que leads foram encontrados a partir da experiencia de busca local por
+  nicho/localidade, nao de uma lista misturada ou cadastro manual
 
 ## Leads observados
 
@@ -467,6 +484,7 @@ Conteudo obrigatorio:
 - avaliacoes
 - Google Maps/source URL
 - analise do site
+- scores separados de conteudo, design, performance e SEO
 - tem website
 - score mobile
 - score desktop

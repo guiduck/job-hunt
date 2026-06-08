@@ -142,13 +142,26 @@ Estado atual:
 - o polish `012-extension-settings-polish` removeu o botao quebrado `Pin assistant` do header,
   renomeou as telas compactas para `Templates` e `Settings`, aumentou o respiro visual dos cards de
   configuracao e simplificou a lista de sites autorizados do AI field assistant para um dominio/URL
-  por linha com acao direta de remocao
+  por linha com acao direta de remocao; o layout atual deve permanecer como lista compacta tipo tabela
+  sem headers, nao como cards grandes
 - no fluxo LinkedIn, `opportunities.title` agora representa o nome da pessoa que publicou o post; a
-  lista `/jobs` usa esse campo como titulo do card e nao mostra mais `Email domain`
+  lista `/jobs` usa esse campo como titulo do card e nao mostra mais `Email domain`; novas capturas
+  autenticadas tambem propagam o nome capturado do DOM do LinkedIn para `poster_name` via worker,
+  preservando fallback por evidencia quando o texto do feed vem colado
 - a spec `013-serpapi-career-search` foi criada para retomar fontes externas com outro objetivo:
   buscar URLs oficiais de vagas em career pages/ATS curados sem exigir nome de empresa, separar vagas
   com email de candidaturas externas em `/jobs`, avaliar resultados com IA e permitir marcar
   candidaturas externas como aplicadas manualmente
+- a spec `013-serpapi-career-search` foi clarificada e planejada: cada clique no botao em `/search`
+  cria uma busca nova no provider; vagas aceitas persistem no banco; vagas com qualquer email utilizavel
+  entram em `With email` e continuam elegiveis ao fluxo Gmail; vagas sem email entram em
+  `External applications`; todas as fontes ativas iniciam marcadas; a UI mostra a ultima busca e bloqueia
+  novas buscas enquanto uma estiver rodando; aplicacao manual usa `job_stage=applied`; e o worker deve
+  respeitar tanto o maximo de oportunidades aceitas quanto um teto configuravel de candidatos
+  inspecionados baseado em custo
+- `specs/013-serpapi-career-search/tasks.md` foi gerado com tarefas para API, worker, extensao,
+  contratos, testes, docs e validacao; a implementacao deve comecar por fundacao + US1 como MVP antes
+  de avancar para abas, IA, aplicacao manual e metricas
 
 Gate restante desta fase:
 
@@ -164,9 +177,9 @@ Gate restante desta fase:
 - especificar um gerador de curriculo ATS revisavel a partir do curriculo base, perfil do operador e
   vagas para as quais emails ja foram enviados, evitando prometer treino de modelo ATS proprietario
   sem dados/validacao
-- planejar e implementar `013-serpapi-career-search`: busca em career pages curadas, checkboxes de
-  fontes, abas `With email` e `External applications`, dashboard separado e status manual de aplicado
-  para vagas externas
+- implementar `013-serpapi-career-search`: busca em career pages curadas, checkboxes de fontes, abas
+  `With email` e `External applications`, dashboard separado, status manual de aplicado para vagas
+  externas, provider diagnostics e teto configuravel de candidatos inspecionados
 - planejar uma spec separada de retencao/limpeza operacional para arquivar ou apagar vagas antigas
   por politica configuravel, sem apagar oportunidades recentes ou dados de envio sem confirmacao
 - adicionar tracking operacional de resposta, entrevista, rejeicao, ignorado e follow-up
@@ -214,21 +227,83 @@ Resultado da decisao:
   `013-serpapi-career-search`, que usa career pages/ATS como candidaturas externas manuais com URL
   oficial e avaliacao por IA
 
+Status de `013-serpapi-career-search`: implementacao automatizada praticamente concluida, 111/112
+tasks. A API cria runs `career_page`, lista fontes curadas, bloqueia duplicidade ativa, expoe latest
+run e filtra Jobs por `job_application_kind`. O worker processa runs career-page via provider
+SerpApi-style, respeita maximo de aceitos/teto de inspecionados, registra logs estruturados e persiste
+oportunidades com email ou apply URL. A extensao ganhou botao separado em Search, ultima busca, fontes
+curadas com checkboxes, abas reais `With email`/`External applications`, mark applied e metricas
+separadas. A correcao mais recente tambem remove filtros de email/envio quando a aba externa esta
+ativa e mantem o botao de busca de career pages habilitado quando pelo menos uma fonte esta marcada e
+nao ha run ativa. O worker tambem passou a pedir resultados dos ultimos 31 dias ao SerpApi/Google e a
+rejeitar resultados com data explicita mais antiga antes de criar opportunities, para reduzir vagas
+expiradas. Testes focados de API/worker/extensao passam. Falta apenas smoke manual com provider real e
+ajuste de caps apos amostra.
+
 ## Fase 4. Prospeccao Freelance
 
-Objetivo: adicionar o bot de busca por clientes freelance via Google Maps/nicho/localidade, como
-planejado inicialmente.
+Objetivo: iniciar um app web interno para prospeccao freelance via busca local realista no
+Google/Google Maps por nicho/localidade, como planejado inicialmente, mas separado da extensao
+`Full-time`.
 
-Gate de entrada: iniciar depois que a spec de hardening operacional do `Full-time` confirmar que o
-fluxo atual esta validado o suficiente para nao carregar dividas de auth/deploy/outreach para o modo
-`Freelance`.
+Status: `specs/014-freelance-web-app/spec.md` foi criada via `/speckit-specify`, clarificada via
+`/speckit-clarify`, planejada via `/speckit-plan` e detalhada via `/speckit-tasks`;
+`.specify/feature.json` aponta para ela. A implementacao concluiu T001-T062: scaffold `apps/web`,
+Prisma schema/migration/seed, provider abstraction, worker shell, layout shell, validacoes, testes
+base, Docker services e US1 de campanhas/nichos com tela `/campaigns`, rotas internas e smoke local
+criando uma campanha BR e uma internacional. O proximo passo e continuar `/speckit-implement` em US2
+T063-T091, usando `docs/next-spec-prompt.md`, para descoberta/classificacao e leads salvos.
 
-- consultas por nicho, cidade, bairro e mercado usando Google Maps como primeira fonte planejada
+Decisoes clarificadas para o MVP:
+
+- entregar uma fatia vertical completa, nao apenas descoberta ou apenas UI
+- exigir analise leve de website no MVP e deferir auditorias profundas de navegador/design
+- suportar BR e internacional no fluxo, com smoke podendo focar um mercado representativo
+- nao incluir CSV export no MVP nem planejar por padrao
+- gerar prompts/mensagens sob demanda e salvar apenas a ultima versao gerada por lead, sem historico
+
+Decisao de plano:
+
+- criar `apps/web` como novo app interno `Next.js`/`Prisma`
+- manter `apps/api`, `apps/worker` e `apps/extension` focados no produto `Full-time`
+- rodar descoberta local e analise leve de sites em um worker separado do request path do Next.js
+- usar provider abstraction `freelance_maps_provider` com mock local e primeiro adapter real planejado
+  para Apify Google Maps Scraper ou SerpApi Google Maps
+
+Gate de entrada: o fluxo `Full-time` ja esta satisfatorio para candidaturas; antes de congelar essa
+fase, ainda falta smoke/ajuste fino das candidaturas externas. Isso nao bloqueia o inicio do projeto
+`Freelance`, desde que a extensao `Full-time` seja tratada como produto separado e nao misturada no
+novo app.
+
+Stack decidida:
+
+- app web em `Next.js`
+- componentes em `shadcn/ui`
+- validacao com `Zod`
+- estado local de UI com `Zustand`
+- ORM/migrations em `Prisma`
+- banco `PostgreSQL`
+- ambiente local com `Docker Compose`
+- deploy futuro em VPS
+
+Decisao de coleta:
+
+- usar provider externo/scraper de Google Maps como Apify Google Maps Scraper ou SerpApi Google Maps
+  atras de uma interface propria
+- priorizar resultados que reproduzam o que usuarios reais encontrariam pesquisando por nicho e
+  localidade no Google/Google Maps
+- manter Playwright apenas como fallback/spike de auditoria, nao como provider principal do MVP
+- apos coletar o negocio, baixar o HTML do site quando existir e avaliar conteudo, design,
+  performance e SEO em etapa propria
+
+- consultas por nicho, cidade, bairro e mercado usando busca local Google/Maps como primeira fonte
+- seed inicial de nichos vindo de `references/opportunity-desk-pro/src/lib/mockData.ts` (`NICHE_OPTIONS`)
 - deteccao de website com estados revisaveis
 - deteccao de negocio sem site, so com rede social ou com site fraco
 - captura de nota Google, quantidade de reviews, endereco, telefone, website e fonte
+- captura de `source_query`, `source_url`, place ids/data ids quando disponiveis e evidencia textual
 - deduplicacao por nome, contato e origem
-- score inicial
+- score inicial separado por conteudo, design, performance, SEO e temperatura comercial
 - salvar URL da demo por lead
 - gerar prompt para `Lovable`
 - templates iniciais de email

@@ -43,6 +43,8 @@ export type AnalysisStatus = "deterministic_only" | "ai_assisted" | "fallback" |
 export type JobSearchRunStatus = "pending" | "running" | "completed" | "completed_no_results" | "failed"
 export type AIFilterStatus = "passed" | "rejected" | "fallback" | "failed" | "skipped"
 export type SearchSortOrder = "recent" | "relevant"
+export type JobSearchKind = "linkedin" | "career_page"
+export type JobApplicationKind = "email" | "external_application"
 export type DetectedWorkMode = "remote" | "hybrid" | "onsite" | "presential" | "unknown" | "mixed"
 
 export type JobSearchPreference = {
@@ -90,6 +92,8 @@ export type JobDetail = {
   contact_channel_value: string
   contact_email: string | null
   application_url: string | null
+  application_kind?: JobApplicationKind | null
+  job_application_kind: JobApplicationKind
   linkedin_url: string | null
   poster_profile_url: string | null
   contact_priority: string | null
@@ -134,6 +138,10 @@ export type OpportunityMetrics = {
   applied: number
   interviews: number
   unsent: number
+  email_job_count: number
+  email_unsent_count: number
+  external_application_count: number
+  external_unapplied_count: number
 }
 
 export type OpportunityUpdate = {
@@ -161,6 +169,7 @@ export type OpportunityFilters = {
   sort_order?: "newest" | "oldest"
   provider_status?: string
   analysis_status?: AnalysisStatus | ""
+  job_application_kind?: JobApplicationKind
   page?: number
   page_size?: number
 }
@@ -201,13 +210,34 @@ export type JobSearchRunCreate = {
   ai_filter_settings?: AIFilterSettings
 }
 
+export type CuratedCareerSource = {
+  key: string
+  name: string
+  domain: string
+  active: boolean
+  search_hint: string | null
+}
+
+export type CareerPageSearchRunCreate = {
+  keywords?: string[] | null
+  search_query?: string | null
+  selected_source_keys?: string[] | null
+  accepted_limit?: number
+  inspected_cap?: number | null
+  ai_filters_enabled?: boolean
+  ai_filter_settings?: AIFilterSettings
+}
+
 export type JobSearchRun = {
   id: string
+  search_kind: JobSearchKind
   status: JobSearchRunStatus
   requested_keywords: string[]
   search_query: string | null
   search_sort_order: SearchSortOrder
   collection_source_types: string[]
+  selected_source_keys: string[]
+  source_diagnostics: Record<string, unknown>
   provider_status: string
   analysis_status: AnalysisStatus
   inspected_count: number
@@ -215,6 +245,9 @@ export type JobSearchRun = {
   rejected_count: number
   duplicate_count: number
   cap_reached: boolean
+  accepted_limit: number | null
+  inspected_cap: number | null
+  stop_reason: string | null
   ai_filters_enabled: boolean
   ai_filter_settings: AIFilterSettings
   ai_filter_status: AIFilterStatus

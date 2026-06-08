@@ -5,13 +5,12 @@ o guia freelance em `references/guia`.
 
 ## Resumo executivo
 
-O projeto esta coerente com o caminho escolhido: primeiro tornar o modo `Full-time` util de ponta a
-ponta, depois voltar para o bot `Freelance` de Google Maps/Lovable. A base tecnica ja cobre captura,
-persistencia, revisao, scoring, templates, curriculos, drafts, login email/senha e Google, envio
-Gmail/OAuth, historico de envio, bulk send com IA e filtros inteligentes pos-captura para buscas
-LinkedIn. A maior lacuna de produto agora e ajudar o operador durante aplicacoes externas, onde ele
-perde tempo respondendo formularios longos. Por isso a proxima spec recomendada e um AI Field
-Assistant na extensao, com overlay em campos e respostas baseadas no curriculo.
+O projeto esta coerente com o caminho escolhido: o modo `Full-time` ja ficou util de ponta a ponta
+como extensao dedicada, e agora o proximo produto e o app web `Freelance` de Google Maps/local search
+e Lovable. A base tecnica ja cobre captura, persistencia, revisao, scoring, templates, curriculos,
+drafts, login email/senha e Google, envio Gmail/OAuth, historico de envio, bulk send com IA, filtros
+inteligentes pos-captura, assistente de campos e busca de candidaturas externas. A maior lacuna de
+produto agora e iniciar o fluxo freelance separado, sem misturar com a extensao `Full-time`.
 
 ## O que esta implementado
 
@@ -74,7 +73,7 @@ Pontos ainda distantes:
 - dashboard com funil de vagas, candidaturas, respostas e entrevistas mais proximo de produto final
 - export CSV e acoes em massa mais polidas
 - estados de resposta, entrevista, rejeicao e follow-up com feedback loop real
-- bot `Freelance` com Google Maps, analise de site, demo URL e prompt Lovable
+- app web `Freelance` com Google Maps/local search, analise de site, demo URL e prompt Lovable
 
 ## Coerencia com o guia freelance
 
@@ -89,8 +88,9 @@ O caminho atual preserva essa proxima fase porque:
 - templates de candidatura e templates comerciais sao colecoes separadas
 - eventos de outreach podem ser reaproveitados sem virar um CRM misturado
 
-Antes de implementar Google Maps, vale estabilizar login/ownership/deploy, feedback pos-envio e smoke
-real do que ja existe. Depois disso, o proximo grande recorte de produto pode ser o bot freelance.
+Antes de congelar o `Full-time`, ainda vale executar smoke real de candidaturas externas e registrar
+ajustes. Isso agora e fine tuning do produto de vagas, nao bloqueio para iniciar o app web
+`Freelance`.
 
 ## Decisoes tecnicas revisadas
 
@@ -136,14 +136,15 @@ historico precisa pertencer a um usuario.
 
 ## Proxima spec recomendada
 
-A proxima spec deve ser `full-time-publishable-mvp-hardening`: polir o MVP `Full-time` para uso
-publicavel, cobrindo dashboard/jobs/search, timeout/status de workflows longos, deploy/OAuth real,
-smoke checklist, observabilidade basica, retencao segura e AI bulk/post-send duravel.
-O foco deve ser reduzir atrito e risco no que ja existe antes de iniciar outra frente grande.
+A proxima spec deve iniciar o app web `Freelance`: `Next.js` + `shadcn/ui` + `Zod` + `Zustand` +
+`Prisma` + `PostgreSQL`, Docker Compose local e deploy futuro em VPS. O recorte deve cobrir campanhas
+por nicho/localidade, usando a lista de nichos ja registrada nas referencias, descoberta local realista
+por Google/Google Maps via provider como Apify ou SerpApi, analise de site, lista/detalhe de leads,
+prompt Lovable e gerador de mensagem com aprovacao humana.
 
-So depois dessa estabilizacao faz sentido acelerar para:
+O `Full-time` permanece como extensao dedicada e entra em fine tuning paralelo:
 
-1. tracking mais completo de respostas/status de candidatura no `Full-time`
-2. retencao/limpeza automatica configuravel para oportunidades antigas
-3. web app mais proxima do prototipo, se a operacao local justificar
-4. bot `Freelance` com Google Maps, analise de site e prompt Lovable
+1. smoke de candidaturas externas com provider real
+2. feedback pos-envio e tracking mais completo
+3. retencao/limpeza automatica configuravel
+4. score ATS e futura geracao de curriculo ATS-friendly

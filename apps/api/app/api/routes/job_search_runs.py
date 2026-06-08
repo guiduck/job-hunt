@@ -2,13 +2,16 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import current_user
-from app.api.errors import not_found
+from app.api.errors import bad_request, conflict, not_found
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.job_search_run import JobSearchCandidate, JobSearchRun, JobSearchRunCreate
+from app.schemas.job_search_run import CareerPageSearchRunCreate, CuratedCareerSource, JobSearchCandidate, JobSearchKind, JobSearchRun, JobSearchRunCreate
 from app.schemas.opportunity import Opportunity
+from app.services.career_page_sources import list_curated_career_sources
 from app.services.job_search_run_service import (
+    create_career_page_search_run,
     create_job_search_run,
+    get_latest_job_search_run,
     get_job_search_run,
     list_candidates,
     list_job_search_runs,
@@ -16,6 +19,32 @@ from app.services.job_search_run_service import (
 from app.services.opportunity_service import get_opportunity
 
 router = APIRouter(prefix="/job-search-runs", tags=["job-search-runs"])
+
+
+@router.get("/career-page/curated-sources", response_model=list[CuratedCareerSource])
+def list_career_page_sources() -> list[CuratedCareerSource]:
+    return list_curated_career_sources()
+
+
+@router.post("/career-page", response_model=JobSearchRun, status_code=status.HTTP_202_ACCEPTED)
+def start_career_page_search_run(
+    payload: CareerPageSearchRunCreate | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> JobSearchRun:
+    try:
+        return create_career_page_search_run(db, payload or CareerPageSearchRunCreate(), user=user)
+    except ValueError as error:
+        raise conflict(str(error)) from error
+    except RuntimeError as error:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
+
+
+@router.get("/career-page/latest", response_model=JobSearchRun | None)
+def get_latest_career_page_run(db: Session = Depends(get_db), user: User = Depends(current_user)) -> JobSearchRun | None:
+    return get_latest_job_search_run(db, search_kind=JobSearchKind.CAREER_PAGE.value, user=user)
 
 
 @router.post("", response_model=JobSearchRun, status_code=status.HTTP_202_ACCEPTED)

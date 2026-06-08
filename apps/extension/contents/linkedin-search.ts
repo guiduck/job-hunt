@@ -287,18 +287,44 @@ function findAuthorName(element: Element) {
     ".update-components-actor__name",
     ".feed-shared-actor__name",
     ".entity-result__title-text",
+    "[data-test-app-aware-link] span[aria-hidden='true']",
     "a[href*='/in/'] span[aria-hidden='true']",
-    "a[href*='/company/'] span[aria-hidden='true']"
+    "a[href*='/company/'] span[aria-hidden='true']",
+    "a[href*='/in/']",
+    "a[href*='/company/']"
   ]
 
   for (const selector of selectors) {
-    const text = cleanText(element.querySelector(selector)?.textContent || "")
-    if (text && text.length <= 80) {
+    const text = sanitizeAuthorName(element.querySelector(selector)?.textContent || "")
+    if (text) {
       return text
     }
   }
 
+  const profileAnchor = Array.from(element.querySelectorAll<HTMLAnchorElement>("a[href*='/in/'], a[href*='/company/']")).find(
+    (anchor) => sanitizeAuthorName(anchor.textContent || anchor.getAttribute("aria-label") || "")
+  )
+  const profileText = sanitizeAuthorName(profileAnchor?.textContent || profileAnchor?.getAttribute("aria-label") || "")
+  if (profileText) {
+    return profileText
+  }
+
   return ""
+}
+
+function sanitizeAuthorName(value: string) {
+  const text = cleanText(value)
+    .replace(/^view\s+/i, "")
+    .replace(/\s+profile$/i, "")
+    .replace(/\s+perfil$/i, "")
+  const firstLine = cleanText(text.split(/\b(?:1st|2nd|3rd|seguidores?|followers?|follow|seguir|conex[aã]o)\b/i, 1)[0] || "")
+  if (!firstLine || firstLine.length > 80) {
+    return ""
+  }
+  if (/^(like|comment|share|send|follow|gostei|comentar|compartilhar|enviar|seguir)$/i.test(firstLine)) {
+    return ""
+  }
+  return firstLine
 }
 
 function extractVisiblePosts(

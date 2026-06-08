@@ -35,6 +35,18 @@ REJECTED_OUTCOMES = {
 }
 
 
+def has_column(db: Session, table_name: str, column_name: str) -> bool:
+    rows = db.execute(text(f"PRAGMA table_info({table_name})")).mappings().all() if db.bind and db.bind.dialect.name == "sqlite" else []
+    if rows:
+        return any(str(row.get("name")) == column_name for row in rows)
+    try:
+        db.execute(text(f"SELECT {column_name} FROM {table_name} LIMIT 0"))
+        return True
+    except SQLAlchemyError:
+        db.rollback()
+        return False
+
+
 def new_id() -> str:
     return str(uuid4())
 
@@ -263,12 +275,14 @@ def extract_resume_text(resume: dict[str, object]) -> tuple[str | None, str]:
 
 
 def select_pending_runs(db: Session, limit: int = 1) -> list[dict[str, Any]]:
+    kind_filter = "AND COALESCE(search_kind, 'linkedin') = 'linkedin'" if has_column(db, "job_search_runs", "search_kind") else ""
     rows = db.execute(
         text(
-            """
+            f"""
             SELECT *
             FROM job_search_runs
             WHERE status = 'pending'
+              {kind_filter}
             ORDER BY created_at ASC
             LIMIT :limit
             """
@@ -279,8 +293,9 @@ def select_pending_runs(db: Session, limit: int = 1) -> list[dict[str, Any]]:
 
 
 def claim_pending_run(db: Session, run_id: str) -> dict[str, Any] | None:
+    kind_filter = "AND COALESCE(search_kind, 'linkedin') = 'linkedin'" if has_column(db, "job_search_runs", "search_kind") else ""
     run = db.execute(
-        text("SELECT * FROM job_search_runs WHERE id = :run_id AND status = 'pending'"),
+        text(f"SELECT * FROM job_search_runs WHERE id = :run_id AND status = 'pending' {kind_filter}"),
         {"run_id": run_id},
     ).mappings().first()
     if run is None:

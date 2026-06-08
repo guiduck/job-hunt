@@ -34,7 +34,7 @@ def preview_bulk_send(db: Session, payload: BulkPreviewRequest, user: User | Non
         if opportunity and opportunity.user_id != user.id:
             opportunity = None
         if opportunity and opportunity.job_detail:
-            email = sanitize_email_address(opportunity.job_detail.contact_email or opportunity.job_detail.contact_channel_value)
+            email = _recipient_email(opportunity)
         if not email:
             outcome = "skipped_missing_contact"
             reason = "Missing recipient email."
@@ -233,6 +233,8 @@ def approve_bulk_send(db: Session, batch_id: str, user: User | None = None) -> B
 
 def _recipient_email(opportunity: Opportunity | None) -> str | None:
     if not opportunity or not opportunity.job_detail:
+        return None
+    if opportunity.job_detail.contact_channel_type != "email":
         return None
     return sanitize_email_address(opportunity.job_detail.contact_email or opportunity.job_detail.contact_channel_value)
 

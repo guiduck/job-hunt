@@ -84,7 +84,11 @@ def create_opportunity(
         if detail_payload.contact_channel_type == ContactChannelType.EMAIL
         else detail_payload.contact_channel_value
     )
-    contact_email = sanitize_email_address(detail_payload.contact_email or contact_channel_value)
+    contact_email = (
+        sanitize_email_address(detail_payload.contact_email or contact_channel_value)
+        if detail_payload.contact_channel_type == ContactChannelType.EMAIL
+        else sanitize_email_address(detail_payload.contact_email)
+    )
     dedupe_key = detail_payload.dedupe_key or build_job_dedupe_key(
         detail_payload.company_name or payload.organization_name,
         detail_payload.role_title,
@@ -208,6 +212,7 @@ def list_opportunities(
     source_query: str | None = None,
     run_id: str | None = None,
     campaign_id: str | None = None,
+    job_application_kind: str | None = None,
     user: User | None = None,
 ) -> list[Opportunity]:
     statement = select(Opportunity).options(selectinload(Opportunity.job_detail), selectinload(Opportunity.keyword_matches))
@@ -222,6 +227,7 @@ def list_opportunities(
             review_status,
             analysis_status,
             matched_keyword,
+            job_application_kind,
         ]
     )
     if needs_detail_join:
@@ -247,6 +253,19 @@ def list_opportunities(
         statement = statement.where(JobOpportunityDetail.review_status == review_status)
     if analysis_status:
         statement = statement.where(JobOpportunityDetail.analysis_status == analysis_status)
+    if job_application_kind == "email":
+        statement = statement.where(
+            JobOpportunityDetail.contact_channel_type == ContactChannelType.EMAIL.value,
+            JobOpportunityDetail.contact_email.is_not(None),
+            JobOpportunityDetail.contact_email.contains("@"),
+            JobOpportunityDetail.contact_email != "",
+        )
+    elif job_application_kind == "external_application":
+        statement = statement.where(
+            JobOpportunityDetail.contact_channel_type != ContactChannelType.EMAIL.value,
+            JobOpportunityDetail.application_url.is_not(None),
+            JobOpportunityDetail.application_url != "",
+        )
     if matched_keyword:
         search = f"%{matched_keyword}%"
         statement = statement.outerjoin(OpportunityKeywordMatch).where(
@@ -324,18 +343,23 @@ def get_opportunity_metrics(
     if user:
         sent_application_conditions.append(SendRequest.user_id == user.id)
     sent_application = exists().where(*sent_application_conditions)
+    email_job_case = (
+        (JobOpportunityDetail.contact_channel_type == ContactChannelType.EMAIL.value)
+        & JobOpportunityDetail.contact_email.is_not(None)
+        & JobOpportunityDetail.contact_email.contains("@")
+        & (JobOpportunityDetail.contact_email != "")
+    )
+    external_application_case = (
+        (JobOpportunityDetail.contact_channel_type != ContactChannelType.EMAIL.value)
+        & JobOpportunityDetail.application_url.is_not(None)
+        & (JobOpportunityDetail.application_url != "")
+    )
     statement = select(
         func.count(Opportunity.id),
         func.coalesce(
             func.sum(
                 case(
-                    (
-                        (JobOpportunityDetail.contact_channel_type == ContactChannelType.EMAIL.value)
-                        & JobOpportunityDetail.contact_email.is_not(None)
-                        & JobOpportunityDetail.contact_email.contains("@")
-                        & (JobOpportunityDetail.contact_email != ""),
-                        1,
-                    ),
+                    (email_job_case, 1),
                     else_=0,
                 )
             ),
@@ -357,13 +381,20 @@ def get_opportunity_metrics(
             func.sum(case((~sent_application, 1), else_=0)),
             0,
         ),
+        func.coalesce(func.sum(case((email_job_case, 1), else_=0)), 0),
+        func.coalesce(func.sum(case((email_job_case & ~sent_application, 1), else_=0)), 0),
+        func.coalesce(func.sum(case((external_application_case, 1), else_=0)), 0),
+        func.coalesce(
+            func.sum(case((external_application_case & (JobOpportunityDetail.job_stage != JobStage.APPLIED.value), 1), else_=0)),
+            0,
+        ),
     ).outerjoin(JobOpportunityDetail)
     if user:
         statement = statement.where(Opportunity.user_id == user.id)
     if opportunity_type:
         statement = statement.where(Opportunity.opportunity_type == opportunity_type)
 
-    total, with_email, saved, applied, interviews, unsent = db.execute(statement).one()
+    total, with_email, saved, applied, interviews, unsent, email_job_count, email_unsent_count, external_application_count, external_unapplied_count = db.execute(statement).one()
     return OpportunityMetrics(
         total=int(total or 0),
         with_email=int(with_email or 0),
@@ -371,6 +402,10 @@ def get_opportunity_metrics(
         applied=int(applied or 0),
         interviews=int(interviews or 0),
         unsent=int(unsent or 0),
+        email_job_count=int(email_job_count or 0),
+        email_unsent_count=int(email_unsent_count or 0),
+        external_application_count=int(external_application_count or 0),
+        external_unapplied_count=int(external_unapplied_count or 0),
     )
 
 
@@ -384,6 +419,15 @@ def update_opportunity(db: Session, opportunity_id: str, payload: OpportunityUpd
         opportunity.job_detail.job_stage = payload.job_stage.value
     if payload.review_status is not None and opportunity.job_detail is not None:
         opportunity.job_detail.review_status = payload.review_status.value
+    db.commit()
+    return get_opportunity(db, opportunity_id, user=user)
+
+
+def mark_job_opportunity_applied(db: Session, opportunity_id: str, user: User | None = None) -> Opportunity | None:
+    opportunity = get_opportunity(db, opportunity_id, user=user)
+    if opportunity is None or opportunity.job_detail is None:
+        return None
+    opportunity.job_detail.job_stage = JobStage.APPLIED.value
     db.commit()
     return get_opportunity(db, opportunity_id, user=user)
 

@@ -25,7 +25,11 @@ def create_draft(db: Session, payload: EmailDraftCreate, user: User | None = Non
         resume = get_newest_available_resume(db, user_id=user.id)
         resume_id = resume.id if resume else None
 
-    recipient = sanitize_email_address(opportunity.job_detail.contact_email or opportunity.job_detail.contact_channel_value)
+    recipient = (
+        sanitize_email_address(opportunity.job_detail.contact_email or opportunity.job_detail.contact_channel_value)
+        if opportunity.job_detail.contact_channel_type == "email"
+        else None
+    )
     if not is_valid_email(recipient):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Opportunity has no valid recipient email")
 

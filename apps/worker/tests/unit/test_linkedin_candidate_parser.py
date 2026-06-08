@@ -17,6 +17,15 @@ def test_parser_extracts_linkedin_poster_name_from_feed_evidence() -> None:
     assert parsed["poster_name"] == "Alice Recruiter"
 
 
+def test_parser_extracts_linkedin_poster_name_when_feed_text_is_glued() -> None:
+    evidence = "Publicação no feedDaniel Ferreira • Analista de Recrutamento e Seleção Vaga React remoto. Email jobs@example.com"
+
+    parsed = parse_candidate({"source_evidence": evidence}, ["react"])
+
+    assert extract_poster_name(evidence) == "Daniel Ferreira"
+    assert parsed["poster_name"] == "Daniel Ferreira"
+
+
 def test_email_extraction_trims_text_glued_after_common_tld() -> None:
     assert extract_public_email("Email flint@fourwaysconsulting.comAdam for details") == "flint@fourwaysconsulting.com"
     assert extract_public_email("Send CV to toolsMastan@dgntechnologies.comhashtag") == "toolsMastan@dgntechnologies.com"

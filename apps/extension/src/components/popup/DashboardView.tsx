@@ -22,7 +22,10 @@ export function DashboardView() {
         <h2 className="card-title">Local API snapshot</h2>
         <div className="metric-grid">
           <Metric value={dashboardMetrics.total} label="jobs total" />
-          <Metric value={dashboardMetrics.unsent} label="jobs still unsent" />
+          <Metric value={dashboardMetrics.email_job_count || dashboardMetrics.with_email} label="email jobs" />
+          <Metric value={dashboardMetrics.email_unsent_count || dashboardMetrics.unsent} label="email unsent" />
+          <Metric value={dashboardMetrics.external_application_count} label="external jobs" />
+          <Metric value={dashboardMetrics.external_unapplied_count} label="external unapplied" />
         </div>
       </section>
       <section className="card">

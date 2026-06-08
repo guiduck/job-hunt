@@ -23,6 +23,7 @@ from app.services.opportunity_service import (
     get_opportunity_metrics,
     list_opportunity_page,
     list_opportunities,
+    mark_job_opportunity_applied,
     update_opportunity,
 )
 
@@ -56,6 +57,7 @@ def list_opportunities_endpoint(
     source_query: str | None = Query(default=None),
     run_id: str | None = Query(default=None),
     campaign_id: str | None = Query(default=None),
+    job_application_kind: str | None = Query(default=None, pattern="^(email|external_application)$"),
     page: int | None = Query(default=None, ge=1),
     page_size: int | None = Query(default=None, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -76,6 +78,7 @@ def list_opportunities_endpoint(
         "source_query": source_query,
         "run_id": run_id,
         "campaign_id": campaign_id,
+        "job_application_kind": job_application_kind,
         "user": user,
     }
     if page is not None or page_size is not None:
@@ -127,6 +130,18 @@ def update_opportunity_endpoint(
     user: User = Depends(current_user),
 ) -> Opportunity:
     opportunity = update_opportunity(db, opportunity_id, payload, user=user)
+    if opportunity is None:
+        raise not_found("Opportunity not found")
+    return opportunity
+
+
+@router.patch("/{opportunity_id}/mark-applied", response_model=Opportunity)
+def mark_opportunity_applied_endpoint(
+    opportunity_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> Opportunity:
+    opportunity = mark_job_opportunity_applied(db, opportunity_id, user=user)
     if opportunity is None:
         raise not_found("Opportunity not found")
     return opportunity

@@ -39,7 +39,8 @@ const LINKEDIN_NOISE_PATTERNS = [
 ]
 
 export function opportunityTitle(opportunity: Opportunity) {
-  return dedupeRepeatedName(opportunity.title || "Unknown poster")
+  const presentation = postPresentation(opportunity)
+  return dedupeRepeatedName(opportunity.title || presentation.authorName || "Unknown poster")
 }
 
 export function companyName(opportunity: Opportunity) {
@@ -87,7 +88,7 @@ export function postPresentation(opportunity: Opportunity) {
 }
 
 function extractAuthorName(text: string) {
-  const feedMatch = text.match(/^Publica(?:ç|c)[aã]o no feed\s+(.+?)(?:\s+•|\s+\d|$)/iu)
+  const feedMatch = text.match(/^Publica(?:ç|c)[aã]o no feed\s*(.+?)(?:\s+[-•]|\s+Seguir\b|\s+Follow\b|\s+\d|$)/iu)
   const rawName = feedMatch?.[1] || ""
   const normalized = dedupeRepeatedName(rawName.replace(/\.$/, "").trim())
 

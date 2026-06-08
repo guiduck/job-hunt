@@ -1,0 +1,574 @@
+openapi: 3.1.0
+info:
+  title: Freelance Web App Internal Contracts
+  version: 0.1.0
+  description: Internal route/action contracts for specs/014-freelance-web-app.
+servers:
+  - url: http://localhost:3000
+paths:
+  /api/freelance/niches:
+    get:
+      summary: List enabled and disabled Freelance niches
+      operationId: listFreelanceNiches
+      responses:
+        "200":
+          description: Niche catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FreelanceNiche"
+  /api/freelance/campaigns:
+    get:
+      summary: List Freelance campaigns
+      operationId: listFreelanceCampaigns
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/CampaignStatus"
+      responses:
+        "200":
+          description: Campaign list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FreelanceCampaign"
+    post:
+      summary: Create Freelance campaign
+      operationId: createFreelanceCampaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FreelanceCampaignCreate"
+      responses:
+        "201":
+          description: Campaign created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FreelanceCampaign"
+        "400":
+          description: Invalid campaign fields
+  /api/freelance/campaigns/{campaignId}:
+    patch:
+      summary: Update campaign metadata/status
+      operationId: updateFreelanceCampaign
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FreelanceCampaignUpdate"
+      responses:
+        "200":
+          description: Campaign updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FreelanceCampaign"
+        "404":
+          description: Campaign not found
+  /api/freelance/campaigns/{campaignId}/prospecting-jobs:
+    post:
+      summary: Start prospecting job for campaign
+      operationId: startProspectingJob
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                maxResults:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+      responses:
+        "201":
+          description: Job created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProspectingJob"
+        "400":
+          description: Campaign is not ready for prospecting
+        "409":
+          description: Campaign already has an active prospecting job
+  /api/freelance/prospecting-jobs/{jobId}:
+    get:
+      summary: Get prospecting job status
+      operationId: getProspectingJob
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProspectingJob"
+        "404":
+          description: Job not found
+  /api/freelance/leads:
+    get:
+      summary: List Freelance leads with filters
+      operationId: listFreelanceLeads
+      parameters:
+        - name: campaignId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: nicheId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: city
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: websiteStatus
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/WebsiteStatus"
+        - name: commercialStatus
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/CommercialStatus"
+        - name: temperature
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/LeadTemperature"
+        - name: minScore
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+      responses:
+        "200":
+          description: Filtered leads
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FreelanceLeadSummary"
+                  total:
+                    type: integer
+  /api/freelance/leads/{leadId}:
+    get:
+      summary: Get Freelance lead detail
+      operationId: getFreelanceLead
+      parameters:
+        - $ref: "#/components/parameters/LeadId"
+      responses:
+        "200":
+          description: Lead detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FreelanceLeadDetail"
+        "404":
+          description: Lead not found
+    patch:
+      summary: Update Freelance lead review fields
+      operationId: updateFreelanceLead
+      parameters:
+        - $ref: "#/components/parameters/LeadId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FreelanceLeadUpdate"
+      responses:
+        "200":
+          description: Lead updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FreelanceLeadDetail"
+  /api/freelance/templates:
+    get:
+      summary: List commercial templates
+      operationId: listCommercialTemplates
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CommercialTemplate"
+    post:
+      summary: Create commercial template
+      operationId: createCommercialTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommercialTemplateInput"
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommercialTemplate"
+  /api/freelance/settings:
+    get:
+      summary: Read seller settings
+      operationId: getSellerSettings
+      responses:
+        "200":
+          description: Seller settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SellerSettings"
+    put:
+      summary: Upsert seller settings
+      operationId: upsertSellerSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SellerSettingsInput"
+      responses:
+        "200":
+          description: Seller settings saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SellerSettings"
+  /api/freelance/generation/lovable-prompt:
+    post:
+      summary: Generate Lovable prompt on demand and save latest text
+      operationId: generateLovablePrompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [leadId, variant]
+              properties:
+                leadId:
+                  type: string
+                variant:
+                  type: string
+                  enum: [complete, generic, compact]
+      responses:
+        "200":
+          description: Generated prompt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LatestGeneratedText"
+  /api/freelance/generation/message:
+    post:
+      summary: Generate commercial message on demand and save latest text
+      operationId: generateCommercialMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [leadId, stage, templateId]
+              properties:
+                leadId:
+                  type: string
+                stage:
+                  type: string
+                  enum: [first_contact, follow_up]
+                templateId:
+                  type: string
+      responses:
+        "200":
+          description: Generated message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LatestGeneratedText"
+components:
+  parameters:
+    CampaignId:
+      name: campaignId
+      in: path
+      required: true
+      schema:
+        type: string
+    JobId:
+      name: jobId
+      in: path
+      required: true
+      schema:
+        type: string
+    LeadId:
+      name: leadId
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    MarketScope:
+      type: string
+      enum: [BR, INTERNATIONAL]
+    CampaignStatus:
+      type: string
+      enum: [draft, ready, collecting, paused, completed, failed, archived]
+    ProspectingJobStatus:
+      type: string
+      enum: [pending, running, completed, completed_no_results, failed, cancelled]
+    ProspectingJobStep:
+      type: string
+      enum: [queued, discovering_businesses, normalizing_results, deduplicating, fetching_websites, analyzing_websites, scoring_leads, saving_leads, done]
+    WebsiteStatus:
+      type: string
+      enum: [no_site, social_only, linktree, aggregator, broken, weak_site, usable_site, uncertain]
+    LeadTemperature:
+      type: string
+      enum: [cold, warm, hot]
+    CommercialStatus:
+      type: string
+      enum: [new, contacted, interested, proposal_requested, proposal_sent, won, lost, ignored]
+    FreelanceNiche:
+      type: object
+      required: [id, name, slug, enabled, sortOrder]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        market: { type: string }
+        conversionHint: { type: number, nullable: true }
+        enabled: { type: boolean }
+        sortOrder: { type: integer }
+    FreelanceCampaignCreate:
+      type: object
+      required: [marketScope, country, city, nicheId]
+      properties:
+        name: { type: string }
+        marketScope: { $ref: "#/components/schemas/MarketScope" }
+        country: { type: string }
+        region: { type: string }
+        state: { type: string }
+        city: { type: string }
+        nicheId: { type: string }
+        searchSettings: { type: object, additionalProperties: true }
+    FreelanceCampaignUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        status: { $ref: "#/components/schemas/CampaignStatus" }
+        notes: { type: string }
+        searchSettings: { type: object, additionalProperties: true }
+    FreelanceCampaign:
+      allOf:
+        - $ref: "#/components/schemas/FreelanceCampaignCreate"
+        - type: object
+          required: [id, status, leadCount, createdAt, updatedAt]
+          properties:
+            id: { type: string }
+            status: { $ref: "#/components/schemas/CampaignStatus" }
+            nicheNameSnapshot: { type: string }
+            conversionHintSnapshot: { type: number, nullable: true }
+            leadCount: { type: integer }
+            hotLeadCount: { type: integer }
+            contactedCount: { type: integer }
+            lastRunAt: { type: string, format: date-time, nullable: true }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    ProspectingJob:
+      type: object
+      required: [id, campaignId, status, currentStep, inspectedCount, acceptedCount, duplicateCount, rejectedCount, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        campaignId: { type: string }
+        status: { $ref: "#/components/schemas/ProspectingJobStatus" }
+        currentStep: { $ref: "#/components/schemas/ProspectingJobStep" }
+        providerName: { type: string }
+        sourceQuery: { type: string }
+        inspectedCount: { type: integer }
+        acceptedCount: { type: integer }
+        duplicateCount: { type: integer }
+        rejectedCount: { type: integer }
+        failedCount: { type: integer }
+        providerStatus: { type: string }
+        providerErrorCode: { type: string, nullable: true }
+        providerErrorMessage: { type: string, nullable: true }
+        diagnostics: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    FreelanceLeadSummary:
+      type: object
+      required: [id, businessName, nicheName, city, websiteStatus, leadScore, temperature, commercialStatus]
+      properties:
+        id: { type: string }
+        businessName: { type: string }
+        phone: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        websiteUrl: { type: string, nullable: true }
+        nicheName: { type: string }
+        city: { type: string }
+        websiteStatus: { $ref: "#/components/schemas/WebsiteStatus" }
+        leadScore: { type: integer }
+        temperature: { $ref: "#/components/schemas/LeadTemperature" }
+        commercialStatus: { $ref: "#/components/schemas/CommercialStatus" }
+    FreelanceLeadDetail:
+      allOf:
+        - $ref: "#/components/schemas/FreelanceLeadSummary"
+        - type: object
+          required: [sourceQuery, sourceEvidence, classificationReasons]
+          properties:
+            address: { type: string, nullable: true }
+            country: { type: string }
+            region: { type: string, nullable: true }
+            sourceName: { type: string }
+            sourceUrl: { type: string, nullable: true }
+            sourceIdentifier: { type: string, nullable: true }
+            sourceQuery: { type: string }
+            sourceEvidence: { type: string }
+            googleRating: { type: number, nullable: true }
+            googleReviewCount: { type: integer, nullable: true }
+            contentScore: { type: integer, nullable: true }
+            designScore: { type: integer, nullable: true }
+            performanceScore: { type: integer, nullable: true }
+            seoScore: { type: integer, nullable: true }
+            classificationReasons:
+              type: array
+              items: { type: string }
+            demoUrl: { type: string, nullable: true }
+            operatorNotes: { type: string, nullable: true }
+            websiteAnalysis:
+              $ref: "#/components/schemas/WebsiteAnalysis"
+            latestGenerated:
+              type: array
+              items:
+                $ref: "#/components/schemas/LatestGeneratedText"
+    FreelanceLeadUpdate:
+      type: object
+      properties:
+        commercialStatus: { $ref: "#/components/schemas/CommercialStatus" }
+        temperature: { $ref: "#/components/schemas/LeadTemperature" }
+        demoUrl: { type: string, nullable: true }
+        operatorNotes: { type: string, nullable: true }
+    WebsiteAnalysis:
+      type: object
+      properties:
+        finalUrl: { type: string, nullable: true }
+        httpStatus: { type: integer, nullable: true }
+        reachable: { type: boolean }
+        httpsEnabled: { type: boolean }
+        detectedStatus: { $ref: "#/components/schemas/WebsiteStatus" }
+        title: { type: string, nullable: true }
+        metaDescription: { type: string, nullable: true }
+        evidencePoints:
+          type: array
+          items: { type: string }
+    CommercialTemplateInput:
+      type: object
+      required: [name, stage, bodyTemplate]
+      properties:
+        name: { type: string }
+        stage: { type: string, enum: [first_contact, follow_up] }
+        category: { type: string }
+        channel: { type: string, enum: [email, whatsapp, any] }
+        bodyTemplate: { type: string }
+        isActive: { type: boolean }
+    CommercialTemplate:
+      allOf:
+        - $ref: "#/components/schemas/CommercialTemplateInput"
+        - type: object
+          required: [id, createdAt, updatedAt]
+          properties:
+            id: { type: string }
+            isDefault: { type: boolean }
+            variablesSchema: { type: object, additionalProperties: true }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    SellerSettingsInput:
+      type: object
+      properties:
+        defaultMarketScope: { $ref: "#/components/schemas/MarketScope" }
+        sellerName: { type: string }
+        sellerTitle: { type: string }
+        sellerEmail: { type: string }
+        sellerWhatsapp: { type: string }
+        portfolioUrl: { type: string }
+        defaultCountry: { type: string }
+        defaultCurrency: { type: string }
+        offerTitle: { type: string }
+        offerDescription: { type: string }
+        landingPagePrice: { type: number }
+        installments: { type: integer }
+        deliveryTime: { type: string }
+        preferredNicheIds:
+          type: array
+          items: { type: string }
+        extraContext: { type: string }
+    SellerSettings:
+      allOf:
+        - $ref: "#/components/schemas/SellerSettingsInput"
+        - type: object
+          required: [id, createdAt, updatedAt]
+          properties:
+            id: { type: string }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    LatestGeneratedText:
+      type: object
+      required: [id, leadId, kind, variant, text, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        leadId: { type: string }
+        kind: { type: string, enum: [lovable_prompt, commercial_message] }
+        variant: { type: string }
+        stage: { type: string, nullable: true }
+        templateId: { type: string, nullable: true }
+        text: { type: string }
+        copiedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }

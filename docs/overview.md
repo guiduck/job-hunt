@@ -20,8 +20,8 @@ freelance juntos.
 
 ## Prioridade atual
 
-A primeira utilidade real do app e o fluxo `job`, agora operado localmente pela extensao Plasmo e
-pelo coletor Playwright como fallback.
+A primeira utilidade real do app e o fluxo `job`, agora operado localmente por uma extensao Plasmo
+dedicada. O coletor Playwright permanece apenas como fallback/debug do fluxo LinkedIn.
 
 O MVP local ja cobre login de usuario, ownership dos dados, captura LinkedIn, revisao de vagas,
 templates, curriculos, Gmail conectado, envio individual e bulk send revisavel. A geracao de emails
@@ -53,11 +53,12 @@ publicacoes no LinkedIn em que empresas deixam email disponivel e usam keywords 
 perfil profissional do usuario. Essas keywords podem ser configuradas manualmente no inicio e,
 depois, extraidas do curriculo.
 
-O bot de oportunidades freelance continua planejado, mas entra depois que o fluxo de busca de
-emprego, revisao de vagas e envio real de email com curriculo estiver funcionando. O modo
-`Freelance` deve seguir o metodo de prospeccao por Google Maps/nicho/localidade documentado nas
-referencias: encontrar negocios sem site, com apenas rede social ou com site fraco, gerar prompt/demo
-Lovable e preparar primeiro contato/follow-up.
+O proximo produto a desenvolver e o app `Freelance`, separado da extensao `Full-time`. Ele deve ser
+um app web interno em `Next.js` + `shadcn/ui` + `Zod` + `Zustand` + `Prisma` + `PostgreSQL`, com banco
+local via Docker e deploy futuro em VPS. O modo `Freelance` deve seguir o metodo de prospeccao por Google Maps/nicho/localidade
+documentado nas referencias: encontrar negocios sem site, com apenas rede social ou com site fraco,
+baixar/analisar o site quando existir, gerar prompt/demo Lovable e preparar primeiro contato/follow-up.
+A lista inicial de nichos ja esta registrada nas referencias e deve ser reaproveitada como seed.
 
 ## Objetivo do produto
 
@@ -133,8 +134,9 @@ O foco imediato ainda e construir a base de operacao:
 - hardening de login email/senha, ownership por usuario e deploy antes de uso compartilhado
 - jobs longos fora do processo HTTP
 - extensao Plasmo como primeira interface operacional local para o modo `Full-time`
+- app web `Freelance` como proximo recorte, sem depender de extensao
 - modelo de dados preparado para `freelance` e `job`
-- fluxo `job` priorizado no produto
+- fluxo `job` ja satisfatorio para candidaturas, pendente de smoke/ajustes em candidaturas externas
 - documentacao pronta para orientar implementacao sem drift
 
 ## Principios que guiam desenvolvimento

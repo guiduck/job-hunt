@@ -2,14 +2,16 @@
 
 ## Objetivo
 
-Implementar o bot de descoberta especializado para capturar oportunidades `freelance` com chance
-real de virar contato comercial, usando Google Maps/nicho/localidade como primeira fonte planejada.
+Implementar o app/bot de descoberta especializado para capturar oportunidades `freelance` com chance
+real de virar contato comercial, usando busca local realista do Google/Google Maps por
+nicho/localidade como primeira fonte planejada.
 
 Este bot continua importante, mas agora vem depois do primeiro fluxo de busca de empregos. A base
 de dados deve continuar preparada para ele desde o inicio.
 
-Na web, esse fluxo pertence exclusivamente ao modo `Freelance`. Ele deve ser tratado como um app de
-prospeccao comercial, separado do modo `Full-time`.
+Esse fluxo pertence exclusivamente ao app web `Freelance`. Ele deve ser tratado como um produto de
+prospeccao comercial em `Next.js` + `shadcn/ui` + `Zod` + `Zustand` + `Prisma` + `PostgreSQL`,
+separado da extensao `Full-time`.
 
 ## Perfil de oportunidade ideal
 
@@ -29,18 +31,84 @@ O bot deve receber ao menos:
 - tipo de oportunidade alvo, inicialmente `freelance`
 - criterio de site desejado: sem site, apenas rede social, site fraco ou qualquer sinal revisavel
 
+## Nichos iniciais
+
+A implementacao nao deve inventar a lista de nichos. Use as referencias registradas como fonte
+inicial:
+
+- `references/opportunity-desk-pro/src/lib/mockData.ts`, export `NICHE_OPTIONS`
+- `docs/reference-ui.md`, secao `Campanhas Freelance`
+- `docs/lovable-super-prompt-prototype-v2.md`, secao do select de nicho
+
+Lista inicial normalizada:
+
+- Clinica de Estetica
+- Clinica Odontologica
+- Dentista
+- Salao de Beleza
+- Psicologo
+- Terapeuta
+- Nutricionista
+- Barbearia
+- Fotografo
+- Personal Trainer
+- Clinica de Fisioterapia
+- Arquiteto
+- Designer de Interiores
+- Academia
+- Clinica Veterinaria
+- Imobiliaria
+- Pet Shop
+- Escola de Idiomas
+- Restaurante
+- Pizzaria
+- Hamburgueria
+- Oficina Mecanica
+- Med Spa
+- HVAC
+- Plumber
+- Lawyer
+- Real Estate Agent
+- Landscaping
+- Cleaning Service
+
+Cada nicho pode carregar um `conversion_hint`/percentual estimado vindo da referencia. Esse valor e
+apenas heuristica de priorizacao e UI, nao promessa de conversao.
+
 ## Fluxo recomendado
 
 1. gerar queries especializadas por nicho e geografia, como `dentist Austin Texas`, `barbershop
    Denver CO` ou `restaurant Miami`
-2. coletar candidatos do Google Maps ou de fonte manual equivalente
+2. coletar candidatos por provider/scraper de Google Maps que reproduza resultados reais de busca
+   local
 3. verificar se existe botao/URL de website, se aponta para rede social ou se o site parece fraco
 4. capturar nome do negocio, endereco, telefone, nota, quantidade de reviews, website, email e links
    uteis quando disponiveis
-5. registrar a `source_query`, `source_url` e evidencia principal
-6. deduplicar por nome, telefone, endereco, website e origem
-7. calcular score inicial
-8. salvar no banco como `opportunity_type=freelance`
+5. baixar o HTML do site quando existir e rodar uma avaliacao propria de conteudo, design,
+   performance e SEO
+6. registrar a `source_query`, `source_url` e evidencia principal
+7. deduplicar por nome, telefone, endereco, website e origem
+8. calcular score inicial
+9. salvar no banco como `opportunity_type=freelance`
+
+## Decisao de provider
+
+A melhor opcao inicial e usar uma camada `freelance_maps_provider` com um provider externo como
+Apify Google Maps Scraper ou SerpApi Google Maps.
+
+Motivo: o objetivo nao e apenas consultar um cadastro oficial de lugares; e reproduzir o que uma
+pessoa encontraria pesquisando no Google ou Google Maps por nicho e localidade. Isso importa para
+campanhas como "clinica de estetica em Blumenau", "igreja em Orlando" ou "clinica ortodontica em
+Austin". Apify/SerpApi tendem a entregar resultados mais proximos da experiencia de SERP/Maps real,
+com nome, telefone, website, rating, reviews, endereco e URL/ids de origem.
+
+Google Places API oficial pode ser considerada em pesquisa futura, mas nao deve ser o provider v1
+porque seus termos sao restritivos para copiar/salvar dados de Maps em uma base de prospeccao, e o
+resultado pode nao representar tao bem o ranking/experiencia que o usuario final ve.
+
+Playwright pode existir como fallback ou ferramenta de auditoria para comparar resultados reais no
+navegador, mas nao deve ser a dependencia principal do MVP por exigir manutencao de DOM, sessoes,
+captcha/proxy e comportamento de scroll.
 
 ## Metodo manual de referencia
 
@@ -56,6 +124,27 @@ O guia de prospeccao usado como referencia recomenda:
 - usar concorrente local com site melhor como argumento comercial quando fizer sentido
 
 Essa logica deve virar scoring/evidencia, nao apenas texto livre.
+
+## Analise automatica de site
+
+Quando `website_url` existir, o worker deve baixar e avaliar o site em etapa separada da coleta Maps.
+
+Sinais iniciais:
+
+- HTML acessivel e status HTTP
+- HTTPS valido
+- title, meta description e headings principais
+- presenca de CTA claro
+- telefone, WhatsApp, email e formulario
+- imagens sem `alt`
+- peso aproximado da pagina, scripts e imagens
+- responsividade basica por viewport headless quando viavel
+- indicios de template antigo, layout quebrado, Linktree/rede social ou pagina agregadora
+- sinais de SEO local: cidade, servicos, endereco, schema/structured data quando existir
+
+O resultado deve gerar scores separados para conteudo, design, performance e SEO, alem de uma
+classificacao revisavel: `sem_site`, `rede_social`, `linktree`, `site_fraco`, `site_ok` ou
+`incerto`.
 
 ## UI esperada no modo `Freelance`
 

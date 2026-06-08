@@ -1,0 +1,316 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MarketScope {
+  BR
+  INTERNATIONAL
+}
+
+enum CampaignStatus {
+  draft
+  ready
+  collecting
+  paused
+  completed
+  failed
+  archived
+}
+
+enum ProspectingJobStatus {
+  pending
+  running
+  completed
+  completed_no_results
+  failed
+  cancelled
+}
+
+enum ProspectingJobStep {
+  queued
+  discovering_businesses
+  normalizing_results
+  deduplicating
+  fetching_websites
+  analyzing_websites
+  scoring_leads
+  saving_leads
+  done
+}
+
+enum WebsiteStatus {
+  no_site
+  social_only
+  linktree
+  aggregator
+  broken
+  weak_site
+  usable_site
+  uncertain
+}
+
+enum LeadTemperature {
+  cold
+  warm
+  hot
+}
+
+enum CommercialStatus {
+  new
+  contacted
+  interested
+  proposal_requested
+  proposal_sent
+  won
+  lost
+  ignored
+}
+
+enum TemplateStage {
+  first_contact
+  follow_up
+}
+
+enum GeneratedTextKind {
+  lovable_prompt
+  commercial_message
+}
+
+model FreelanceNiche {
+  id             String              @id @default(cuid())
+  name           String
+  slug           String              @unique
+  market         String              @default("both")
+  conversionHint Decimal?            @map("conversion_hint") @db.Decimal(5, 2)
+  defaultTerms   Json                @default("[]") @map("default_query_terms")
+  enabled        Boolean             @default(true)
+  sortOrder      Int                 @default(0) @map("sort_order")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  campaigns      FreelanceCampaign[]
+  leads          FreelanceLead[]
+
+  @@map("freelance_niches")
+}
+
+model FreelanceCampaign {
+  id                     String             @id @default(cuid())
+  userId                 String             @map("user_id")
+  name                   String
+  marketScope            MarketScope        @map("market_scope")
+  country                String
+  region                 String?
+  state                  String?
+  city                   String
+  nicheId                String             @map("niche_id")
+  nicheNameSnapshot      String             @map("niche_name_snapshot")
+  conversionHintSnapshot Decimal?           @map("conversion_hint_snapshot") @db.Decimal(5, 2)
+  status                 CampaignStatus     @default(draft)
+  searchSettings         Json               @default("{}") @map("search_settings")
+  leadCount              Int                @default(0) @map("lead_count")
+  hotLeadCount           Int                @default(0) @map("hot_lead_count")
+  contactedCount         Int                @default(0) @map("contacted_count")
+  notes                  String?
+  lastRunAt              DateTime?          @map("last_run_at")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+  archivedAt             DateTime?          @map("archived_at")
+  niche                  FreelanceNiche     @relation(fields: [nicheId], references: [id])
+  jobs                   ProspectingJob[]
+  leads                  FreelanceLead[]
+
+  @@index([userId, status])
+  @@index([nicheId])
+  @@map("freelance_campaigns")
+}
+
+model ProspectingJob {
+  id                   String                @id @default(cuid())
+  userId               String                @map("user_id")
+  campaignId           String                @map("campaign_id")
+  status               ProspectingJobStatus  @default(pending)
+  currentStep          ProspectingJobStep    @default(queued) @map("current_step")
+  providerName         String                @map("provider_name")
+  providerRunId        String?               @map("provider_run_id")
+  sourceQuery          String                @map("source_query")
+  requestedMaxResults  Int                   @default(50) @map("requested_max_results")
+  inspectedCount       Int                   @default(0) @map("inspected_count")
+  acceptedCount        Int                   @default(0) @map("accepted_count")
+  duplicateCount       Int                   @default(0) @map("duplicate_count")
+  rejectedCount        Int                   @default(0) @map("rejected_count")
+  failedCount          Int                   @default(0) @map("failed_count")
+  providerStatus       String                @default("pending") @map("provider_status")
+  providerErrorCode    String?               @map("provider_error_code")
+  providerErrorMessage String?               @map("provider_error_message")
+  diagnostics          Json                  @default("{}")
+  startedAt            DateTime?             @map("started_at")
+  completedAt          DateTime?             @map("completed_at")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  campaign             FreelanceCampaign     @relation(fields: [campaignId], references: [id])
+  leads                FreelanceLead[]
+
+  @@index([userId, status])
+  @@index([campaignId, status])
+  @@map("prospecting_jobs")
+}
+
+model FreelanceLead {
+  id                    String             @id @default(cuid())
+  userId                String             @map("user_id")
+  campaignId            String             @map("campaign_id")
+  jobId                 String?            @map("job_id")
+  nicheId               String?            @map("niche_id")
+  businessName          String             @map("business_name")
+  category              String?
+  country               String
+  region                String?
+  state                 String?
+  city                  String
+  address               String?
+  phone                 String?
+  whatsapp              String?
+  email                 String?
+  websiteUrl            String?            @map("website_url")
+  websiteStatus         WebsiteStatus      @default(uncertain) @map("website_status")
+  sourceName            String             @map("source_name")
+  sourceUrl             String?            @map("source_url")
+  sourceQuery           String             @map("source_query")
+  sourceIdentifier      String?            @map("source_identifier")
+  sourceEvidence        String             @map("source_evidence")
+  googleRating          Decimal?           @map("google_rating") @db.Decimal(3, 2)
+  googleReviewCount     Int?               @map("google_review_count")
+  leadScore             Int                @default(0) @map("lead_score")
+  contentScore          Int?               @map("content_score")
+  designScore           Int?               @map("design_score")
+  performanceScore      Int?               @map("performance_score")
+  seoScore              Int?               @map("seo_score")
+  temperature           LeadTemperature    @default(cold)
+  commercialStatus      CommercialStatus   @default(new) @map("commercial_status")
+  classificationReasons Json               @default("[]") @map("classification_reasons")
+  demoUrl               String?            @map("demo_url")
+  operatorNotes         String?            @map("operator_notes")
+  lastGeneratedPromptId String?            @map("last_generated_prompt_id")
+  lastGeneratedMessageId String?           @map("last_generated_message_id")
+  capturedAt            DateTime           @default(now()) @map("captured_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+  campaign              FreelanceCampaign  @relation(fields: [campaignId], references: [id])
+  job                   ProspectingJob?    @relation(fields: [jobId], references: [id])
+  niche                 FreelanceNiche?    @relation(fields: [nicheId], references: [id])
+  websiteAnalyses       WebsiteAnalysis[]
+  latestGenerated       LatestGeneratedText[]
+
+  @@index([userId, commercialStatus])
+  @@index([campaignId])
+  @@index([websiteStatus])
+  @@map("freelance_leads")
+}
+
+model WebsiteAnalysis {
+  id                       String        @id @default(cuid())
+  userId                   String        @map("user_id")
+  leadId                   String        @map("lead_id")
+  requestedUrl             String        @map("requested_url")
+  finalUrl                 String?       @map("final_url")
+  httpStatus               Int?          @map("http_status")
+  reachable                Boolean       @default(false)
+  httpsEnabled             Boolean       @default(false) @map("https_enabled")
+  redirected               Boolean       @default(false)
+  detectedStatus           WebsiteStatus @map("detected_status")
+  title                    String?
+  metaDescription          String?       @map("meta_description")
+  headings                 Json          @default("[]")
+  ctaTexts                 Json          @default("[]") @map("cta_texts")
+  phoneSignals             Json          @default("[]") @map("phone_signals")
+  whatsappSignals          Json          @default("[]") @map("whatsapp_signals")
+  emailSignals             Json          @default("[]") @map("email_signals")
+  formDetected             Boolean       @default(false) @map("form_detected")
+  localServiceTextDetected Boolean       @default(false) @map("local_service_text_detected")
+  socialOnlyDetected       Boolean       @default(false) @map("social_only_detected")
+  linktreeDetected         Boolean       @default(false) @map("linktree_detected")
+  aggregatorDetected       Boolean       @default(false) @map("aggregator_detected")
+  brokenReason             String?       @map("broken_reason")
+  basicPerformanceEvidence Json          @default("{}") @map("basic_performance_evidence")
+  basicSeoEvidence         Json          @default("{}") @map("basic_seo_evidence")
+  contentScore             Int?          @map("content_score")
+  designScore              Int?          @map("design_score")
+  performanceScore         Int?          @map("performance_score")
+  seoScore                 Int?          @map("seo_score")
+  overallOpportunityScore  Int?          @map("overall_opportunity_score")
+  evidencePoints           Json          @default("[]") @map("evidence_points")
+  analyzedAt               DateTime      @default(now()) @map("analyzed_at")
+  createdAt                DateTime      @default(now()) @map("created_at")
+  lead                     FreelanceLead @relation(fields: [leadId], references: [id])
+
+  @@index([userId, leadId])
+  @@map("website_analyses")
+}
+
+model CommercialTemplate {
+  id              String          @id @default(cuid())
+  userId          String?         @map("user_id")
+  name            String
+  stage           TemplateStage
+  category        String?
+  channel         String          @default("any")
+  bodyTemplate    String          @map("body_template")
+  variablesSchema Json            @default("{}") @map("variables_schema")
+  isDefault       Boolean         @default(false) @map("is_default")
+  isActive        Boolean         @default(true) @map("is_active")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  generatedTexts  LatestGeneratedText[]
+
+  @@index([userId, stage, isActive])
+  @@map("commercial_templates")
+}
+
+model SellerSettings {
+  id                 String       @id @default(cuid())
+  userId             String       @unique @map("user_id")
+  defaultMarketScope MarketScope  @default(BR) @map("default_market_scope")
+  sellerName         String?      @map("seller_name")
+  sellerTitle        String?      @map("seller_title")
+  sellerEmail        String?      @map("seller_email")
+  sellerWhatsapp     String?      @map("seller_whatsapp")
+  portfolioUrl       String?      @map("portfolio_url")
+  defaultCountry     String?      @map("default_country")
+  defaultCurrency    String?      @map("default_currency")
+  offerTitle         String?      @map("offer_title")
+  offerDescription   String?      @map("offer_description")
+  landingPagePrice   Decimal?     @map("landing_page_price") @db.Decimal(10, 2)
+  installments       Int?
+  deliveryTime       String?      @map("delivery_time")
+  preferredNicheIds  Json         @default("[]") @map("preferred_niche_ids")
+  extraContext       String?      @map("extra_context")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  @@map("seller_settings")
+}
+
+model LatestGeneratedText {
+  id           String              @id @default(cuid())
+  userId       String              @map("user_id")
+  leadId       String              @map("lead_id")
+  kind         GeneratedTextKind
+  variant      String
+  templateId   String?             @map("template_id")
+  stage        TemplateStage?
+  text         String
+  inputContext Json                @default("{}") @map("input_context")
+  copiedAt     DateTime?           @map("copied_at")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+  lead         FreelanceLead       @relation(fields: [leadId], references: [id])
+  template     CommercialTemplate? @relation(fields: [templateId], references: [id])
+
+  @@index([userId, leadId, kind])
+  @@unique([leadId, kind, variant, stage])
+  @@map("latest_generated_texts")
+}

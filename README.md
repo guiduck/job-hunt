@@ -29,9 +29,9 @@ Expansoes planejadas:
 - assistente de navegador para campos de candidatura, acionado por overlay em inputs/textareas e
   reaproveitando respostas recentes por keyword
 - area de IA para gerar prompts e materiais
-- bot de prospeccao freelance para empresas sem site ou com baixa maturidade digital
+- app web freelance para prospeccao de empresas sem site ou com baixa maturidade digital
 - sugestoes de areas com maior concentracao dos nichos escolhidos
-- compatibilidade futura com Google Maps
+- descoberta freelance por Google Maps/search local realista, com analise automatica de site
 
 ## Decisoes atuais
 
@@ -41,9 +41,12 @@ Expansoes planejadas:
 - jobs longos fora do processo HTTP
 - deploy da API e worker no `Render`
 - envio real de email `Full-time` via Gmail API/OAuth no worker, com segredos via variaveis de ambiente ou arquivos secretos do ambiente
-- `Next.js` entra quando a operacao manual justificar uma web interna
+- `Full-time` segue como extensao Plasmo dedicada, com ajustes futuros de escala, score ATS e geracao de curriculo ATS-friendly
+- `Freelance` sera desenvolvido separadamente como app web interno em `Next.js` + `shadcn/ui` + `Zod` + `Zustand` + `Prisma` + `PostgreSQL`, rodando localmente via Docker e depois em uma VPS
+- descoberta freelance deve priorizar provedores/scrapers que reproduzam a experiencia real de busca no Google/Google Maps por nicho/localidade; a analise de site sera feita em etapa propria baixando HTML e coletando sinais de conteudo, design, performance e SEO
+- a lista inicial de nichos ja existe nas referencias (`references/opportunity-desk-pro/src/lib/mockData.ts` como `NICHE_OPTIONS`) e deve virar seed/configuracao do webapp, nao ser reinventada
 - prioridade inicial de produto: `job`
-- proxima prioridade depois do fluxo de emprego: `freelance`
+- proxima prioridade: iniciar o projeto `freelance`
 
 ## Quando entra front
 
@@ -133,8 +136,8 @@ autenticado. Use os mesmos nomes de variaveis em todos os ambientes (`DATABASE_U
 
 Estado atual: o recorte de auth/ownership ja existe. A extensao suporta email/senha e Google primary
 auth; login Google vincula uma identidade Google a usuario existente quando o email verificado e o
-mesmo, e permanece separado do OAuth Gmail de envio. Ainda faltam hardening e produto: revisar testes
-legados para bearer auth, contrato OpenAPI, smoke de dois usuarios, OAuth Gmail publicado, feedback
-pos-envio e validacao manual ampla da extensao. A proxima spec recomendada agora e o assistente de
-campos com IA na extensao, pois ele aumenta diretamente o valor do fluxo `Full-time` durante
-candidaturas externas.
+mesmo, e permanece separado do OAuth Gmail de envio. O fluxo `Full-time` esta satisfatorio para
+candidaturas e entra em fine tuning: smoke/ajuste fino de candidaturas externas, feedback pos-envio,
+escala, score ATS e futura geracao de curriculo ATS-friendly. A proxima spec recomendada agora e o
+inicio do app web `Freelance` em `Next.js` + `Prisma` + `PostgreSQL`, conforme
+`docs/next-spec-prompt.md`.

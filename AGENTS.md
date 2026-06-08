@@ -21,8 +21,9 @@ Current stack and direction:
 - Local infra through `Docker Compose`
 - Long-running scraping, enrichment, and outreach work outside the HTTP API process
 - API and worker deployment target on `Render`
-- Plasmo extension as the current local-first operational UI for the full-time job flow
-- Future `Next.js` web app when the manual review workflow justifies it
+- Plasmo extension as the dedicated local-first operational UI for the full-time job flow
+- Freelance prospecting is now planned as a separate internal web app in `Next.js` + `shadcn/ui` +
+  `Zod` + `Zustand` + `Prisma` + `PostgreSQL`, with local Docker Compose and future VPS deploy
 
 ## Spec Kit Workflow
 
@@ -45,9 +46,9 @@ For general prompt refinement or change-risk review, consider:
 - `.codex/skills/prompt-structuring/SKILL.md`
 - `.codex/skills/change-impact-review/SKILL.md`
 
-The active plan reference mirrored from Cursor is:
+The active Spec Kit task list is:
 
-- `specs/011-saved-search-keywords/plan.md`
+- `specs/014-freelance-web-app/tasks.md` for the first `Freelance` web app implementation
 
 ## Conflict Handling
 

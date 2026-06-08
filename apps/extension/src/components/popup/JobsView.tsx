@@ -16,17 +16,20 @@ export function JobsView() {
   const opportunityHasNext = usePopupStore((state) => state.opportunityHasNext)
   const opportunityHasPrevious = usePopupStore((state) => state.opportunityHasPrevious)
   const filters = usePopupStore((state) => state.filters)
+  const jobsLane = usePopupStore((state) => state.jobsLane)
+  const setJobsLane = usePopupStore((state) => state.setJobsLane)
   const updateFilters = usePopupStore((state) => state.updateFilters)
   const deleteOpportunities = usePopupStore((state) => state.deleteOpportunities)
   const selectedIds = usePopupStore((state) => state.selectedJobIds)
   const showBulkEmail = usePopupStore((state) => state.showBulkEmail)
   const setSelectedIds = usePopupStore((state) => state.setSelectedJobIds)
   const setShowBulkEmail = usePopupStore((state) => state.setShowBulkEmail)
+  const isExternalLane = jobsLane === "external_application"
   const [selectionNotice, setSelectionNotice] = useState<string | null>(null)
   const listedIds = useMemo(() => opportunities.map((opportunity) => opportunity.id), [opportunities])
   const listedIdSet = useMemo(() => new Set(listedIds), [listedIds])
   const allListedSelected = listedIds.length > 0 && listedIds.every((id) => selectedIds.includes(id))
-  const canBulkEmailSelection = selectedIds.length > 0 && selectedIds.length <= MAX_BULK_EMAIL_SELECTION
+  const canBulkEmailSelection = !isExternalLane && selectedIds.length > 0 && selectedIds.length <= MAX_BULK_EMAIL_SELECTION
 
   useEffect(() => {
     const nextSelectedIds = selectedIds.filter((id) => listedIdSet.has(id))
@@ -75,22 +78,40 @@ export function JobsView() {
 
   return (
     <>
+      <nav className="jobs-lane-tabs" aria-label="Job application tabs" role="tablist">
+        {[
+          ["email", "With email"],
+          ["external_application", "External applications"]
+        ].map(([value, label]) => (
+          <button
+            aria-selected={jobsLane === value}
+            key={value}
+            onClick={() => void setJobsLane(value as "email" | "external_application")}
+            role="tab"
+            type="button">
+            {label}
+          </button>
+        ))}
+      </nav>
+
       <section className="card filters">
-        <div className="filter-tabs" aria-label="Email send status">
-          {[
-            ["", "All"],
-            ["unsent", "Not sent"],
-            ["sent", "Sent"]
-          ].map(([value, label]) => (
-            <button
-              aria-pressed={(filters.send_status || "") === value}
-              key={value || "all"}
-              onClick={() => void updateFilters({ ...filters, send_status: value as "" | "sent" | "unsent" })}
-              type="button">
-              {label}
-            </button>
-          ))}
-        </div>
+        {!isExternalLane ? (
+          <div className="filter-tabs" aria-label="Email send status">
+            {[
+              ["", "All"],
+              ["unsent", "Not sent"],
+              ["sent", "Sent"]
+            ].map(([value, label]) => (
+              <button
+                aria-pressed={(filters.send_status || "") === value}
+                key={value || "all"}
+                onClick={() => void updateFilters({ ...filters, send_status: value as "" | "sent" | "unsent" })}
+                type="button">
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <label className="field">
           <span>Search jobs</span>
           <input
@@ -124,7 +145,7 @@ export function JobsView() {
         <div>
           <h3 className="card-title">Selection</h3>
           <p className="message">
-            {selectedIds.length} of {opportunities.length} visible jobs selected. {opportunityTotalItems} total match current filters.
+            {selectedIds.length} of {opportunities.length} visible {isExternalLane ? "external applications" : "jobs"} selected. {opportunityTotalItems} total match current filters.
           </p>
         </div>
         <div className="selection-actions">
@@ -173,7 +194,7 @@ export function JobsView() {
         </p>
       ) : null}
 
-      {showBulkEmail ? (
+      {showBulkEmail && !isExternalLane ? (
         <div className="modal-backdrop" onClick={() => setShowBulkEmail(false)} role="presentation">
           <div
             aria-label="Bulk email review"
@@ -188,7 +209,11 @@ export function JobsView() {
 
       <section className="job-list" aria-label="Captured jobs">
         {opportunities.length === 0 ? (
-          <p className="empty-state">No opportunities match the current filters yet.</p>
+          <p className="empty-state">
+            {isExternalLane
+              ? "No external applications match the current filters yet."
+              : "No email jobs match the current filters yet."}
+          </p>
         ) : (
           opportunities.map((opportunity) => (
             <JobCard
@@ -202,6 +227,7 @@ export function JobsView() {
       </section>
       {selectedIds.length > 0 ? (
         <div className="floating-actions">
+          {!isExternalLane ? (
           <button
             aria-label={`Send email to ${selectedIds.length} selected jobs`}
             className="floating-send-button"
@@ -218,7 +244,8 @@ export function JobsView() {
             </svg>
             <span>{selectedIds.length}</span>
           </button>
-          {selectedIds.length >= MAX_BULK_EMAIL_SELECTION ? (
+          ) : null}
+          {!isExternalLane && selectedIds.length >= MAX_BULK_EMAIL_SELECTION ? (
             <span className="floating-selection-note">50 max per email batch</span>
           ) : null}
           <button
@@ -251,12 +278,14 @@ function JobCard({
   const openDetail = usePopupStore((state) => state.openDetail)
   const deleteOpportunity = usePopupStore((state) => state.deleteOpportunity)
   const updateOpportunityStatus = usePopupStore((state) => state.updateOpportunityStatus)
+  const markApplied = usePopupStore((state) => state.markApplied)
   const profile = opportunity.job_detail?.review_profile
   const score = profile?.match_score
   const presentation = postPresentation(opportunity)
   const description = expanded ? presentation.message : presentation.excerpt
   const company = companyName(opportunity)
   const operationalStatus = toOperationalStatus(opportunity.job_detail?.job_stage || "new")
+  const isExternalApplication = opportunity.job_detail?.job_application_kind === "external_application"
 
   function confirmDelete() {
     if (window.confirm("Delete this collected job? This removes it from the list and related email history.")) {
@@ -280,7 +309,16 @@ function JobCard({
           {opportunity.source_name ? <p className="job-meta">Source: {opportunity.source_name}</p> : null}
           <p className="job-meta">{opportunity.job_detail?.contact_email || opportunity.job_detail?.contact_channel_value}</p>
         </button>
-        {presentation.contactHref ? (
+        {isExternalApplication && opportunity.job_detail?.application_url ? (
+          <a
+            aria-label="Open application"
+            className="icon-action"
+            href={opportunity.job_detail.application_url}
+            rel="noreferrer"
+            target="_blank">
+            Apply
+          </a>
+        ) : presentation.contactHref ? (
           <a
             aria-label={presentation.contactActionLabel}
             className="icon-action"
@@ -310,6 +348,11 @@ function JobCard({
         {operationalStatus === "sent" ? (
           <button className="status-inline-action" onClick={() => void updateOpportunityStatus(opportunity.id, { job_stage: "interview" })} type="button">
             Mark interview
+          </button>
+        ) : null}
+        {isExternalApplication && opportunity.job_detail?.job_stage !== "applied" ? (
+          <button className="status-inline-action" onClick={() => void markApplied(opportunity.id)} type="button">
+            Mark applied
           </button>
         ) : null}
       </div>

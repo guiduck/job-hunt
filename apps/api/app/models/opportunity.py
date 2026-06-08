@@ -181,6 +181,15 @@ class JobOpportunityDetail(Base):
             "historical_similarity_signals": self.historical_similarity_signals or {},
         }
 
+    @property
+    def job_application_kind(self) -> str:
+        email = (self.contact_email or "").strip()
+        if self.contact_channel_type == ContactChannelType.EMAIL.value and "@" in email:
+            return "email"
+        if self.application_url:
+            return "external_application"
+        return "email"
+
 
 class OpportunityKeywordMatch(Base):
     __tablename__ = "opportunity_keyword_matches"

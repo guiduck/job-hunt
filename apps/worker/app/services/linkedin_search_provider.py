@@ -97,7 +97,11 @@ def candidate_from_provided_input(item: CollectionInput, requested_keywords: lis
         if item.source_type == CollectionSourceType.AUTHENTICATED_BROWSER_SEARCH.value
         else "user_provided"
     )
+    poster_name = item.label if item.source_type == CollectionSourceType.AUTHENTICATED_BROWSER_SEARCH.value else ""
+    if re.fullmatch(r"LinkedIn post \d+", poster_name.strip(), re.IGNORECASE):
+        poster_name = ""
     return {
+        "poster_name": poster_name,
         "collection_source_type": item.source_type,
         "provider_name": provider_name,
         "provider_status": ProviderStatus.COLLECTED.value if text else ProviderStatus.EMPTY.value,

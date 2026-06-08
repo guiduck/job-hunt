@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+import re
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -7,6 +8,7 @@ from app.models.job_search_run import (
     AIFilterStatus,
     JobCandidateOutcome,
     JobSearchCandidate,
+    JobSearchKind,
     JobSearchRun,
     JobSearchRunStatus,
     LinkedInCollectionInput,
@@ -14,9 +16,11 @@ from app.models.job_search_run import (
 )
 from app.models.opportunity import ContactChannelType
 from app.models.user import User
-from app.schemas.job_search_run import JobSearchRunCreate
+from app.schemas.job_search_run import CareerPageSearchRunCreate, JobSearchRunCreate
 from app.schemas.opportunity import JobDetailCreate, OpportunityCreate
+from app.core.config import get_settings
 from app.services.auth_service import ensure_default_local_user
+from app.services.career_page_sources import validate_source_keys
 from app.services.job_dedupe import build_job_dedupe_key
 from app.services.job_review_scoring import default_review_profile
 from app.services.opportunity_service import create_opportunity, get_active_job_keywords, get_opportunity_by_dedupe_key
@@ -43,6 +47,13 @@ def extract_poster_name_from_evidence(text: str) -> str:
             digit_index = next((index for index, part in enumerate(parts) if part[:1].isdigit()), None)
             remainder = " ".join(parts[:digit_index]) if digit_index is not None else remainder
         return dedupe_repeated_name(remainder.strip().rstrip("."))[:500]
+    match = re.match(
+        r"^Publica(?:ç|c)[aã]o no feed\s*(.+?)(?:\s+[-•]|\s+Seguir\b|\s+Follow\b|\s+\d|\s*$)",
+        value,
+        re.IGNORECASE,
+    )
+    if match:
+        return dedupe_repeated_name(match.group(1).strip().rstrip("."))[:500]
     return ""
 
 
@@ -74,6 +85,7 @@ def create_job_search_run(db: Session, payload: JobSearchRunCreate, user: User |
 
     run = JobSearchRun(
         user_id=user.id,
+        search_kind=JobSearchKind.LINKEDIN.value,
         status=JobSearchRunStatus.PENDING.value,
         keyword_set_id=payload.keyword_set_id or (keyword_set.id if keyword_set else None),
         requested_keywords=list(keywords),
@@ -100,6 +112,57 @@ def create_job_search_run(db: Session, payload: JobSearchRunCreate, user: User |
                 label=collection_input.label,
             )
         )
+    db.commit()
+    db.refresh(run)
+    return run
+
+
+def create_career_page_search_run(db: Session, payload: CareerPageSearchRunCreate, user: User | None = None) -> JobSearchRun:
+    settings = get_settings()
+    if settings.career_page_search_provider == "serpapi" and not settings.serpapi_api_key:
+        raise RuntimeError("Career-page search provider is not configured")
+
+    user = user or ensure_default_local_user(db)
+    active_run = db.scalar(
+        select(JobSearchRun).where(
+            JobSearchRun.user_id == user.id,
+            JobSearchRun.search_kind == JobSearchKind.CAREER_PAGE.value,
+            JobSearchRun.status.in_([JobSearchRunStatus.PENDING.value, JobSearchRunStatus.RUNNING.value]),
+        )
+    )
+    if active_run:
+        raise ValueError("A career-page search is already pending or running")
+
+    keyword_set = None
+    keywords = payload.keywords
+    if not keywords:
+        keyword_set, keywords = get_active_job_keywords(db, user=user)
+    selected_source_keys = validate_source_keys(payload.selected_source_keys)
+    accepted_limit = payload.accepted_limit or settings.career_page_default_accepted_limit
+    inspected_cap = payload.inspected_cap or settings.career_page_default_inspected_cap
+
+    run = JobSearchRun(
+        user_id=user.id,
+        search_kind=JobSearchKind.CAREER_PAGE.value,
+        status=JobSearchRunStatus.PENDING.value,
+        keyword_set_id=payload.keyword_set_id or (keyword_set.id if keyword_set else None),
+        requested_keywords=list(keywords),
+        search_query=payload.search_query or " ".join(keywords),
+        hiring_intent_terms=[],
+        collection_source_types=[],
+        selected_source_keys=selected_source_keys,
+        source_diagnostics={key: {"status": "pending"} for key in selected_source_keys},
+        source_name="Career pages",
+        candidate_limit=inspected_cap,
+        accepted_limit=accepted_limit,
+        inspected_cap=inspected_cap,
+        provider_status=ProviderStatus.NOT_STARTED.value,
+        provider_metadata={"provider": settings.career_page_search_provider},
+        ai_filters_enabled=payload.ai_filters_enabled,
+        ai_filter_settings=payload.ai_filter_settings.model_dump() if payload.ai_filters_enabled else {},
+        ai_filter_status=AIFilterStatus.SKIPPED.value,
+    )
+    db.add(run)
     db.commit()
     db.refresh(run)
     return run
@@ -133,6 +196,24 @@ def get_job_search_run(db: Session, run_id: str, user: User | None = None) -> Jo
         select(JobSearchRun)
         .options(selectinload(JobSearchRun.candidates), selectinload(JobSearchRun.collection_inputs))
         .where(JobSearchRun.id == run_id)
+    )
+    if user:
+        statement = statement.where(JobSearchRun.user_id == user.id)
+    return db.scalar(statement)
+
+
+def get_latest_job_search_run(
+    db: Session,
+    *,
+    search_kind: str,
+    user: User | None = None,
+) -> JobSearchRun | None:
+    statement = (
+        select(JobSearchRun)
+        .options(selectinload(JobSearchRun.collection_inputs))
+        .where(JobSearchRun.search_kind == search_kind)
+        .order_by(JobSearchRun.created_at.desc())
+        .limit(1)
     )
     if user:
         statement = statement.where(JobSearchRun.user_id == user.id)
@@ -312,8 +393,11 @@ def record_candidate(db: Session, run: JobSearchRun, candidate: dict[str, object
     contact_priority = str(candidate.get("contact_priority") or "")
     source_evidence = str(candidate.get("source_evidence") or "")
     source_query = str(candidate.get("source_query") or " ".join(run.requested_keywords))
+    source_name = str(candidate.get("source_name") or ("Career pages" if run.search_kind == JobSearchKind.CAREER_PAGE.value else "LinkedIn"))
+    application_url = str(candidate.get("application_url") or "")
+    application_kind = str(candidate.get("application_kind") or ("external_application" if application_url and contact_channel_type != ContactChannelType.EMAIL.value else "email"))
     provider_status = str(candidate.get("provider_status") or ProviderStatus.COLLECTED.value)
-    review_profile = default_review_profile(matched_keywords=matched_keywords)
+    review_profile = candidate.get("review_profile") if isinstance(candidate.get("review_profile"), dict) else default_review_profile(matched_keywords=matched_keywords)
     ai_filter_status = str(candidate.get("ai_filter_status") or AIFilterStatus.FALLBACK.value)
     passes_ai_filter = candidate.get("passes_ai_filter")
 
@@ -366,7 +450,7 @@ def record_candidate(db: Session, run: JobSearchRun, candidate: dict[str, object
                 OpportunityCreate(
                     title=str(candidate.get("poster_name") or "") or extract_poster_name_from_evidence(source_evidence),
                     organization_name=str(candidate.get("company_name") or ""),
-                    source_name="LinkedIn",
+                    source_name=source_name,
                     source_url=str(candidate.get("source_url") or ""),
                     source_query=source_query,
                     source_evidence=source_evidence,
@@ -378,6 +462,7 @@ def record_candidate(db: Session, run: JobSearchRun, candidate: dict[str, object
                         contact_channel_type=ContactChannelType(contact_channel_type),
                         contact_channel_value=contact_value,
                         contact_email=contact_value if contact_channel_type == ContactChannelType.EMAIL.value else None,
+                        application_url=application_url or str(candidate.get("source_url") or "") or None,
                         linkedin_url=str(candidate.get("source_url") or ""),
                         poster_profile_url=str(candidate.get("poster_profile_url") or ""),
                         contact_priority=contact_priority or None,
@@ -417,6 +502,12 @@ def record_candidate(db: Session, run: JobSearchRun, candidate: dict[str, object
         provider_status=provider_status,
         provider_error_code=str(candidate.get("provider_error_code") or "") or None,
         poster_profile_url=str(candidate.get("poster_profile_url") or "") or None,
+        application_url=application_url or None,
+        application_kind=application_kind or None,
+        selected_source_key=str(candidate.get("selected_source_key") or "") or None,
+        source_name=source_name or None,
+        provider_metadata=candidate.get("provider_metadata") if isinstance(candidate.get("provider_metadata"), dict) else {},
+        external_job_id=str(candidate.get("external_job_id") or "") or None,
         contact_priority=str(candidate.get("contact_priority") or "") or None,
         source_url=str(candidate.get("source_url") or ""),
         source_query=source_query,

@@ -1,5 +1,7 @@
 from fastapi import APIRouter
 
+from app.schemas.job_search_run import CuratedCareerSource
+from app.services.career_page_sources import list_curated_career_sources
 from app.api.routes import (
     auth,
     email_sending,
@@ -27,3 +29,8 @@ api_router.include_router(field_assistant.router)
 @api_router.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@api_router.get("/job-search/curated-sources", response_model=list[CuratedCareerSource])
+def curated_career_sources() -> list[CuratedCareerSource]:
+    return list_curated_career_sources()

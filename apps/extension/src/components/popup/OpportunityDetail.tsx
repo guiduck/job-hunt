@@ -46,6 +46,7 @@ function OpportunityDetailPanel({
   const presentation = postPresentation(opportunity)
   const company = companyName(opportunity)
   const emailDomain = emailDomainLabel(opportunity)
+  const isExternalApplication = opportunity.job_detail?.job_application_kind === "external_application"
 
   useEffect(() => {
     setJobStage(opportunity.job_detail?.job_stage || "new")
@@ -91,7 +92,11 @@ function OpportunityDetailPanel({
           </div>
         </dl>
         <div className="detail-actions">
-          {presentation.contactHref ? (
+          {isExternalApplication && opportunity.job_detail?.application_url ? (
+            <a className="primary-link-button" href={opportunity.job_detail.application_url} rel="noreferrer" target="_blank">
+              Open application
+            </a>
+          ) : presentation.contactHref ? (
             <a className="primary-link-button" href={presentation.contactHref} rel="noreferrer" target="_blank">
               {presentation.contactActionLabel}
             </a>
@@ -109,12 +114,12 @@ function OpportunityDetailPanel({
         </div>
       </section>
 
-      <EmailDraftPanel opportunity={opportunity} />
+      {isExternalApplication ? null : <EmailDraftPanel opportunity={opportunity} />}
 
-      <section className="card">
+      {isExternalApplication ? null : <section className="card">
         <h3 className="card-title">Email history</h3>
         <EmailHistoryTimeline events={emailHistory} />
-      </section>
+      </section>}
 
       <section className="card">
         <h3 className="card-title">Job status</h3>

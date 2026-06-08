@@ -14,6 +14,20 @@ build/
 node_modules/
 .plasmo/
 
+# Next.js / frontend build artifacts
+.next/
+apps/*/.next/
+apps/**/.next/
+out/
+.vercel/
+.turbo/
+apps/**/.turbo/
+*.tsbuildinfo
+*.sst
+*.meta
+*.del
+coverage/
+
 # Virtual environments
 .venv/
 venv/

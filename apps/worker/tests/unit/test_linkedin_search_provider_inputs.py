@@ -26,7 +26,7 @@ def test_normalizes_authenticated_browser_search() -> None:
         [
             {
                 "source_type": "authenticated_browser_search",
-                "label": "hiring typescript #1",
+                "label": "Alice Recruiter",
                 "provided_text": "We're hiring a TypeScript developer. Email jobs@example.com",
             }
         ]
@@ -38,6 +38,23 @@ def test_normalizes_authenticated_browser_search() -> None:
     assert candidate["provider_name"] == "linkedin_authenticated_browser"
     assert candidate["provider_status"] == "collected"
     assert candidate["matched_keywords"] == ["typescript"]
+    assert candidate["poster_name"] == "Alice Recruiter"
+
+
+def test_authenticated_browser_search_ignores_generic_post_label() -> None:
+    [item] = normalize_collection_inputs(
+        [
+            {
+                "source_type": "authenticated_browser_search",
+                "label": "LinkedIn post 3",
+                "provided_text": "We're hiring a TypeScript developer. Email jobs@example.com",
+            }
+        ]
+    )
+
+    candidate = candidate_from_provided_input(item, ["typescript"])
+
+    assert candidate["poster_name"] == ""
 
 
 def test_collect_candidates_respects_collection_source_types(monkeypatch) -> None:

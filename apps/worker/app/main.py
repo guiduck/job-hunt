@@ -1,6 +1,7 @@
 import time
 
 from app.core.config import get_worker_settings
+from app.jobs.career_page_job_search import process_pending_runs as process_pending_career_page_runs
 from app.jobs.email_sending import process_email_sends
 from app.jobs.linkedin_job_search import process_pending_runs
 
@@ -15,6 +16,7 @@ def main() -> None:
             settings=settings.model_copy(update={"worker_mark_stale_running_on_startup": mark_stale_running}),
             run_once=True,
         )
+        process_pending_career_page_runs(settings=settings, run_once=True)
         if settings.worker_run_once:
             return
         mark_stale_running = False

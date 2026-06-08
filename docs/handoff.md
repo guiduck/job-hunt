@@ -14,11 +14,10 @@
 
 ## Status Atual
 
-- `fase_atual_roadmap`: Fase 3 / 3.5 - Full-time LinkedIn MVP com filtros inteligentes pos-captura
-- `etapa_atual_action_plan`: polir o fluxo `Full-time` local para um MVP publicavel, mantendo busca,
-  dashboard, Jobs, envio e assistente de campos estaveis antes de abrir novas frentes
-- `plano_ativo_spec_kit`: spec ativa `specs/013-serpapi-career-search/spec.md`; ultimo plano completo
-  ainda e `specs/011-saved-search-keywords/plan.md`
+- `fase_atual_roadmap`: Fase 4 `Freelance`, com fine tuning pontual restante no produto `Full-time`
+- `etapa_atual_action_plan`: clarificar e planejar o app web `Freelance` separado, mantendo a extensao `Full-time`
+  como produto dedicado ja satisfatorio para candidaturas
+- `plano_ativo_spec_kit`: `specs/014-freelance-web-app/tasks.md`
 - `status_resumido`: a extensao Plasmo opera o fluxo `Full-time` local com login persistente, captura
   autenticada de posts do LinkedIn, listagem/detalhe de vagas, delete individual/bulk, templates,
   curriculos, login Google primary auth, Gmail OAuth, envio individual, bulk send revisavel com IA e
@@ -35,19 +34,82 @@
   registrar a limpeza compacta da extensao antes de producao. Implementado: removido o botao quebrado
   `Pin assistant` do header, headings trocados para `Templates` e `Settings`, cards de settings com
   mais espacamento, lista de sites do AI field assistant simplificada para um dominio/URL por linha,
-  sem badges `Domain/Active` e sem acao `Disable`, mantendo apenas remocao por icone de lixeira. Em
-  seguida, o fluxo LinkedIn passou a preencher `opportunities.title` com o nome da pessoa que publicou
-  o post; a lista `/jobs` usa esse campo como titulo do card e removeu `Email domain` dos cards.
+  sem badges `Domain/Active` e sem acao `Disable`, mantendo apenas remocao por icone de lixeira; a
+  lista foi compactada novamente para linhas tipo tabela sem headers, com remocao pequena no extremo
+  direito. Em seguida, o fluxo LinkedIn passou a preencher `opportunities.title` com o nome da pessoa
+  que publicou o post; novas capturas autenticadas tambem promovem o label do post para `poster_name`
+  no worker quando ele nao e generico, e os fallbacks aceitam texto colado como `feedDaniel...`. A
+  lista `/jobs` usa esse campo como titulo do card e removeu `Email domain` dos cards.
 - `estudo_fontes_ats`: criado `docs/ats-job-sources-pre-spec-study.md` como estudo pre-spec para
   reposicionar o produto como assistente de candidatura: ATS/career pages + AI matching + email
   assistido, com Greenhouse, Ashby e Lever como primeiros providers, Gupy/InHire em research-only, e
-  `/jobs` dividido entre vagas com email e candidaturas externas.
+  `/jobs` dividido entre vagas com email e candidaturas externas. O projeto `Full-time` agora deve
+  entrar em modo de fine tuning: smoke/ajuste fino de candidaturas externas, escala, polish, score ATS
+  e futura geracao de curriculo ATS-friendly. O novo desenvolvimento principal passa a ser um app web
+  `Freelance` separado.
+- `spec_014_freelance_web_app`: criada `specs/014-freelance-web-app/spec.md` via
+  `/speckit-specify`, com checklist completo em
+  `specs/014-freelance-web-app/checklists/requirements.md`. A spec cobre o primeiro produto
+  `Freelance` separado da extensao `Full-time`: campanhas por nicho/localidade, catalogo de nichos
+  configuravel vindo das referencias, descoberta local realista, normalizacao/dedupe, analise de site,
+  lista e detalhe de leads, prompt Lovable, gerador de mensagens, templates comerciais e settings de
+  vendedor. Durante `/speckit-clarify`, foram registradas as decisoes: o MVP e uma fatia vertical
+  completa; analise leve de website e obrigatoria; BR e internacional entram no fluxo do MVP, com
+  smoke podendo focar uma amostra; CSV nao entra; prompts/mensagens sao gerados sob demanda e apenas a
+  ultima versao gerada por lead fica salva, sem historico. `.specify/feature.json` aponta para
+  `specs/014-freelance-web-app`. Em seguida, `/speckit-plan` gerou `plan.md`, `research.md`,
+  `data-model.md`, `quickstart.md`, `contracts/openapi.yaml`, `contracts/web-ui.md` e
+  `contracts/provider-payloads.md`. O plano cria um novo `apps/web` Next.js/Prisma para o produto
+  `Freelance`, com worker separado para descoberta/analise e sem mexer nos fluxos `Full-time`. Em
+  seguida, `/speckit-tasks` gerou `specs/014-freelance-web-app/tasks.md` com 170 tarefas organizadas
+  por setup, fundacao, US1 campanhas, US2 descoberta/classificacao, US3 revisao de leads, US4
+  geracao de prompt/mensagem, US5 templates/settings e polish/validacao. Depois,
+  `/speckit-implement` concluiu T001-T045: scaffold `apps/web`, configs Next/Vitest/shadcn, Docker
+  services `web`/`web-worker`, Prisma schema/migration/seed, config server-only, constantes,
+  validacoes Zod, repositorios owner-scoped, service shells, provider abstraction com mock e
+  skeletons Apify/SerpApi, worker shell, layout shell, store Zustand e estados basicos. Em seguida,
+  US1 concluiu T046-T062: contratos/testes de campanha, rotas `GET /api/freelance/niches`,
+  `GET/POST /api/freelance/campaigns`, `PATCH /api/freelance/campaigns/[campaignId]`, services de
+  create/list/update, tela `/campaigns`, modal de criacao, cards de campanha, campos BR/international,
+  hint de conversao como estimativa, empty state e link do dashboard para criar campanha. Validacao:
+  `npm.cmd run test:contract`, `npm.cmd run test:unit`, `npm.cmd run test:integration`,
+  `npm.cmd run typecheck`, `npm.cmd run build`; smoke local com Postgres Docker, seed de 29 nichos,
+  campanha BR e internacional retornando 201 e `/campaigns` mostrando ambas. O proximo recorte
+  recomendado e US2, T063-T091.
+- `decisao_freelance_web`: o projeto freelance sera um app web interno em `Next.js` + `shadcn/ui` +
+  `Zod` + `Zustand` + `Prisma` + `PostgreSQL`, com banco local via Docker Compose e deploy futuro em
+  VPS. Ele nao deve ser uma extensao Chrome no MVP. O fluxo deve se basear no prototipo
+  `references/opportunity-desk-pro`, nas imagens/templates em `references/`, em `docs/reference-ui.md`
+  e nos requisitos de prospeccao ja registrados. A lista inicial de nichos ja esta registrada em
+  `references/opportunity-desk-pro/src/lib/mockData.ts` como `NICHE_OPTIONS` e deve virar seed/config
+  do webapp.
+- `decisao_freelance_discovery`: a coleta v1 deve priorizar uma busca local realista de
+  Google/Google Maps, porque o objetivo e identificar os negocios que usuarios reais encontrariam ao
+  buscar por nicho/localidade, como "clinica de estetica", "igreja" ou "clinica ortodontica". A
+  recomendacao inicial e implementar uma interface `freelance_maps_provider` com provider externo
+  como Apify Google Maps Scraper ou SerpApi Google Maps. Playwright pode ser mantido apenas como
+  fallback/spike de auditoria, nao como provider principal. Depois da coleta, o worker deve baixar o
+  HTML do site quando existir e avaliar conteudo, design, performance e SEO em etapa propria.
 - `spec_013_serpapi_career_search`: criada `specs/013-serpapi-career-search/spec.md` via
   `/speckit-specify`. A nova direcao evita o spike antigo de enriquecimento de email: busca career
   pages/ATS curados por keywords sem exigir nome de empresa/board/tenant do operador, usa fontes
   selecionaveis, avalia resultados com IA, salva vagas externas com URL oficial de candidatura, separa
   `/jobs` entre vagas com email e candidaturas externas, permite selecao multipla apenas para deletar e
-  adiciona status manual de aplicado para vagas externas.
+  adiciona status manual de aplicado para vagas externas. Durante `/speckit-clarify`, foram registradas
+  decisoes: cada clique no botao de career-page search em `/search` inicia uma busca nova no provider;
+  resultados aceitos persistem no banco como opportunities; vagas LinkedIn e career-page devem seguir
+  uma politica operacional planejada de cerca de 1 mes apos captura; qualquer vaga externa com email
+  utilizavel entra em `With email` e no fluxo Gmail automatico atual; todas as fontes ativas iniciam
+  marcadas; a UI mostra a ultima busca ao lado do botao e desabilita o botao enquanto uma busca externa
+  esta em andamento; aplicacao manual externa usa `job_stage=applied`; e a busca para ao atingir o
+  maximo aceito ou um teto configuravel de candidatos inspecionados baseado em custo. Em seguida,
+  `/speckit-plan` gerou `specs/013-serpapi-career-search/plan.md`, `research.md`, `data-model.md`,
+  `quickstart.md`, `contracts/openapi.yaml` e `contracts/extension-search.md`, e atualizou `AGENTS.md`,
+  `.cursor/rules/specify-rules.mdc` e `docs/next-spec-prompt.md` para apontarem para `/speckit-tasks`.
+  Depois, `/speckit-tasks` gerou `specs/013-serpapi-career-search/tasks.md` com 112 tarefas organizadas
+  por setup, fundacao, US1 busca career-page, US2 revisao separada, US3 matching IA, US4 aplicacao
+  manual externa, US5 metricas de dashboard e polish/validacao. O proximo passo e implementar a partir
+  de Phase 1/2 e US1 como MVP.
 - `decisao_recente`: remover codigo, specs, configs e UI da fonte externa; preservar melhorias
   independentes como feedback de captura, checkbox mestre de selecao, `Delete all listed`, dedupe visual
   de nomes, filtro Review removido e estado persistido do popup. Apos estabilizar login Google, a spec
@@ -140,7 +202,10 @@
   `svgo`/htmlnano. Depois da correcao de `opportunities.title` como nome do poster no fluxo LinkedIn
   e remocao de `Email domain` em `/jobs`, `apps/extension npm.cmd run typecheck` e
   `apps/extension npm.cmd run build` passaram novamente com o mesmo aviso nao bloqueante de
-  `svgo`/htmlnano.
+  `svgo`/htmlnano. Depois do ajuste visual da lista de sites e do hardening de `poster_name`, passaram
+  `apps/extension npm.cmd run typecheck` e
+  `docker compose exec worker python -m pytest tests/unit/test_linkedin_search_provider_inputs.py tests/unit/test_linkedin_candidate_parser.py`
+  (13 passed).
 
 ## Produto
 
@@ -185,7 +250,8 @@ O caminho funcional atual de `job` e LinkedIn-first:
 - assistente de campos externos com botao de varinha magica e respostas recentes por keyword, usando
   IA backend-only, curriculos selecionados como contexto extraido no backend e menu contido no viewport;
   a acao quebrada `Pin assistant` foi removida do popup, e o proximo hardening visual deve focar nos
-  controles injetados em campos reais
+  controles injetados em campos reais; a lista de sites autorizados no popup deve permanecer compacta,
+  em linhas sem headers e com remocao pequena no extremo direito
 
 ## Decisao Sobre Fonte Externa De Vagas
 
@@ -193,14 +259,16 @@ A fonte externa de vagas com enriquecimento posterior de email nao deve entrar n
 Motivo: mesmo quando acha emails publicos, o retorno pratico tende a ser "aplique pelo site de
 carreiras" ou "use este portal", o que torna o fluxo pouco util para outreach direto.
 
-A excecao planejada agora e `013-serpapi-career-search`: fonte externa nao tenta encontrar email e nao
-abre envio automatico; ela encontra URLs oficiais de candidatura em sites curados, classifica vagas sem
-email como `External applications` e deixa o operador aplicar manualmente com apoio do assistente de
-campos.
+A excecao planejada agora e `013-serpapi-career-search`: a fonte externa nao faz enriquecimento
+automatico de email nem tenta descobrir email da empresa depois do resultado; ela encontra URLs oficiais
+de candidatura em sites curados. Quando o proprio resultado capturado tiver email utilizavel, a vaga
+entra em `With email` e permanece elegivel ao fluxo Gmail atual. Quando nao tiver email, mas tiver URL
+oficial, ela entra em `External applications` e deixa o operador aplicar manualmente com apoio do
+assistente de campos.
 
 Remover/evitar:
 
-- botao separado de busca por fonte externa na Search UI
+- botao separado do spike antigo de fonte externa/enriquecimento de email na Search UI
 - provider externo de vagas no worker
 - descoberta automatica obrigatoria de email de empresa
 - campos de schema/model/contract especificos dessa fonte
@@ -214,6 +282,25 @@ operador.
 Existe uma migration placeholder com a revision antiga somente para compatibilidade com bancos locais
 que ja tinham aplicado o spike. Ela nao adiciona schema, provider, UI ou comportamento da fonte
 descartada.
+
+## Status Atual - 013 Career Page Search
+
+`/speckit-implement` avancou `specs/013-serpapi-career-search/tasks.md` ate 111/112 tarefas
+concluidas. Entregue: migration/model/schema aditivos para `search_kind=career_page`, fontes curadas,
+endpoints de fonte/start/latest, guarda contra run duplicada ativa, config `SERPAPI_API_KEY` e caps,
+provider worker-owned SerpApi-style, normalizador externo, persistencia de opportunities com email ou
+apply URL, separacao `With email`/`External applications`, mark applied sem eventos Gmail, metricas
+separadas, Search UI com ultima busca/botao desabilitado enquanto a run esta ativa, logs estruturados
+do worker e testes focados de API/worker/extensao.
+
+Validacao feita: `docker compose exec api alembic upgrade head`, `docker compose exec api python -m
+compileall app alembic`, `docker compose exec worker python -m compileall app`, API career-page
+focused tests 17 passed, worker career-page focused tests 11 passed, extension `npm run typecheck`
+passed e `npm run build` passed. O build mantem avisos conhecidos do Plasmo/Node sobre `punycode` e
+`svgo`.
+
+Pendencia restante: T112, smoke manual da extensao com provider/dados reais e vagas mistas email +
+external application. Depois desse smoke, ajustar caps conforme amostra real de SerpApi.
 
 ## Pendencias Prioritarias
 
@@ -239,11 +326,19 @@ descartada.
 
 ## Proximo Passo Spec Kit Recomendado
 
-O proximo passo recomendado agora e `/speckit-plan` para `specs/013-serpapi-career-search/spec.md`,
-usando a pesquisa de SerpApi/lista curada, normalizacao de vagas externas, abas em `/jobs`, metricas
-de dashboard e status manual de aplicado.
-O hook de branch tentou `codex/013-serpapi-career-search`, mas o Git local nao conseguiu criar refs
-aninhados; a branch criada com sucesso foi `codex-013-serpapi-career-search`.
+O proximo passo recomendado agora e executar `/speckit-implement` a partir de `docs/next-spec-prompt.md`
+para implementar US2 do app web `Freelance`: descoberta/classificacao local com provider mock,
+worker, dedupe, analise leve de site e leads salvos.
+
+Use `specs/014-freelance-web-app/tasks.md` como artifact ativo. T001-T062 ja estao marcadas como
+concluidas; continue em T063-T091. O recorte deve entregar job de prospeccao, normalizacao provider,
+dedupe, analise leve/classificacao/scoring de website, persistencia de leads e feedback de progresso
+na tela de campanhas.
+
+Pendencia de fine tuning do `Full-time`: executar o smoke manual T112 de
+`specs/013-serpapi-career-search/tasks.md` com provider real e vagas mistas email + external
+application. Isso deve virar ajuste pontual do produto `Full-time`, nao bloquear o inicio do app
+`Freelance`.
 
 Durante `012-extension-settings-polish`, a tentativa de criar a branch `codex/012-extension-settings-polish`
 falhou porque o Git local nao conseguiu criar o diretorio de ref aninhado; a implementacao continuou

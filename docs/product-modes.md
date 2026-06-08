@@ -61,7 +61,8 @@ Quando `Freelance` esta ativo:
 - `Leads` mostra negocios/prospects capturados para contato comercial
 - `Templates` mostra mensagens de primeiro contato e follow-up comercial
 - `Configuracoes` mostra dados do vendedor, preco, WhatsApp, oferta e preferencias de prospeccao
-- a descoberta principal planejada vem de Google Maps por nicho e localidade
+- a descoberta principal planejada vem de busca local realista no Google/Google Maps por nicho e
+  localidade
 
 ## Navegacao compartilhada, conteudo separado
 
@@ -186,7 +187,9 @@ Telas obrigatorias:
 
 ## Freelance como app independente
 
-O modo `Freelance` deve ser um sistema para prospeccao de clientes.
+O modo `Freelance` deve ser um sistema para prospeccao de clientes. A implementacao planejada agora e
+um app web interno em `Next.js` + `shadcn/ui` + `Zod` + `Zustand` + `Prisma` + `PostgreSQL`, separado
+da extensao `Full-time`.
 
 Origem principal dos leads:
 
@@ -196,6 +199,7 @@ Origem principal dos leads:
 - negocios com site fraco
 - negocios com email, telefone ou WhatsApp publico
 - resultados de busca com sinais de baixa maturidade digital
+- sites baixados/analisados pelo worker para avaliar conteudo, design, performance e SEO
 
 Fluxo principal:
 

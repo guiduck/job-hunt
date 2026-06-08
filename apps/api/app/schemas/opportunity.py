@@ -47,6 +47,11 @@ class ContactPriority(StrEnum):
     SECONDARY = "secondary"
 
 
+class JobApplicationKind(StrEnum):
+    EMAIL = "email"
+    EXTERNAL_APPLICATION = "external_application"
+
+
 class JobReviewProfile(BaseModel):
     review_status: JobReviewStatus = JobReviewStatus.UNREVIEWED
     match_score: int | None = Field(default=None, ge=0, le=100)
@@ -74,6 +79,7 @@ class JobDetailCreate(BaseModel):
     contact_channel_value: str
     contact_email: str | None = None
     application_url: str | None = None
+    application_kind: JobApplicationKind | None = None
     linkedin_url: str | None = None
     poster_profile_url: str | None = None
     contact_priority: ContactPriority | None = None
@@ -102,6 +108,7 @@ class JobDetail(JobDetailCreate):
     id: str
     opportunity_id: str
     review_profile: JobReviewProfile | None = None
+    job_application_kind: JobApplicationKind = JobApplicationKind.EMAIL
 
 
 class OpportunityCreate(BaseModel):
@@ -197,3 +204,7 @@ class OpportunityMetrics(BaseModel):
     applied: int = Field(ge=0)
     interviews: int = Field(ge=0)
     unsent: int = Field(ge=0)
+    email_job_count: int = Field(default=0, ge=0)
+    email_unsent_count: int = Field(default=0, ge=0)
+    external_application_count: int = Field(default=0, ge=0)
+    external_unapplied_count: int = Field(default=0, ge=0)

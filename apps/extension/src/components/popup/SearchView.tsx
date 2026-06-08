@@ -1,3 +1,5 @@
+import { useEffect } from "react"
+
 import { API_BASE_URL } from "../../api/client"
 import { CAPTURE_MAX_POSTS, CAPTURE_MAX_SCROLLS, usePopupStore } from "../../store/popupStore"
 
@@ -13,6 +15,11 @@ export function SearchView() {
   const sortMode = usePopupStore((state) => state.sortMode)
   const maxPosts = usePopupStore((state) => state.maxPosts)
   const maxScrolls = usePopupStore((state) => state.maxScrolls)
+  const curatedCareerSources = usePopupStore((state) => state.curatedCareerSources)
+  const selectedCareerSourceKeys = usePopupStore((state) => state.selectedCareerSourceKeys)
+  const latestCareerPageRun = usePopupStore((state) => state.latestCareerPageRun)
+  const careerPageAcceptedLimit = usePopupStore((state) => state.careerPageAcceptedLimit)
+  const careerPageInspectedCap = usePopupStore((state) => state.careerPageInspectedCap)
   const savedSearchKeywords = usePopupStore((state) => state.savedSearchKeywords)
   const captureProgress = usePopupStore((state) => state.captureProgress)
   const setKeywords = usePopupStore((state) => state.setKeywords)
@@ -26,8 +33,30 @@ export function SearchView() {
   const setSortMode = usePopupStore((state) => state.setSortMode)
   const setMaxPosts = usePopupStore((state) => state.setMaxPosts)
   const setMaxScrolls = usePopupStore((state) => state.setMaxScrolls)
+  const setSelectedCareerSourceKeys = usePopupStore((state) => state.setSelectedCareerSourceKeys)
+  const setCareerPageAcceptedLimit = usePopupStore((state) => state.setCareerPageAcceptedLimit)
+  const setCareerPageInspectedCap = usePopupStore((state) => state.setCareerPageInspectedCap)
   const startCapture = usePopupStore((state) => state.startCapture)
+  const startCareerPageSearch = usePopupStore((state) => state.startCareerPageSearch)
+  const refreshCareerPageSearch = usePopupStore((state) => state.refreshCareerPageSearch)
   const isCapturing = CAPTURE_BUSY_STATUSES.has(captureProgress.status)
+  const isCareerSearchRunning = latestCareerPageRun ? ["pending", "running"].includes(latestCareerPageRun.status) : false
+  const canSearchCareerPages = !isCareerSearchRunning && selectedCareerSourceKeys.length > 0
+  const latestCareerSearchLabel = latestCareerPageRun
+    ? new Date(latestCareerPageRun.created_at).toLocaleString()
+    : "Never"
+
+  useEffect(() => {
+    void refreshCareerPageSearch()
+  }, [refreshCareerPageSearch])
+
+  function toggleCareerSource(sourceKey: string, checked: boolean) {
+    setSelectedCareerSourceKeys(
+      checked
+        ? [...selectedCareerSourceKeys, sourceKey]
+        : selectedCareerSourceKeys.filter((key) => key !== sourceKey)
+    )
+  }
 
   return (
     <section className="card">
@@ -138,6 +167,63 @@ export function SearchView() {
         Open LinkedIn and capture
       </button>
       <p className={`message ${captureProgress.status === "failed" ? "message--error" : ""}`}>{captureProgress.message}</p>
+      <div className="search-section search-section--career">
+        <div className="section-heading-row">
+          <p className="section-label">Career-page search</p>
+          <span className="latest-search-label">Last search: {latestCareerSearchLabel}</span>
+        </div>
+        {curatedCareerSources.length > 0 ? (
+          <div className="source-checkbox-grid" aria-label="Career-page sources">
+            {curatedCareerSources.map((source) => (
+              <label key={source.key}>
+                <input
+                  checked={selectedCareerSourceKeys.includes(source.key)}
+                  disabled={!source.active || isCareerSearchRunning}
+                  onChange={(event) => toggleCareerSource(source.key, event.target.checked)}
+                  type="checkbox"
+                />
+                {source.name}
+              </label>
+            ))}
+          </div>
+        ) : (
+          <p className="message">No career sources loaded yet.</p>
+        )}
+        <div className="form-row">
+          <label className="field">
+            <span>Max accepted</span>
+            <input
+              max={250}
+              min={1}
+              type="number"
+              value={careerPageAcceptedLimit}
+              onChange={(event) => setCareerPageAcceptedLimit(Number(event.target.value))}
+            />
+          </label>
+          <label className="field">
+            <span>Inspect cap</span>
+            <input
+              max={1000}
+              min={1}
+              type="number"
+              value={careerPageInspectedCap}
+              onChange={(event) => setCareerPageInspectedCap(Number(event.target.value))}
+            />
+          </label>
+        </div>
+        <button
+          className="primary-button"
+          disabled={!canSearchCareerPages}
+          onClick={() => void startCareerPageSearch()}
+          type="button">
+          Search career pages
+        </button>
+        {latestCareerPageRun ? (
+          <p className="message">
+            {latestCareerPageRun.status}: {latestCareerPageRun.accepted_count} accepted, {latestCareerPageRun.rejected_count} rejected, {latestCareerPageRun.duplicate_count} duplicate.
+          </p>
+        ) : null}
+      </div>
       <CaptureDebugPanel />
     </section>
   )

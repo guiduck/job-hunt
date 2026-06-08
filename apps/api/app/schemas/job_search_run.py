@@ -65,6 +65,16 @@ class SearchSortOrder(StrEnum):
     RELEVANT = "relevant"
 
 
+class JobSearchKind(StrEnum):
+    LINKEDIN = "linkedin"
+    CAREER_PAGE = "career_page"
+
+
+class JobApplicationKind(StrEnum):
+    EMAIL = "email"
+    EXTERNAL_APPLICATION = "external_application"
+
+
 class DetectedWorkMode(StrEnum):
     REMOTE = "remote"
     HYBRID = "hybrid"
@@ -201,10 +211,30 @@ class JobSearchRunCreate(BaseModel):
     ai_filter_settings: AIFilterSettings = Field(default_factory=AIFilterSettings)
 
 
+class CareerPageSearchRunCreate(BaseModel):
+    keyword_set_id: str | None = None
+    keywords: list[str] | None = None
+    search_query: str | None = None
+    selected_source_keys: list[str] | None = None
+    accepted_limit: int = Field(default=25, ge=1, le=250)
+    inspected_cap: int | None = Field(default=None, ge=1, le=1000)
+    ai_filters_enabled: bool = False
+    ai_filter_settings: AIFilterSettings = Field(default_factory=AIFilterSettings)
+
+
+class CuratedCareerSource(BaseModel):
+    key: str
+    name: str
+    domain: str
+    active: bool = True
+    search_hint: str | None = None
+
+
 class JobSearchRun(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    search_kind: JobSearchKind = JobSearchKind.LINKEDIN
     status: JobSearchRunStatus
     keyword_set_id: str | None = None
     requested_keywords: list[str]
@@ -212,10 +242,16 @@ class JobSearchRun(BaseModel):
     search_sort_order: SearchSortOrder = SearchSortOrder.RECENT
     hiring_intent_terms: list[str] = Field(default_factory=list)
     collection_source_types: list[str] = Field(default_factory=list)
+    selected_source_keys: list[str] = Field(default_factory=list)
+    source_diagnostics: dict[str, object] = Field(default_factory=dict)
     collection_inputs: list[LinkedInCollectionInputRead] = Field(default_factory=list)
     provided_source_count: int = 0
     source_name: str
     candidate_limit: int | None
+    accepted_limit: int | None = None
+    inspected_cap: int | None = None
+    stop_reason: str | None = None
+    provider_metadata: dict[str, object] = Field(default_factory=dict)
     inspected_count: int
     accepted_count: int
     rejected_count: int
@@ -270,12 +306,20 @@ class JobSearchCandidate(BaseModel):
     provider_status: str | None = None
     provider_error_code: str | None = None
     poster_profile_url: str | None = None
+    application_url: str | None = None
+    application_kind: JobApplicationKind | None = None
+    selected_source_key: str | None = None
+    source_name: str | None = None
+    provider_metadata: dict[str, object] = Field(default_factory=dict)
+    external_job_id: str | None = None
     contact_priority: str | None = None
     source_url: str | None = None
     source_query: str
     source_evidence: str | None = None
     matched_keywords: list[str]
     review_profile: JobReviewProfile | None = None
+    ai_model_name: str | None = None
+    ai_prompt_version: str | None = None
     passes_ai_filter: bool | None = None
     ai_filter_status: AIFilterStatus = AIFilterStatus.SKIPPED
     ai_filter_reason: str | None = None

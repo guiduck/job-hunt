@@ -59,9 +59,9 @@ CONTACT_INVITATION_PATTERNS = [
 ]
 CONTACT_INVITATION_RES = [re.compile(pattern, re.IGNORECASE) for pattern in CONTACT_INVITATION_PATTERNS]
 POSTER_NAME_PATTERNS = [
-    re.compile(r"^Publicacao no feed\s+(.+?)(?:\s+-\s+|\s+\d|\s*$)", re.IGNORECASE),
-    re.compile(r"^Publica(?:ç|c)[aã]o no feed\s+(.+?)(?:\s+•|\s+\d|\s*$)", re.IGNORECASE),
-    re.compile(r"^Publica(?:Ã§|c)[aÃ£]o no feed\s+(.+?)(?:\s+â€¢|\s+\d|\s*$)", re.IGNORECASE),
+    re.compile(r"^Publicacao no feed\s*(.+?)(?:\s+-\s+|\s+Seguir\b|\s+Follow\b|\s+\d|\s*$)", re.IGNORECASE),
+    re.compile(r"^Publica(?:ç|c)[aã]o no feed\s*(.+?)(?:\s+[-•]|\s+Seguir\b|\s+Follow\b|\s+\d|\s*$)", re.IGNORECASE),
+    re.compile(r"^Publica(?:Ã§|c)[aÃ£]o no feed\s*(.+?)(?:\s+[-â€¢]|\s+Seguir\b|\s+Follow\b|\s+\d|\s*$)", re.IGNORECASE),
 ]
 
 

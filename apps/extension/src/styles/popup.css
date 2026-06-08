@@ -664,25 +664,30 @@ a {
 
 .assistant-site-list {
   display: grid;
-  gap: 14px;
+  gap: 0;
   margin: 0;
   padding: 0;
+  border-block: 1px solid rgba(255, 255, 255, 0.08);
   list-style: none;
 }
 
 .assistant-site-card {
-  display: grid;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.045);
-  padding: 10px 12px;
+  display: block;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+}
+
+.assistant-site-card:last-child {
+  border-bottom: 0;
 }
 
 .assistant-site-main {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
+  min-height: 34px;
+  padding: 6px 2px 6px 0;
 }
 
 .assistant-site-main strong {
@@ -698,16 +703,16 @@ a {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: rgba(255, 102, 120, 0.12);
-  color: #ffb3bb;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #c7d2fe;
 }
 
 .assistant-remove-button svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   fill: currentColor;
 }
 
@@ -839,6 +844,44 @@ a {
 
 .checkbox-grid input {
   width: auto;
+}
+
+.source-checkbox-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.source-checkbox-grid label {
+  align-items: center;
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 8px;
+}
+
+.source-checkbox-grid input {
+  width: auto;
+}
+
+.section-heading-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.latest-search-label {
+  color: #aab4cc;
+  font-size: 11px;
+  text-align: right;
+}
+
+.search-section--career {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 14px;
+  padding-top: 14px;
 }
 
 .form-stack {
@@ -1337,6 +1380,35 @@ a {
 .filters {
   display: grid;
   gap: 8px;
+}
+
+.jobs-lane-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 2px 0 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.jobs-lane-tabs button {
+  min-height: 42px;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: #9ca8c2;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.jobs-lane-tabs button[aria-selected="true"] {
+  border-bottom-color: #86a0ff;
+  background: linear-gradient(180deg, rgba(91, 124, 250, 0.14), rgba(91, 124, 250, 0.04));
+  color: #ffffff;
+}
+
+.jobs-lane-tabs button:hover {
+  background: rgba(255, 255, 255, 0.055);
+  color: #eef3ff;
 }
 
 .filter-tabs {

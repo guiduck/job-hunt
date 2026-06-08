@@ -1,61 +1,60 @@
 ## Command
-speckit.plan
+speckit.implement
 
 ## Objective
-Planejar a implementacao de `specs/013-serpapi-career-search/spec.md`: busca de vagas em career
-pages/ATS curados sem exigir nome de empresa, separacao de vagas com email e candidaturas externas,
-avaliacao por IA e aplicacao manual por URL.
+Implement User Story 2 from `specs/014-freelance-web-app/tasks.md`: discover and classify local businesses from a campaign using the mock provider path.
 
-## Source Request
-O usuario quer expandir o modo `Full-time` com um botao abaixo da busca LinkedIn para procurar vagas
-externas em sites curados usando a chave de busca ja configurada no projeto. A busca deve aceitar
-keywords como `react frontend remoto`, permitir marcar/desmarcar fontes, nao exigir empresa/board/tenant
-do operador e salvar vagas sem email como candidaturas externas com URL oficial para aplicar.
+## Context
+- `/speckit-implement` completed Phase 1, Phase 2, and US1 for feature `014`.
+- `.specify/feature.json` points to `specs/014-freelance-web-app`.
+- Completed tasks: T001-T062.
+- Next tasks: T063-T091.
+- The active artifacts are:
+  - `specs/014-freelance-web-app/spec.md`
+  - `specs/014-freelance-web-app/plan.md`
+  - `specs/014-freelance-web-app/research.md`
+  - `specs/014-freelance-web-app/data-model.md`
+  - `specs/014-freelance-web-app/quickstart.md`
+  - `specs/014-freelance-web-app/contracts/openapi.yaml`
+  - `specs/014-freelance-web-app/contracts/web-ui.md`
+  - `specs/014-freelance-web-app/contracts/provider-payloads.md`
+  - `specs/014-freelance-web-app/tasks.md`
 
-## Project Context
-- Stack: FastAPI, PostgreSQL, worker separado, extensao Plasmo/React.
-- Modo prioritario: `job` / Full-time.
-- LinkedIn continua como captura assistida pelo usuario e usa scroll/captura propria.
-- Career-page search nao usa `max scrolls`; usa apenas keywords, fontes selecionadas e numero maximo
-  de oportunidades.
-- O spike antigo de fonte externa com descoberta de email foi descartado; esta feature nao retoma esse
-  objetivo.
-- Nova direcao: encontrar URLs oficiais de candidatura simples, avaliar aderencia com IA, separar
-  revisao de vagas com email e vagas externas.
-- Preservar: ownership por usuario, source_query/source_url/source_evidence, dedupe, filtros atuais,
-  envio Gmail apenas para vagas com email, AI field assistant backend-only.
+## Implementation Direction To Preserve
+- Build a new internal `apps/web` Freelance app with `Next.js`, `shadcn/ui`, `Zod`, `Zustand`,
+  `Prisma`, `PostgreSQL`, local Docker Compose and future VPS-compatible deploy.
+- Keep existing `apps/api`, `apps/worker` and `apps/extension` focused on `Full-time`; do not mix
+  job/curriculum/candidature UI into Freelance.
+- Keep long-running discovery and lightweight website analysis in a separate `apps/web` worker
+  process, not in request handlers.
+- Use `freelance_maps_provider` with mock mode for local deterministic tests and a first real provider
+  adapter planned for Apify Google Maps Scraper or SerpApi Google Maps.
+- Seed the initial niche catalog from `references/opportunity-desk-pro/src/lib/mockData.ts`
+  (`NICHE_OPTIONS`), preserving conversion hints as editable estimates.
+- MVP is a full thin vertical slice: campaign creation, one prospecting job path, lightweight website
+  analysis, lead list/detail, Lovable prompt generation, commercial message generation and minimal
+  settings/templates.
+- Support BR and international campaign modes in the same flow.
+- Do not include CSV export/import by default.
+- Persist lead data and templates; generate prompts/messages on demand and save only the latest
+  generated text per lead, without version history.
+- Outreach remains human-gated: copy/open/review only, no automatic email or WhatsApp sending.
 
-## Requirements
-- Criar plano para uma busca de career pages curadas via provider de busca configurado no backend.
-- Fontes ativas iniciais: InHire, Ashby, Lever, Greenhouse, SmartRecruiters, Trampos e Catho.
-- Fontes brasileiras futuras devem ficar comentadas/documentadas para pesquisa: Programathor, Remotar,
-  GeekHunter, Vagas.com.br e InfoJobs.
-- Search UI deve ter botao separado para career-page search e checkboxes de fontes.
-- Jobs UI deve separar `With email` e `External applications`.
-- Cards de vagas externas devem reaproveitar a mesma estrutura dos cards atuais quando houver dados.
-- Vagas externas devem ter uma unica acao primaria para abrir a URL da vaga/candidatura.
-- Selecao multipla em vagas externas deve existir apenas para deletar; nao abrir varias abas em massa.
-- Detalhe de vaga externa nao deve criar uma experiencia rica nova alem da descricao/evidencia.
-- Dashboard deve mostrar contagem de vagas com email e vagas externas ainda nao aplicadas.
-- Vagas externas devem poder ser marcadas manualmente como aplicadas.
-- IA avaliadora deve avaliar o payload/texto da vaga e registrar decisao, score/motivo e sinais.
-- O plano deve cobrir cache/rate limit/custo para nao gastar chamadas duplicadas sem necessidade.
-
-## Existing Artifact Considerations
-- `.specify/feature.json` aponta para `specs/013-serpapi-career-search`.
-- `docs/search-improvements.md`, `docs/roadmap.md` e `docs/handoff.md` ja registram a mudanca de
-  direcao.
-- A implementacao deve preservar contratos existentes sempre que possivel e fazer mudancas aditivas.
-- O proximo fechamento de implementacao deve atualizar docs, handoff, roadmap e este arquivo.
-
-## Risks / Assumptions
-- Risco principal: resultados de busca podem trazer paginas antigas ou nao serem paginas de vaga; o
-  plano deve incluir filtro de recencia, validacao de URL, dedupe e rejeicao segura.
-- Assumimos que a chave de busca existente fica no backend/worker e nao sera exposta na extensao.
-- Assumimos que aplicar em sites externos permanece manual e apoiado pelo AI field assistant, sem
-  submissao automatica de formularios.
+## Implementation Expectations
+- Start from the US2 discovery/classification tasks T063-T091 in `tasks.md`.
+- Keep task completion markers accurate in `specs/014-freelance-web-app/tasks.md`.
+- Build on the existing `apps/web` setup, Prisma schema, seed data, validation, repositories,
+  provider interfaces, worker shell, layout shell, and working Campaigns UI/API.
+- Implement prospecting job routes/service, provider normalization, deterministic mock payloads,
+  dedupe/candidate rules, lightweight website analysis/classification/scoring, worker polling, saved
+  leads, campaign counters, campaign progress UI, and failure/no-results states.
+- Run focused validation: prospecting contract/unit/integration tests, `npm run typecheck`, `npm run
+  build`, and update quickstart notes for US2 if validated.
+- Do not implement automatic outreach, ATS scoring/resume generation, CSV import/export, public SaaS
+  features, team features, or `Full-time` extension changes.
+- Update docs, `docs/handoff.md`, `docs/roadmap.md`, and `docs/next-spec-prompt.md` before handoff.
 
 ## Expected Output
-- `plan.md` completo para a spec 013.
-- Artefatos de design necessarios: research, data-model, quickstart e contratos relevantes.
-- Evitar plano que dependa de empresa/board/tenant digitado pelo usuario como requisito central.
+- Implemented and checked-off tasks in `specs/014-freelance-web-app/tasks.md`.
+- Focused validation output or a clear note for anything that could not be run locally.
+- Updated operational docs and the next Spec Kit prompt.

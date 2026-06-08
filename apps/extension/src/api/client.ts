@@ -20,6 +20,8 @@ import type {
   GoogleOAuthStartResponse,
   GooglePrimaryAuthStartResponse,
   LoginRequest,
+  CareerPageSearchRunCreate,
+  CuratedCareerSource,
   JobSearchPreference,
   JobSearchPreferenceUpdate,
   JobSearchCandidate,
@@ -186,6 +188,7 @@ export async function listOpportunities(filters: OpportunityFilters = {}, option
   appendIfPresent(params, "sort_order", filters.sort_order)
   appendIfPresent(params, "provider_status", filters.provider_status?.trim())
   appendIfPresent(params, "analysis_status", filters.analysis_status)
+  appendIfPresent(params, "job_application_kind", filters.job_application_kind)
 
   return request<Opportunity[]>(`/opportunities?${params.toString()}`, {}, options)
 }
@@ -201,6 +204,7 @@ export async function listOpportunityPage(filters: OpportunityFilters = {}, opti
   appendIfPresent(params, "sort_order", filters.sort_order)
   appendIfPresent(params, "provider_status", filters.provider_status?.trim())
   appendIfPresent(params, "analysis_status", filters.analysis_status)
+  appendIfPresent(params, "job_application_kind", filters.job_application_kind)
   appendIfPresent(params, "page", filters.page)
   appendIfPresent(params, "page_size", filters.page_size)
 
@@ -254,6 +258,14 @@ export function listJobSearchRuns(options?: RequestOptions) {
   return request<JobSearchRun[]>("/job-search-runs?limit=20", {}, options)
 }
 
+export function listCuratedCareerSources(options?: RequestOptions) {
+  return request<CuratedCareerSource[]>("/job-search/curated-sources", {}, options)
+}
+
+export function getLatestCareerPageRun(options?: RequestOptions) {
+  return request<JobSearchRun | null>("/job-search-runs/career-page/latest", {}, options)
+}
+
 export function getJobSearchRun(id: string, options?: RequestOptions) {
   return request<JobSearchRun>(`/job-search-runs/${id}`, {}, options)
 }
@@ -275,6 +287,21 @@ export function createAuthenticatedBrowserRun(payload: JobSearchRunCreate, optio
     },
     options
   )
+}
+
+export function createCareerPageRun(payload: CareerPageSearchRunCreate, options?: RequestOptions) {
+  return request<JobSearchRun>(
+    "/job-search-runs/career-page",
+    {
+      method: "POST",
+      body: JSON.stringify(payload)
+    },
+    options
+  )
+}
+
+export function markOpportunityApplied(id: string, options?: RequestOptions) {
+  return request<Opportunity>(`/opportunities/${id}/mark-applied`, { method: "PATCH" }, options)
 }
 
 export function getUserSettings(options?: RequestOptions) {

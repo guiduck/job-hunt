@@ -166,3 +166,16 @@ Toda melhoria de busca precisa manter rastreabilidade suficiente para responder:
 - comparar qualidade entre queries
 - ajustar score com base em resultado real, nao em achismo
 - comparar resultados com e sem analise de IA antes de depender dela em producao
+
+## Career Pages E Lifecycle
+
+`013-serpapi-career-search` adiciona uma busca separada por career pages/ATS curados a partir do
+botao da tela Search. Cada clique cria uma run nova no banco; nao ha cache de provider substituindo a
+busca. A run persiste diagnosticos por fonte, limite de vagas aceitas e teto de candidatos
+inspecionados para controlar custo.
+
+Vagas com email capturado continuam no fluxo `With email`. Vagas sem email mas com URL oficial de
+candidatura ficam em `External applications` para aplicacao manual. Como planejamento operacional,
+vagas de LinkedIn e career pages devem ter vida util aproximada de 1 mes apos captura, mas esta feature
+nao executa limpeza destrutiva automatica. Qualquer arquivamento/retencao deve preservar historico de
+envio, aplicacao e oportunidades com eventos.

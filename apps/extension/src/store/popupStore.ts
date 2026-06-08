@@ -7,11 +7,13 @@ import {
   bulkDeleteOpportunities,
   confirmPasswordReset,
   createEmailDraft,
+  createCareerPageRun,
   deleteSavedSearchKeyword as apiDeleteSavedSearchKeyword,
   deleteFieldAssistantActivation as apiDeleteFieldAssistantActivation,
   disconnectGoogleOAuth,
   getCurrentUser,
   getJobSearchPreference,
+  getLatestCareerPageRun,
   getOpportunity,
   getOpportunityMetrics,
   getSendingProviderAccount,
@@ -21,6 +23,7 @@ import {
   login as apiLogin,
   listEmailHistory,
   listEmailTemplates,
+  listCuratedCareerSources,
   listJobSearchRuns,
   listOpportunityPage,
   listResumes,
@@ -39,6 +42,7 @@ import {
   updateUserSettings as apiUpdateUserSettings,
   uploadResume,
   updateOpportunity,
+  markOpportunityApplied,
   deleteOpportunity as apiDeleteOpportunity
 } from "../api/client"
 import type {
@@ -49,7 +53,10 @@ import type {
   CurrentUser,
   FieldAssistantActivation,
   FieldAssistantScopeType,
+  CuratedCareerSource,
   JobSearchPreference,
+  JobSearchRun,
+  JobApplicationKind,
   JobStage,
   JobReviewStatus,
   Opportunity,
@@ -82,6 +89,10 @@ export const CAPTURE_DEFAULT_MAX_POSTS = 250
 export const CAPTURE_DEFAULT_MAX_SCROLLS = 75
 export const CAPTURE_MAX_POSTS = 1000
 export const CAPTURE_MAX_SCROLLS = 300
+export const CAREER_PAGE_DEFAULT_ACCEPTED_LIMIT = 25
+export const CAREER_PAGE_DEFAULT_INSPECTED_CAP = 200
+
+const CAREER_PAGE_BUSY_STATUSES = new Set(["pending", "running"])
 
 function clampNumber(value: number, min: number, max: number) {
   if (!Number.isFinite(value)) {
@@ -104,6 +115,13 @@ type PopupState = {
   opportunityHasNext: boolean
   opportunityHasPrevious: boolean
   runsCount: number
+  curatedCareerSources: CuratedCareerSource[]
+  selectedCareerSourceKeys: string[]
+  latestCareerPageRun: JobSearchRun | null
+  careerPageAcceptedLimit: number
+  careerPageInspectedCap: number
+  careerPagePolling: boolean
+  jobsLane: JobApplicationKind
   selectedOpportunity: Opportunity | null
   emailTemplates: EmailTemplate[]
   resumes: ResumeAttachment[]
@@ -145,6 +163,10 @@ type PopupState = {
   setSortMode: (sortMode: "recent" | "relevant") => void
   setMaxPosts: (maxPosts: number) => void
   setMaxScrolls: (maxScrolls: number) => void
+  setSelectedCareerSourceKeys: (selectedCareerSourceKeys: string[]) => void
+  setCareerPageAcceptedLimit: (careerPageAcceptedLimit: number) => void
+  setCareerPageInspectedCap: (careerPageInspectedCap: number) => void
+  setJobsLane: (jobsLane: JobApplicationKind) => Promise<void>
   setCaptureProgress: (captureProgress: CaptureProgress) => void
   setSelectedOpportunity: (selectedOpportunity: Opportunity | null) => void
   refreshSearchPreference: () => Promise<void>
@@ -160,9 +182,12 @@ type PopupState = {
   refreshData: (nextFilters?: OpportunityFilters) => Promise<void>
   updateFilters: (nextFilters: OpportunityFilters) => Promise<void>
   startCapture: () => Promise<void>
+  startCareerPageSearch: () => Promise<void>
+  refreshCareerPageSearch: () => Promise<void>
   openDetail: (opportunityId: string) => Promise<void>
   saveOpportunityUpdate: (payload: OpportunityUpdatePayload) => Promise<void>
   updateOpportunityStatus: (opportunityId: string, payload: OpportunityUpdatePayload) => Promise<void>
+  markApplied: (opportunityId: string) => Promise<void>
   deleteOpportunity: (opportunityId: string) => Promise<void>
   deleteOpportunities: (opportunityIds: string[]) => Promise<number>
   refreshEmailSetup: () => Promise<void>
@@ -200,7 +225,11 @@ const DEFAULT_DASHBOARD_METRICS: OpportunityMetrics = {
   saved: 0,
   applied: 0,
   interviews: 0,
-  unsent: 0
+  unsent: 0,
+  email_job_count: 0,
+  email_unsent_count: 0,
+  external_application_count: 0,
+  external_unapplied_count: 0
 }
 
 type PersistedPopupState = {
@@ -274,6 +303,22 @@ export function resolveOpportunityPageFilters(current: OpportunityFilters, next:
   }
 }
 
+export function opportunityFiltersForLane(jobsLane: JobApplicationKind, filters: OpportunityFilters): OpportunityFilters {
+  if (jobsLane === "external_application") {
+    const { contact_available: _contactAvailable, send_status: _sendStatus, ...externalFilters } = filters
+    return {
+      ...externalFilters,
+      job_application_kind: "external_application"
+    }
+  }
+
+  return {
+    ...filters,
+    contact_available: true,
+    job_application_kind: "email"
+  }
+}
+
 async function persistAuthSession(session: AuthSessionResponse) {
   setApiAccessToken(session.access_token)
   await saveStoredAuthSession({ accessToken: session.access_token, user: session.user })
@@ -302,6 +347,17 @@ const persistedPopupState = loadPersistedPopupState()
 const persistedFilters = persistedPopupState.filters
   ? { ...persistedPopupState.filters, review_status: "" as const }
   : undefined
+const persistedJobsLane: JobApplicationKind =
+  persistedFilters?.job_application_kind === "external_application" ? "external_application" : "email"
+const defaultOpportunityFilters: OpportunityFilters = {
+  contact_available: true,
+  job_application_kind: "email",
+  min_score: 0,
+  sort_order: "newest",
+  page: 1,
+  page_size: 50
+}
+const initialOpportunityFilters = opportunityFiltersForLane(persistedJobsLane, persistedFilters || defaultOpportunityFilters)
 
 export const usePopupStore = create<PopupState>((set, get) => ({
   activeTab: persistedPopupState.activeTab || "dashboard",
@@ -316,6 +372,13 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   opportunityHasNext: false,
   opportunityHasPrevious: false,
   runsCount: 0,
+  curatedCareerSources: [],
+  selectedCareerSourceKeys: [],
+  latestCareerPageRun: null,
+  careerPageAcceptedLimit: CAREER_PAGE_DEFAULT_ACCEPTED_LIMIT,
+  careerPageInspectedCap: CAREER_PAGE_DEFAULT_INSPECTED_CAP,
+  careerPagePolling: false,
+  jobsLane: persistedJobsLane,
   selectedOpportunity: null,
   emailTemplates: [],
   resumes: [],
@@ -342,13 +405,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   sortMode: "recent",
   maxPosts: CAPTURE_DEFAULT_MAX_POSTS,
   maxScrolls: CAPTURE_DEFAULT_MAX_SCROLLS,
-  filters: persistedFilters || {
-    contact_available: true,
-    min_score: 0,
-    sort_order: "newest",
-    page: 1,
-    page_size: 50
-  },
+  filters: initialOpportunityFilters,
 
   clearError: () => set({ error: null }),
 
@@ -374,6 +431,17 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   setSortMode: (sortMode) => set({ sortMode }),
   setMaxPosts: (maxPosts) => set({ maxPosts: clampNumber(maxPosts, 1, CAPTURE_MAX_POSTS) }),
   setMaxScrolls: (maxScrolls) => set({ maxScrolls: clampNumber(maxScrolls, 0, CAPTURE_MAX_SCROLLS) }),
+  setSelectedCareerSourceKeys: (selectedCareerSourceKeys) => set({ selectedCareerSourceKeys }),
+  setCareerPageAcceptedLimit: (careerPageAcceptedLimit) =>
+    set({ careerPageAcceptedLimit: clampNumber(careerPageAcceptedLimit, 1, 250) }),
+  setCareerPageInspectedCap: (careerPageInspectedCap) =>
+    set({ careerPageInspectedCap: clampNumber(careerPageInspectedCap, 1, 1000) }),
+  setJobsLane: async (jobsLane) => {
+    const laneFilters = opportunityFiltersForLane(jobsLane, { ...get().filters, page: 1 })
+    persistPopupState({ filters: laneFilters, selectedJobIds: [], showBulkEmail: false })
+    set({ jobsLane, filters: laneFilters, selectedJobIds: [], showBulkEmail: false })
+    await get().refreshData(laneFilters)
+  },
   setCaptureProgress: (captureProgress) => {
     persistPopupState({ captureProgress })
     set({ captureProgress })
@@ -575,12 +643,21 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     console.info("[Opportunity Desk] refreshData started", { filters: nextFilters })
     set({ loading: true, error: null })
     try {
-      const pageFilters = { ...nextFilters, page: nextFilters.page || 1, page_size: nextFilters.page_size || 50 }
-      const [opportunityPage, runs, dashboardMetrics] = await Promise.all([
+      const laneFilters = opportunityFiltersForLane(get().jobsLane, nextFilters)
+      const pageFilters = { ...laneFilters, page: laneFilters.page || 1, page_size: laneFilters.page_size || 50 }
+      const [opportunityPage, runs, dashboardMetrics, curatedCareerSources, latestCareerPageRun] = await Promise.all([
         listOpportunityPage(pageFilters),
         listJobSearchRuns(),
-        getOpportunityMetrics()
+        getOpportunityMetrics(),
+        listCuratedCareerSources().catch(() => get().curatedCareerSources),
+        getLatestCareerPageRun().catch(() => get().latestCareerPageRun)
       ])
+      const currentSelectedCareerSourceKeys = get().selectedCareerSourceKeys
+      const shouldDefaultCareerSources = currentSelectedCareerSourceKeys.length === 0 && get().curatedCareerSources.length === 0
+      const activeCareerSourceKeys = new Set(curatedCareerSources.filter((source) => source.active).map((source) => source.key))
+      const selectedCareerSourceKeys = shouldDefaultCareerSources
+        ? Array.from(activeCareerSourceKeys)
+        : currentSelectedCareerSourceKeys.filter((key) => activeCareerSourceKeys.has(key))
       const visibleIds = new Set(opportunityPage.items.map((opportunity) => opportunity.id))
       const selectedJobIds = get().selectedJobIds.filter((id) => visibleIds.has(id))
       persistPopupState({ selectedJobIds, filters: { ...pageFilters, page: opportunityPage.page, page_size: opportunityPage.page_size } })
@@ -594,6 +671,10 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         opportunityHasNext: opportunityPage.has_next,
         opportunityHasPrevious: opportunityPage.has_previous,
         selectedJobIds,
+        curatedCareerSources,
+        selectedCareerSourceKeys,
+        latestCareerPageRun,
+        careerPagePolling: Boolean(latestCareerPageRun && CAREER_PAGE_BUSY_STATUSES.has(latestCareerPageRun.status)),
         filters: { ...pageFilters, page: opportunityPage.page, page_size: opportunityPage.page_size },
         runsCount: runs.length
       })
@@ -778,7 +859,8 @@ export const usePopupStore = create<PopupState>((set, get) => ({
 
   updateFilters: async (nextFilters) => {
     const currentFilters = get().filters
-    const pageScopedFilters = resolveOpportunityPageFilters(currentFilters, nextFilters)
+    const laneFilters = opportunityFiltersForLane(get().jobsLane, nextFilters)
+    const pageScopedFilters = resolveOpportunityPageFilters(currentFilters, laneFilters)
     persistPopupState({ filters: pageScopedFilters, selectedJobIds: [] })
     set({ filters: pageScopedFilters, selectedJobIds: [] })
     await get().refreshData(pageScopedFilters)
@@ -844,6 +926,71 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     }
   },
 
+  refreshCareerPageSearch: async () => {
+    try {
+      const [curatedCareerSources, latestCareerPageRun] = await Promise.all([
+        listCuratedCareerSources(),
+        getLatestCareerPageRun()
+      ])
+      const currentSelectedCareerSourceKeys = get().selectedCareerSourceKeys
+      const shouldDefaultCareerSources = currentSelectedCareerSourceKeys.length === 0 && get().curatedCareerSources.length === 0
+      const activeCareerSourceKeys = new Set(curatedCareerSources.filter((source) => source.active).map((source) => source.key))
+      const selectedCareerSourceKeys = shouldDefaultCareerSources
+        ? Array.from(activeCareerSourceKeys)
+        : currentSelectedCareerSourceKeys.filter((key) => activeCareerSourceKeys.has(key))
+      set({ curatedCareerSources, selectedCareerSourceKeys, latestCareerPageRun })
+    } catch (error) {
+      set({ error: errorMessage(error, "Could not load career-page search state.") })
+    }
+  },
+
+  startCareerPageSearch: async () => {
+    const {
+      keywords,
+      selectedCareerSourceKeys,
+      careerPageAcceptedLimit,
+      careerPageInspectedCap,
+      aiFiltersEnabled,
+      acceptedRegions,
+      excludedRegions,
+      remoteOnly,
+      excludeOnsite,
+      latestCareerPageRun
+    } = get()
+    if (latestCareerPageRun && CAREER_PAGE_BUSY_STATUSES.has(latestCareerPageRun.status)) {
+      return
+    }
+    set({ loading: true, error: null })
+    try {
+      if (selectedCareerSourceKeys.length === 0) {
+        throw new Error("Select at least one career source before searching.")
+      }
+      const searchText = keywords.trim()
+      if (searchText) {
+        await updateJobSearchPreference({ search_text: searchText }).catch(() => undefined)
+      }
+      const run = await createCareerPageRun({
+        search_query: searchText || keywords,
+        selected_source_keys: selectedCareerSourceKeys,
+        accepted_limit: careerPageAcceptedLimit,
+        inspected_cap: careerPageInspectedCap,
+        ai_filters_enabled: aiFiltersEnabled,
+        ai_filter_settings: {
+          remote_only: remoteOnly,
+          exclude_onsite: excludeOnsite,
+          accepted_regions: acceptedRegions.split(",").map((value) => value.trim()).filter(Boolean),
+          excluded_regions: excludedRegions.split(",").map((value) => value.trim()).filter(Boolean)
+        }
+      })
+      set({ latestCareerPageRun: run, careerPagePolling: true })
+      window.setTimeout(() => void get().refreshData(), 4000)
+    } catch (error) {
+      set({ error: errorMessage(error, "Could not start career-page search.") })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
   openDetail: async (opportunityId) => {
     persistPopupState({ selectedOpportunityId: opportunityId })
     set({ loading: true, error: null })
@@ -888,6 +1035,23 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       await get().refreshData()
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Could not update job status." })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  markApplied: async (opportunityId) => {
+    set({ loading: true, error: null })
+    try {
+      const updated = await markOpportunityApplied(opportunityId)
+      const { selectedOpportunity } = get()
+      set({
+        selectedOpportunity: selectedOpportunity?.id === opportunityId ? updated : selectedOpportunity,
+        opportunities: get().opportunities.map((opportunity) => (opportunity.id === opportunityId ? updated : opportunity))
+      })
+      await get().refreshData()
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Could not mark job applied." })
     } finally {
       set({ loading: false })
     }

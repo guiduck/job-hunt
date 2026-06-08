@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     linkedin_browser_collector_script_path: str | None = None
     linkedin_browser_collector_api_base: str = "http://localhost:8000"
     linkedin_browser_collector_log_dir: str | None = None
+    career_page_search_provider: str = "serpapi"
+    serpapi_api_key: str | None = None
+    career_page_default_accepted_limit: int = 25
+    career_page_default_inspected_cap: int = 200
 
     model_config = SettingsConfigDict(env_file=(".env", ".env.local"), extra="ignore")
 

@@ -10,6 +10,8 @@ A base atual do projeto deve permanecer simples e compativel com o `constitution
 - worker separado para jobs demorados
 - extensao Chrome/Plasmo como primeira interface operacional local
 - content scripts da extensao para overlays assistivos em paginas externas de candidatura
+- `Next.js` + `shadcn/ui` + `Zod` + `Zustand` + `Prisma` como stack planejada para o app web
+  `Freelance`
 
 ## Objetivo arquitetural
 
@@ -54,6 +56,7 @@ Responsavel por processamento assincrono:
 - analise opcional com IA sobre texto publico ja coletado
 - preparacao e envio controlado de email via provider configurado
 - futuras buscas freelance por Google Maps/nicho/localidade
+- criacao de campanhas freelance, busca local realista, analise de sites e geracao de prompts Lovable
 
 Toda logica longa ou sujeita a retries deve ficar aqui.
 
@@ -134,28 +137,63 @@ O `client secret` do OAuth e configuracao do app Google e deve vir de `GMAIL_OAU
 em secrets do ambiente ou de `GMAIL_OAUTH_CLIENT_SECRETS_FILE` em desenvolvimento local. O token
 OAuth gerado apos consentimento e dado operacional e fica no banco.
 
-### Web futura
+### Web Freelance
 
-O projeto pode nascer sem frontend, mas uma interface simples passa a fazer sentido cedo quando
-voce quiser:
+O modo `Freelance` agora deve nascer como app web interno separado da extensao `Full-time`.
 
-- separar `freelance` e `job` por abas ou filtros
-- mudar `lead_temperature` e `crm_stage` por clique
-- acompanhar `job_stage`, resposta e entrevista
-- revisar oportunidade antes de outreach
-- operar campanhas, templates, anexos e prompts
+Stack decidida:
 
-Quando isso acontecer, `Next.js` continua sendo uma opcao coerente para painel interno. A web deve
-reusar os mesmos contratos da extensao em vez de criar um backend paralelo.
+- `Next.js` para a UI e rotas web
+- `shadcn/ui` para componentes acessiveis e consistentes com o prototipo operacional
+- `Zod` para validacao de formularios, payloads de actions/API e schemas derivados de provider
+- `Zustand` para estado de UI local, filtros, selecao, progresso de jobs e preferencias do painel
+- `Prisma` para modelagem/migrations do app web
+- `PostgreSQL` em Docker Compose no desenvolvimento local
+- deploy futuro em VPS, com Postgres gerenciado ou containerizado conforme operacao
 
-Os referenciais visuais atuais sugerem uma web com modulos como:
+O app deve operar:
 
 - `Dashboard`
 - `Campanhas`
 - `Leads`
 - `Templates`
 - `Configuracoes`
-- areas auxiliares de feedback, discussoes, comunidade e changelog
+
+Ele deve seguir o prototipo em `references/opportunity-desk-pro` e os requisitos de
+`docs/reference-ui.md`, mas escopado ao fluxo freelance: nicho/localidade, analise de site, score,
+demo URL, prompt Lovable, mensagens comerciais e status comercial.
+
+Os nichos iniciais nao devem ser inventados durante a implementacao. Use a lista ja registrada em
+`references/opportunity-desk-pro/src/lib/mockData.ts` (`NICHE_OPTIONS`) e refletida em
+`docs/reference-ui.md` como seed/configuracao inicial do app. O schema deve permitir adicionar,
+desativar ou ajustar nichos depois sem alterar codigo.
+
+### Descoberta freelance e analise de site
+
+Para identificar negocios que um usuario real encontraria ao buscar por "clinica de estetica",
+"igreja", "clinica ortodontica" ou nichos equivalentes, o provider principal deve reproduzir a busca
+local do Google/Google Maps por query e localidade. A preferencia inicial e usar um provider externo
+como Apify Google Maps Scraper ou SerpApi Google Maps, atras de uma interface propria
+`freelance_maps_provider`, em vez de acoplar o produto diretamente a Playwright.
+
+Racional:
+
+- Google Places oficial e estavel, mas tem termos restritivos para salvar/copiar dados de Maps e pode
+  nao reproduzir tao bem a experiencia de busca local orgânica do usuario final.
+- Apify/SerpApi entregam resultados parecidos com a SERP/Maps real, com nome, telefone, website,
+  rating, reviews, endereco, source URL e place ids.
+- Playwright pode existir como spike/fallback de validacao, mas nao deve ser a primeira dependencia
+  de produto porque tende a exigir manutencao de DOM, sessao, captcha e proxy.
+
+Apos coletar o candidato, a avaliacao do site deve ser nossa:
+
+- baixar HTML da `website_url`, quando existir
+- detectar se o site e rede social, Linktree, agregador, pagina quebrada ou site proprio
+- coletar title, meta description, headings, CTAs, telefones, WhatsApp, formularios, HTTPS, tamanho,
+  scripts, imagens sem alt e sinais basicos de SEO
+- medir performance com fetch/headless/lighthouse-like quando viavel
+- calcular score de conteudo, design, performance e SEO
+- salvar evidencia e motivo de classificacao para revisao humana
 
 ## Fronteiras importantes
 
@@ -178,6 +216,9 @@ Os referenciais visuais atuais sugerem uma web com modulos como:
 
 - API recebe comandos, consulta dados e registra decisoes do operador
 - worker executa captura, enriquecimento, deduplicacao e jobs pesados
+- busca em career pages/ATS curados e worker-owned: a API cria runs `search_kind=career_page`, guarda
+  fontes selecionadas e expoe status; o worker usa secrets backend-only do provider, executa queries,
+  normaliza resultados, deduplica e persiste oportunidades
 
 ### Dados operacionais x dados tecnicos
 
@@ -217,7 +258,7 @@ apps/
   api/
   worker/
   extension/    # Plasmo, interface local-first para captura/revisao/outreach
-  web/          # opcional, entra quando a operacao manual justificar
+  web/          # Next.js/Prisma, proximo app interno para Freelance
 docs/
 docker-compose.yml
 ```
@@ -235,7 +276,7 @@ docker-compose.yml
 - `Render` para API
 - `Render` para worker
 - `Render Postgres` para banco
-- `Vercel` para a web, se existir
+- VPS para o app web `Freelance` quando sair do local; Vercel segue opcional se fizer sentido depois
 - Chrome Web Store ou distribuicao manual para a extensao, quando a API remota existir
 - secrets do ambiente para OAuth, database e provider config; nao copiar `.local/` como estrategia de
   deploy

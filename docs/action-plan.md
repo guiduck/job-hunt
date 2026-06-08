@@ -194,14 +194,23 @@ Adicionar depois:
 
 Esses eventos precisam retroalimentar o CRM e a avaliacao da qualidade das buscas por emprego.
 
-### 7. Bot freelance
+### 7. App web freelance
 
-Depois que o fluxo de empregos estiver util:
+Depois que o fluxo de empregos estiver util, iniciar um produto separado para prospeccao freelance.
 
-- buscar empresas por nicho e localidade, com Google Maps como primeira fonte planejada
+- criar app web interno em `Next.js` + `shadcn/ui` + `Zod` + `Zustand` + `Prisma`
+- rodar `PostgreSQL` no Docker Compose local
+- preparar deploy futuro em VPS
+- carregar os nichos iniciais das referencias ja registradas, especialmente `NICHE_OPTIONS` em
+  `references/opportunity-desk-pro/src/lib/mockData.ts`
+- buscar empresas por nicho e localidade usando busca local realista do Google/Google Maps
+- preferir provider externo como Apify Google Maps Scraper ou SerpApi Google Maps, atras de interface
+  propria, para reproduzir melhor o que usuarios reais encontrariam
+- manter Playwright apenas como fallback/spike de validacao, nao como dependencia principal inicial
 - detectar ausencia ou fraqueza de website
 - detectar negocios que usam Facebook/Instagram como website
 - capturar telefone, nota Google, reviews, endereco e URL de origem
+- baixar HTML do site quando existir e avaliar conteudo, design, performance e SEO
 - salvar leads freelance
 - gerar demo ou prompt `Lovable`
 - usar templates de prospeccao
@@ -224,8 +233,9 @@ Se a meta for validar valor rapido, a melhor sequencia continua sendo:
 4. painel simples para revisar vagas
 5. envio real individual ou em massa de emails com curriculo
 6. login de usuario, ownership dos dados e prontidao de deploy/configuracao para sair do local
-7. hardening operacional do MVP `Full-time` antes de abrir produto novo
-8. bot freelance Google Maps com prompts Lovable
+7. smoke final de candidaturas externas do `Full-time` e registro de ajustes
+8. app web freelance com stack Next/shadcn/Zod/Zustand/Prisma/Postgres, Google Maps/local search,
+   analise de site e prompts Lovable
 
 Esse e o primeiro ponto em que o sistema deixa de ser apenas um scraper e vira uma ferramenta de
 operacao.

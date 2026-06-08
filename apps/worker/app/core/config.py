@@ -28,6 +28,12 @@ class WorkerSettings(BaseSettings):
     gmail_oauth_token_file: str | None = None
     gmail_oauth_scopes: str = "https://www.googleapis.com/auth/gmail.send"
     gmail_oauth_redirect_uri: str = "http://localhost:8000/sending/google-oauth/callback"
+    career_page_search_provider: str = "serpapi"
+    serpapi_api_key: str | None = None
+    career_page_default_accepted_limit: int = 25
+    career_page_default_inspected_cap: int = 200
+    career_page_request_timeout_seconds: float = 20.0
+    career_page_result_max_age_days: int = 31
 
     model_config = SettingsConfigDict(env_file=(".env", ".env.local"), extra="ignore")
 

@@ -166,6 +166,29 @@ Campos recomendados:
 Campanhas devem ser escopadas por modo. Uma campanha `job` nao deve conter leads `freelance`, e uma
 campanha `freelance` nao deve conter vagas.
 
+### `freelance_niches`
+
+Catalogo inicial de nichos para campanhas freelance.
+
+Campos recomendados:
+
+- `id`
+- `name`
+- `slug`
+- `market`: `br`, `international` ou `both`
+- `conversion_hint`
+- `default_query_terms`
+- `enabled`
+- `sort_order`
+- `created_at`
+- `updated_at`
+
+Seed inicial:
+
+- usar `references/opportunity-desk-pro/src/lib/mockData.ts` (`NICHE_OPTIONS`) como fonte primaria
+- preservar os percentuais estimados como `conversion_hint`
+- permitir edicao/desativacao posterior sem remover historico de campanhas antigas
+
 ### `message_templates`
 
 Templates reutilizaveis para outreach por contexto.
@@ -445,6 +468,12 @@ Quando o modo `Freelance` implementar descoberta por Google Maps, os registros d
 - `website_status`: sem site, rede social como site, site fraco, site bom ou incerto
 - sinais do problema: sem HTTPS, nao responsivo, lento, antigo, sem CTA, apenas Facebook/Instagram
 - concorrente de referencia, quando usado no argumento comercial
+- provider usado para coleta (`apify_google_maps`, `serpapi_google_maps`, `manual` ou fallback futuro)
+- place id/data id/CID quando disponivel
+- HTML/site analysis snapshot resumido, sem depender de recarregar o site para cada revisao
+- scores separados para conteudo, design, performance e SEO
+- evidencia textual da classificacao, por exemplo "usa Linktree", "sem meta description",
+  "homepage sem CTA", "site inacessivel" ou "mobile ruim"
 
 ## Enums recomendados
 
@@ -486,6 +515,20 @@ Estados especificos para o fluxo de emprego:
 - `interview`
 - `rejected`
 - `ignored`
+
+### `job_application_kind`
+
+Classificacao derivada para vagas `job`:
+
+- `email`: ha email sanitizado utilizavel; a vaga aparece em `With email` e pode entrar no fluxo
+  Gmail/bulk email existente
+- `external_application`: nao ha email utilizavel, mas ha `application_url`; a vaga aparece em
+  `External applications`, permite abrir uma URL por vez e pode ser marcada manualmente como
+  `job_stage=applied`
+
+Career-page candidates registram `search_kind=career_page`, fonte curada selecionada, query, URL de
+origem, apply URL, diagnosticos do provider e motivo de rejeicao quando aplicavel. A aplicacao manual
+nao cria `send_requests`, `email_drafts` ou `outreach_events`.
 
 ### `message_template_kind`
 

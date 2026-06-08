@@ -13,7 +13,6 @@ alwaysApply: true
 - At the end of every implementation, update all affected documentation plus `docs/handoff.md` and `docs/roadmap.md`, and prepare the next Spec Kit `/speckit-specify` prompt in `docs/next-spec-prompt.md`. Do this before reporting the implementation as complete.
 
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan:
-`specs/011-saved-search-keywords/plan.md`
+For additional context about the active Spec Kit implementation task list, read:
+`specs/014-freelance-web-app/tasks.md`
 <!-- SPECKIT END -->

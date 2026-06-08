@@ -1,0 +1,57 @@
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class CareerPageSource:
+    key: str
+    name: str
+    domain: str
+    active: bool = True
+    search_hint: str | None = None
+
+
+CURATED_CAREER_SOURCES: tuple[CareerPageSource, ...] = (
+    CareerPageSource("inhire", "InHire", "inhire.app"),
+    CareerPageSource("ashby", "Ashby", "jobs.ashbyhq.com"),
+    CareerPageSource("lever", "Lever", "jobs.lever.co"),
+    CareerPageSource("greenhouse", "Greenhouse", "boards.greenhouse.io"),
+    CareerPageSource("smartrecruiters", "SmartRecruiters", "jobs.smartrecruiters.com"),
+    CareerPageSource("trampos", "Trampos", "trampos.co"),
+    CareerPageSource("catho", "Catho", "catho.com.br"),
+)
+
+
+def list_curated_career_sources() -> list[dict[str, object]]:
+    return [
+        {
+            "key": source.key,
+            "name": source.name,
+            "domain": source.domain,
+            "active": source.active,
+            "search_hint": source.search_hint,
+        }
+        for source in CURATED_CAREER_SOURCES
+    ]
+
+
+def active_source_keys() -> list[str]:
+    return [source.key for source in CURATED_CAREER_SOURCES if source.active]
+
+
+def validate_source_keys(source_keys: list[str] | None) -> list[str]:
+    requested = source_keys or active_source_keys()
+    known = {source.key for source in CURATED_CAREER_SOURCES}
+    unknown = [key for key in requested if key not in known]
+    if unknown:
+        raise ValueError(f"Unknown curated source(s): {', '.join(unknown)}")
+    active = {source.key for source in CURATED_CAREER_SOURCES if source.active}
+    inactive = [key for key in requested if key not in active]
+    if inactive:
+        raise ValueError(f"Inactive curated source(s): {', '.join(inactive)}")
+    deduped: list[str] = []
+    for key in requested:
+        if key not in deduped:
+            deduped.append(key)
+    if not deduped:
+        raise ValueError("At least one curated source is required")
+    return deduped

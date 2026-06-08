@@ -63,11 +63,17 @@ class SearchSortOrder(StrEnum):
     RELEVANT = "relevant"
 
 
+class JobSearchKind(StrEnum):
+    LINKEDIN = "linkedin"
+    CAREER_PAGE = "career_page"
+
+
 class JobSearchRun(Base):
     __tablename__ = "job_search_runs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), default=DEFAULT_LOCAL_USER_ID, nullable=False, index=True)
+    search_kind: Mapped[str] = mapped_column(String(50), default=JobSearchKind.LINKEDIN.value, nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(50), default=JobSearchRunStatus.PENDING.value, nullable=False)
     keyword_set_id: Mapped[str | None] = mapped_column(ForeignKey("keyword_sets.id"))
     requested_keywords: Mapped[list[str]] = mapped_column(JSON, nullable=False)
@@ -75,9 +81,15 @@ class JobSearchRun(Base):
     search_sort_order: Mapped[str] = mapped_column(String(20), default=SearchSortOrder.RECENT.value, nullable=False)
     hiring_intent_terms: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     collection_source_types: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    selected_source_keys: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    source_diagnostics: Mapped[dict[str, object]] = mapped_column(JSON, default=dict, nullable=False)
     provided_source_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     source_name: Mapped[str] = mapped_column(String(100), default="LinkedIn", nullable=False)
     candidate_limit: Mapped[int | None] = mapped_column(Integer)
+    accepted_limit: Mapped[int | None] = mapped_column(Integer)
+    inspected_cap: Mapped[int | None] = mapped_column(Integer)
+    stop_reason: Mapped[str | None] = mapped_column(String(100))
+    provider_metadata: Mapped[dict[str, object]] = mapped_column(JSON, default=dict, nullable=False)
     inspected_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     accepted_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     rejected_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -162,6 +174,12 @@ class JobSearchCandidate(Base):
     provider_status: Mapped[str | None] = mapped_column(String(50))
     provider_error_code: Mapped[str | None] = mapped_column(String(100))
     poster_profile_url: Mapped[str | None] = mapped_column(Text)
+    application_url: Mapped[str | None] = mapped_column(Text)
+    application_kind: Mapped[str | None] = mapped_column(String(50))
+    selected_source_key: Mapped[str | None] = mapped_column(String(100))
+    source_name: Mapped[str | None] = mapped_column(String(100))
+    provider_metadata: Mapped[dict[str, object]] = mapped_column(JSON, default=dict, nullable=False)
+    external_job_id: Mapped[str | None] = mapped_column(String(255))
     contact_priority: Mapped[str | None] = mapped_column(String(50))
     source_url: Mapped[str | None] = mapped_column(Text)
     source_query: Mapped[str] = mapped_column(Text, nullable=False)
