@@ -51,6 +51,7 @@ Thumbs.db
 .idea/
 
 *.sql
+*.dump
 !apps/web/prisma/migrations/**/migration.sql
 .env
 .env.local

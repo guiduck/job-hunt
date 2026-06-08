@@ -59,6 +59,24 @@ docker compose up -d --build
 
 Isso baixa/recria os containers necessarios e inicia tudo em segundo plano.
 
+## Bancos Separados
+
+O projeto roda dois bancos Postgres no Docker:
+
+- `postgres`: banco do fluxo full-time/API/worker, gerenciado por Alembic
+- `freelance-postgres`: banco do web app freelance, gerenciado por Prisma
+
+Nunca aponte o Prisma para o banco `postgres` da API. Nunca rode `prisma db push` no banco da API.
+O comando `prisma db push` pode apagar tabelas que nao existem no schema Prisma.
+
+Antes de migrations em producao, faca um backup:
+
+```bash
+mkdir -p /srv/backups/job-hunt
+docker compose exec -T postgres pg_dump -U ${POSTGRES_USER:-scrapper} -d ${POSTGRES_DB:-scrapper_freelance} -Fc > /srv/backups/job-hunt/api_before_deploy_$(date +%Y%m%d_%H%M%S).dump
+docker compose exec -T freelance-postgres pg_dump -U ${FREELANCE_POSTGRES_USER:-scrapper} -d ${FREELANCE_POSTGRES_DB:-freelance_app} -Fc > /srv/backups/job-hunt/freelance_before_deploy_$(date +%Y%m%d_%H%M%S).dump
+```
+
 ## Rodar Migrations
 
 ### API FastAPI
@@ -77,7 +95,7 @@ docker compose exec api alembic upgrade head
 
 ### Web Next.js / Prisma
 
-Para aplicar migrations do Prisma no banco da VPS:
+Para aplicar migrations do Prisma no banco freelance da VPS:
 
 ```bash
 docker compose exec web npx prisma migrate deploy
@@ -88,6 +106,8 @@ Para popular/atualizar seeds, como nichos e templates iniciais:
 ```bash
 docker compose exec web npm run prisma:seed
 ```
+
+Nao use `npx prisma db push` na VPS. Use apenas `migrate deploy`.
 
 ## Reiniciar Servicos
 

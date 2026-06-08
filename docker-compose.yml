@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-scrapper}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scrapper}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -49,7 +49,7 @@ services:
              alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "127.0.0.1:${API_PORT:-8000}:8000"
     healthcheck:
       test:
         [
@@ -110,7 +110,7 @@ services:
     volumes:
       - .:/app
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-scrapper}:${POSTGRES_PASSWORD:-scrapper}@postgres:5432/${POSTGRES_DB:-scrapper_freelance}
+      DATABASE_URL: postgresql://${FREELANCE_POSTGRES_USER:-scrapper}:${FREELANCE_POSTGRES_PASSWORD:-scrapper}@freelance-postgres:5432/${FREELANCE_POSTGRES_DB:-freelance_app}
       FREELANCE_MAPS_PROVIDER: ${FREELANCE_MAPS_PROVIDER:-mock}
       APIFY_TOKEN: ${APIFY_TOKEN:-}
       SERPAPI_API_KEY: ${SERPAPI_API_KEY:-}
@@ -123,7 +123,7 @@ services:
     ports:
       - "${WEB_PORT:-3000}:3000"
     depends_on:
-      postgres:
+      freelance-postgres:
         condition: service_healthy
 
   web-worker:
@@ -135,7 +135,7 @@ services:
     volumes:
       - .:/app
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-scrapper}:${POSTGRES_PASSWORD:-scrapper}@postgres:5432/${POSTGRES_DB:-scrapper_freelance}
+      DATABASE_URL: postgresql://${FREELANCE_POSTGRES_USER:-scrapper}:${FREELANCE_POSTGRES_PASSWORD:-scrapper}@freelance-postgres:5432/${FREELANCE_POSTGRES_DB:-freelance_app}
       FREELANCE_MAPS_PROVIDER: ${FREELANCE_MAPS_PROVIDER:-mock}
       APIFY_TOKEN: ${APIFY_TOKEN:-}
       SERPAPI_API_KEY: ${SERPAPI_API_KEY:-}
@@ -146,8 +146,28 @@ services:
              npx prisma generate &&
              npm run worker"
     depends_on:
-      postgres:
+      freelance-postgres:
         condition: service_healthy
+
+  freelance-postgres:
+    image: postgres:16-alpine
+    container_name: opportunity_desk_freelance_postgres
+    env_file:
+      - .env.local
+    environment:
+      POSTGRES_DB: ${FREELANCE_POSTGRES_DB:-freelance_app}
+      POSTGRES_USER: ${FREELANCE_POSTGRES_USER:-scrapper}
+      POSTGRES_PASSWORD: ${FREELANCE_POSTGRES_PASSWORD:-scrapper}
+    ports:
+      - "127.0.0.1:${FREELANCE_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - freelance_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${FREELANCE_POSTGRES_USER:-scrapper} -d ${FREELANCE_POSTGRES_DB:-freelance_app}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
+  freelance_postgres_data:
