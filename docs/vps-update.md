@@ -59,6 +59,10 @@ docker compose up -d --build
 
 Isso baixa/recria os containers necessarios e inicia tudo em segundo plano.
 
+O servico `web` roda o app Next.js freelance em modo producao dentro do Docker: instala dependencias,
+gera Prisma Client, executa bootstrap idempotente, faz `next build` e serve com `next start` na porta
+3000. Evite usar `next dev` na VPS; o modo dev/Turbopack e apenas para desenvolvimento local.
+
 ## Bancos Separados
 
 O projeto roda dois bancos Postgres no Docker:
@@ -154,6 +158,13 @@ Para popular/atualizar seeds, como nichos e templates iniciais:
 
 ```bash
 docker compose exec web npm run prisma:seed
+```
+
+Se o container `web` ainda estiver recriando ou nao estiver rodando, use:
+
+```bash
+docker compose run --rm web npx prisma migrate deploy
+docker compose run --rm web npm run prisma:seed
 ```
 
 Nao use `npx prisma db push` na VPS. Use apenas `migrate deploy`.

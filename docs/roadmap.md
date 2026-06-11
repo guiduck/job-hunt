@@ -308,6 +308,8 @@ token via `/auth/google/callback`, salva cookie HTTP-only no Next e passa a usar
 como owner scope. Localmente isso exige `postgres` + `api` alem de `freelance-postgres` + `web`; o
 Compose aponta o client OAuth para `/app/.local/gmail/client_secret.json` dentro dos containers para
 reaproveitar a credencial existente da extensao.
+Em 2026-06-11, o Docker Compose tambem passou a servir o app `Freelance` em modo producao na VPS com
+`next build` + `next start`, preparando acesso publico por `freelance.gfig.space` via Caddy.
 No mesmo ciclo, leads passaram a separar `website_url` de `social_url` e a UI deixou de mostrar scores
 mockados como auditoria real; o analyzer atual registra apenas status/evidencia ate existir crawl real.
 A tela de lead agora deve mostrar link de verificacao no Google Maps para conferencia manual do

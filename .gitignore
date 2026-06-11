@@ -13,6 +13,7 @@ build/
 # JavaScript / browser extension
 node_modules/
 .plasmo/
+.playwright-cli/
 
 # Next.js / frontend build artifacts
 .next/

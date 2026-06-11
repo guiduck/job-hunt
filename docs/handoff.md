@@ -66,6 +66,10 @@
   `job_stage` aplicado/respondido/entrevista. Validacao: `apps/extension npm.cmd run typecheck`,
   `apps/extension npm.cmd run build` e
   `docker compose exec api python -m pytest tests/integration/test_external_application_jobs.py`.
+- `vps_freelance_web_production`: em 2026-06-11, o servico `web` do Docker Compose foi ajustado para
+  rodar Next.js em modo producao na VPS (`prisma generate`, `db:bootstrap`, `next build`, `next
+  start`) em vez de `next dev`. O subdominio recomendado e `freelance.gfig.space` via Caddy para
+  `127.0.0.1:3000`.
 - `status_resumido`: a extensao Plasmo opera o fluxo `Full-time` local com login persistente, captura
   autenticada de posts do LinkedIn, listagem/detalhe de vagas, delete individual/bulk, templates,
   curriculos, login Google primary auth, Gmail OAuth, envio individual, bulk send revisavel com IA e

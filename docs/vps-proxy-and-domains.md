@@ -13,7 +13,7 @@ Via: 1.1 Caddy
 Servicos publicados:
 
 - `jobs-api.gfig.space` aponta para a API FastAPI em `http://127.0.0.1:8000`
-- futuro `freelance.gfig.space` deve apontar para o Next.js freelance em `http://127.0.0.1:3000`
+- `freelance.gfig.space` aponta para o Next.js freelance em `http://127.0.0.1:3000`
 
 Portas Docker na VPS:
 
@@ -95,6 +95,24 @@ No provedor DNS, crie registros `A` apontando para a VPS:
 jobs-api.gfig.space    A    216.158.236.156
 freelance.gfig.space   A    216.158.236.156
 ```
+
+Se o painel DNS pedir campos separados, use:
+
+```text
+Type: A
+Name/Host: freelance
+Value/Points to: 216.158.236.156
+TTL: Auto ou padrao
+Proxy/CDN: desativado, se existir essa opcao inicialmente
+```
+
+Depois confira propagacao basica:
+
+```bash
+dig +short freelance.gfig.space
+```
+
+O resultado esperado e `216.158.236.156`.
 
 ## Extensao Plasmo
 
