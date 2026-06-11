@@ -69,7 +69,9 @@
 - `vps_freelance_web_production`: em 2026-06-11, o servico `web` do Docker Compose foi ajustado para
   rodar Next.js em modo producao na VPS (`prisma generate`, `db:bootstrap`, `next build`, `next
   start`) em vez de `next dev`. O subdominio recomendado e `freelance.gfig.space` via Caddy para
-  `127.0.0.1:3000`.
+  `127.0.0.1:3000`. O redirect final do login Google do app web usa
+  `FREELANCE_GOOGLE_AUTH_SUCCESS_REDIRECT_URL`, mantendo `GOOGLE_AUTH_SUCCESS_REDIRECT_URL` reservado
+  para o fluxo existente da API/extensao.
 - `status_resumido`: a extensao Plasmo opera o fluxo `Full-time` local com login persistente, captura
   autenticada de posts do LinkedIn, listagem/detalhe de vagas, delete individual/bulk, templates,
   curriculos, login Google primary auth, Gmail OAuth, envio individual, bulk send revisavel com IA e

@@ -114,6 +114,20 @@ dig +short freelance.gfig.space
 
 O resultado esperado e `216.158.236.156`.
 
+## Env Do App Freelance Na VPS
+
+No `.env.local` da raiz do projeto na VPS, configure:
+
+```bash
+FREELANCE_WEB_APP_BASE_URL=https://freelance.gfig.space
+FREELANCE_AUTH_API_BASE_URL=http://api:8000
+FREELANCE_GOOGLE_AUTH_SUCCESS_REDIRECT_URL=https://freelance.gfig.space/auth/google/callback
+```
+
+Nao substitua `GOOGLE_AUTH_SUCCESS_REDIRECT_URL` por essa URL do Freelance; essa variavel continua
+servindo como fallback do fluxo Google primario existente da API/extensao. A API aceita
+`FREELANCE_GOOGLE_AUTH_SUCCESS_REDIRECT_URL` como destino final adicional para o web app.
+
 ## Extensao Plasmo
 
 O `.env.local` que importa para a extensao fica em:

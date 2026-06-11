@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     google_auth_redirect_uri: str = "http://localhost:8000/auth/google/callback"
     google_auth_scopes: str = "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
     google_auth_success_redirect_url: str = "http://localhost:8000/health"
+    freelance_google_auth_success_redirect_url: str | None = None
     auth_session_ttl_hours: int = 12
     auth_token_bytes: int = 32
     password_reset_token_ttl_minutes: int = 30

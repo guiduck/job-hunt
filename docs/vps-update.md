@@ -63,6 +63,15 @@ O servico `web` roda o app Next.js freelance em modo producao dentro do Docker: 
 gera Prisma Client, executa bootstrap idempotente, faz `next build` e serve com `next start` na porta
 3000. Evite usar `next dev` na VPS; o modo dev/Turbopack e apenas para desenvolvimento local.
 
+Para login Google no app web Freelance, mantenha `GOOGLE_AUTH_SUCCESS_REDIRECT_URL` para o fluxo
+existente da API/extensao e configure a URL final do web em uma variavel separada:
+
+```bash
+FREELANCE_WEB_APP_BASE_URL=https://freelance.gfig.space
+FREELANCE_AUTH_API_BASE_URL=http://api:8000
+FREELANCE_GOOGLE_AUTH_SUCCESS_REDIRECT_URL=https://freelance.gfig.space/auth/google/callback
+```
+
 ## Bancos Separados
 
 O projeto roda dois bancos Postgres no Docker:

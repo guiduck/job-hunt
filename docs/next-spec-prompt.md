@@ -27,7 +27,9 @@ Review `specs/015-freelance-niche-catalog` for final cross-artifact consistency 
 - The Freelance web app now shares Google primary auth with the extension through the FastAPI auth
   API. Local Docker needs `postgres` + `api` for OAuth/session plus `freelance-postgres` + `web` for the
   app; the web stores the API token in an HTTP-only cookie and falls back to `local-operator` when
-  unauthenticated.
+  unauthenticated. In VPS/prod config, the Freelance web final redirect is allowed through
+  `FREELANCE_GOOGLE_AUTH_SUCCESS_REDIRECT_URL` so `GOOGLE_AUTH_SUCCESS_REDIRECT_URL` can remain scoped
+  to the existing API/extension fallback.
 - Lead detail now separates owned websites from social/profile URLs, no longer generates or displays
   mock website audit scores, and always exposes a Google Maps verification link for manual source
   checking.

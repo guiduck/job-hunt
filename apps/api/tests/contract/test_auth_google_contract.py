@@ -24,6 +24,23 @@ def test_google_primary_auth_start_accepts_extension_redirect(monkeypatch, clien
     assert "state=" in body["auth_url"]
 
 
+def test_google_primary_auth_start_accepts_configured_freelance_web_redirect(monkeypatch, client: TestClient) -> None:
+    monkeypatch.setattr(google_primary_auth_service, "_google_primary_client_id", lambda settings: "client-id")
+    monkeypatch.setenv("FREELANCE_GOOGLE_AUTH_SUCCESS_REDIRECT_URL", "https://freelance.gfig.space/auth/google/callback")
+    google_primary_auth_service.get_settings.cache_clear()
+
+    try:
+        response = client.get(
+            "/auth/google/start?success_redirect_url=https%3A%2F%2Ffreelance.gfig.space%2Fauth%2Fgoogle%2Fcallback"
+        )
+    finally:
+        google_primary_auth_service.get_settings.cache_clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "state=" in body["auth_url"]
+
+
 def test_google_primary_auth_start_reports_missing_client_config(monkeypatch, client: TestClient) -> None:
     monkeypatch.setattr(google_primary_auth_service, "_google_primary_client_id", lambda settings: None)
 
@@ -34,6 +51,9 @@ def test_google_primary_auth_start_reports_missing_client_config(monkeypatch, cl
 
 
 def test_google_primary_auth_callback_returns_app_session(monkeypatch, client: TestClient) -> None:
+    monkeypatch.setenv("GOOGLE_AUTH_SUCCESS_REDIRECT_URL", "http://localhost:8000/health")
+    monkeypatch.delenv("FREELANCE_GOOGLE_AUTH_SUCCESS_REDIRECT_URL", raising=False)
+    google_primary_auth_service.get_settings.cache_clear()
     monkeypatch.setattr(
         google_primary_auth_service,
         "exchange_code_for_google_profile",
@@ -45,7 +65,10 @@ def test_google_primary_auth_callback_returns_app_session(monkeypatch, client: T
         },
     )
 
-    response = client.get("/auth/google/callback?code=fake-code")
+    try:
+        response = client.get("/auth/google/callback?code=fake-code")
+    finally:
+        google_primary_auth_service.get_settings.cache_clear()
 
     assert response.status_code == 200
     body = response.json()

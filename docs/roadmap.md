@@ -309,7 +309,9 @@ como owner scope. Localmente isso exige `postgres` + `api` alem de `freelance-po
 Compose aponta o client OAuth para `/app/.local/gmail/client_secret.json` dentro dos containers para
 reaproveitar a credencial existente da extensao.
 Em 2026-06-11, o Docker Compose tambem passou a servir o app `Freelance` em modo producao na VPS com
-`next build` + `next start`, preparando acesso publico por `freelance.gfig.space` via Caddy.
+`next build` + `next start`, preparando acesso publico por `freelance.gfig.space` via Caddy. O
+redirect final do login Google do web app usa `FREELANCE_GOOGLE_AUTH_SUCCESS_REDIRECT_URL`, sem
+substituir `GOOGLE_AUTH_SUCCESS_REDIRECT_URL` do fluxo existente da API/extensao.
 No mesmo ciclo, leads passaram a separar `website_url` de `social_url` e a UI deixou de mostrar scores
 mockados como auditoria real; o analyzer atual registra apenas status/evidencia ate existir crawl real.
 A tela de lead agora deve mostrar link de verificacao no Google Maps para conferencia manual do

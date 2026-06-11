@@ -24,8 +24,16 @@ GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 def _validate_google_auth_success_redirect_url(success_redirect_url: str) -> str:
     parsed = urlparse(success_redirect_url)
     host = parsed.netloc.lower()
-    configured_success_url = get_settings().google_auth_success_redirect_url
-    if configured_success_url and success_redirect_url == configured_success_url:
+    settings = get_settings()
+    configured_success_urls = {
+        value
+        for value in [
+            settings.google_auth_success_redirect_url,
+            settings.freelance_google_auth_success_redirect_url,
+        ]
+        if value
+    }
+    if success_redirect_url in configured_success_urls:
         return success_redirect_url
     if parsed.scheme == "https" and host.endswith(".chromiumapp.org"):
         return success_redirect_url
