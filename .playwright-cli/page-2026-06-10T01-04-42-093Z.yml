@@ -1,0 +1,79 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - paragraph [ref=e6]: Opportunity Desk
+        - paragraph [ref=e7]: Freelance
+      - navigation [ref=e8]:
+        - link "Dashboard" [ref=e9] [cursor=pointer]:
+          - /url: /dashboard
+        - link "Campanhas" [ref=e10] [cursor=pointer]:
+          - /url: /campaigns
+        - link "Leads" [ref=e11] [cursor=pointer]:
+          - /url: /leads
+        - link "Templates" [ref=e12] [cursor=pointer]:
+          - /url: /templates
+        - link "Configuracoes" [ref=e13] [cursor=pointer]:
+          - /url: /settings
+    - generic [ref=e14]:
+      - banner [ref=e15]:
+        - generic [ref=e16]:
+          - paragraph [ref=e17]: Freelance operations
+          - paragraph [ref=e18]: Mock provider until credentials are configured
+        - generic [ref=e19]: Internal
+      - main [ref=e20]:
+        - generic [ref=e21]:
+          - generic [ref=e22]:
+            - generic [ref=e23]:
+              - paragraph [ref=e24]: Campaigns
+              - heading "Prospecting campaigns" [level=1] [ref=e25]
+              - paragraph [ref=e26]: Create BR and international campaigns from the seeded niche catalog.
+            - button "Create campaign" [ref=e27]
+          - generic [ref=e28]:
+            - generic [ref=e29]:
+              - generic [ref=e31]:
+                - generic [ref=e32]:
+                  - heading "teste igrejas" [level=2] [ref=e33]
+                  - paragraph [ref=e34]: Igrejas · Brasilia, DF, Brasil
+                - generic [ref=e35]: completed
+              - generic [ref=e36]:
+                - generic [ref=e37]:
+                  - generic [ref=e38]:
+                    - paragraph [ref=e39]: Leads
+                    - paragraph [ref=e40]: "3"
+                  - generic [ref=e41]:
+                    - paragraph [ref=e42]: Hot
+                    - paragraph [ref=e43]: "1"
+                  - generic [ref=e44]:
+                    - paragraph [ref=e45]: Contacted
+                    - paragraph [ref=e46]: "0"
+                - paragraph [ref=e47]: "Conversion estimate: 12.0%"
+                - generic [ref=e48]:
+                  - link "View leads" [ref=e49] [cursor=pointer]:
+                    - /url: /leads?campaignId=cmq7cdgjp0004nob854dwiutl
+                  - button "Prospect" [ref=e50]
+            - generic [ref=e51]:
+              - generic [ref=e53]:
+                - generic [ref=e54]:
+                  - heading "Barbearia - Indaial (BR)" [level=2] [ref=e55]
+                  - paragraph [ref=e56]: Barbearia · Indaial, SC, Brasil
+                - generic [ref=e57]: completed
+              - generic [ref=e58]:
+                - generic [ref=e59]:
+                  - generic [ref=e60]:
+                    - paragraph [ref=e61]: Leads
+                    - paragraph [ref=e62]: "9"
+                  - generic [ref=e63]:
+                    - paragraph [ref=e64]: Hot
+                    - paragraph [ref=e65]: "3"
+                  - generic [ref=e66]:
+                    - paragraph [ref=e67]: Contacted
+                    - paragraph [ref=e68]: "0"
+                - paragraph [ref=e69]: "Conversion estimate: 14.7%"
+                - generic [ref=e70]:
+                  - link "View leads" [ref=e71] [cursor=pointer]:
+                    - /url: /leads?campaignId=cmq5hdidw0001noqsbwcjlann
+                  - button "Prospect" [ref=e72]
+  - button "Open Next.js Dev Tools" [ref=e78] [cursor=pointer]:
+    - img [ref=e79]
+  - alert [ref=e82]

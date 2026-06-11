@@ -65,6 +65,7 @@ export type CaptureDiagnostics = {
     noProgressCount?: number
     clickedShowMoreResults?: boolean
     showMoreButtonLabel?: string
+    recoveryScrolls?: number
     stoppedReason?: string
   }>
   skipped: {

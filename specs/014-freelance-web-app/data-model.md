@@ -134,7 +134,7 @@ Validation:
 
 Seed rules:
 
-- Preserve all 29 initial `NICHE_OPTIONS` names and conversion hints.
+- Preserve the initial `NICHE_OPTIONS` names and conversion hints, plus operator-approved seed additions such as `Igrejas`.
 - Conversion hints are estimates, not conversion promises.
 
 ### FreelanceCampaign

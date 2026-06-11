@@ -32,13 +32,13 @@ services:
       RESUME_STORAGE_DIR: ${RESUME_STORAGE_DIR:-/app/.local/resumes}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-gmail}
       GMAIL_OAUTH_CLIENT_CONFIG_JSON: ${GMAIL_OAUTH_CLIENT_CONFIG_JSON:-}
-      GMAIL_OAUTH_CLIENT_SECRETS_FILE: ${GMAIL_OAUTH_CLIENT_SECRETS_FILE:-/app/.local/gmail/client_secret.json}
+      GMAIL_OAUTH_CLIENT_SECRETS_FILE: ${DOCKER_GMAIL_OAUTH_CLIENT_SECRETS_FILE:-/app/.local/gmail/client_secret.json}
       GMAIL_OAUTH_SCOPES: ${GMAIL_OAUTH_SCOPES:-https://www.googleapis.com/auth/gmail.send}
       GOOGLE_AUTH_CLIENT_ID: ${GOOGLE_AUTH_CLIENT_ID:-}
       GOOGLE_AUTH_CLIENT_SECRET: ${GOOGLE_AUTH_CLIENT_SECRET:-}
       GOOGLE_AUTH_REDIRECT_URI: ${GOOGLE_AUTH_REDIRECT_URI:-http://localhost:8000/auth/google/callback}
       GOOGLE_AUTH_SCOPES: ${GOOGLE_AUTH_SCOPES:-openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile}
-      GOOGLE_AUTH_SUCCESS_REDIRECT_URL: ${GOOGLE_AUTH_SUCCESS_REDIRECT_URL:-http://localhost:8000/health}
+      GOOGLE_AUTH_SUCCESS_REDIRECT_URL: ${GOOGLE_AUTH_SUCCESS_REDIRECT_URL:-http://localhost:3000/auth/google/callback}
       AUTH_SESSION_TTL_HOURS: ${AUTH_SESSION_TTL_HOURS:-12}
       AUTH_TOKEN_BYTES: ${AUTH_TOKEN_BYTES:-32}
       PASSWORD_RESET_TOKEN_TTL_MINUTES: ${PASSWORD_RESET_TOKEN_TTL_MINUTES:-30}
@@ -84,7 +84,7 @@ services:
       JOB_AI_FILTERS_ENABLED: ${JOB_AI_FILTERS_ENABLED:-true}
       JOB_AI_FILTER_MODEL_NAME: ${JOB_AI_FILTER_MODEL_NAME:-gpt-4o-mini}
       GMAIL_OAUTH_CLIENT_CONFIG_JSON: ${GMAIL_OAUTH_CLIENT_CONFIG_JSON:-}
-      GMAIL_OAUTH_CLIENT_SECRETS_FILE: ${GMAIL_OAUTH_CLIENT_SECRETS_FILE:-/app/.local/gmail/client_secret.json}
+      GMAIL_OAUTH_CLIENT_SECRETS_FILE: ${DOCKER_GMAIL_OAUTH_CLIENT_SECRETS_FILE:-/app/.local/gmail/client_secret.json}
       GMAIL_OAUTH_SCOPES: ${GMAIL_OAUTH_SCOPES:-https://www.googleapis.com/auth/gmail.send}
       GOOGLE_AUTH_CLIENT_ID: ${GOOGLE_AUTH_CLIENT_ID:-}
       GOOGLE_AUTH_CLIENT_SECRET: ${GOOGLE_AUTH_CLIENT_SECRET:-}
@@ -111,6 +111,8 @@ services:
       - .:/app
     environment:
       DATABASE_URL: postgresql://${FREELANCE_POSTGRES_USER:-scrapper}:${FREELANCE_POSTGRES_PASSWORD:-scrapper}@freelance-postgres:5432/${FREELANCE_POSTGRES_DB:-freelance_app}
+      FREELANCE_AUTH_API_BASE_URL: ${FREELANCE_AUTH_API_BASE_URL:-http://api:8000}
+      FREELANCE_WEB_APP_BASE_URL: ${FREELANCE_WEB_APP_BASE_URL:-http://localhost:3000}
       FREELANCE_MAPS_PROVIDER: ${FREELANCE_MAPS_PROVIDER:-mock}
       APIFY_TOKEN: ${APIFY_TOKEN:-}
       SERPAPI_API_KEY: ${SERPAPI_API_KEY:-}
@@ -118,7 +120,7 @@ services:
       AI_FREELANCE_MODEL: ${AI_FREELANCE_MODEL:-gpt-4o-mini}
     command: >
       sh -c "npm install &&
-             npx prisma generate &&
+             npm run db:bootstrap &&
              npm run dev -- --hostname 0.0.0.0 --port 3000"
     ports:
       - "${WEB_PORT:-3000}:3000"
@@ -143,7 +145,6 @@ services:
       AI_FREELANCE_MODEL: ${AI_FREELANCE_MODEL:-gpt-4o-mini}
     command: >
       sh -c "npm install &&
-             npx prisma generate &&
              npm run worker"
     depends_on:
       freelance-postgres:

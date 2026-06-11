@@ -7,13 +7,13 @@ import {
 import { getCurrentUserScope } from "@/lib/freelance/current-user";
 
 export async function GET() {
-  const items = await listCampaigns(getCurrentUserScope());
+  const items = await listCampaigns(await getCurrentUserScope());
   return NextResponse.json({ items });
 }
 
 export async function POST(request: Request) {
   try {
-    const item = await createCampaign(getCurrentUserScope(), await request.json());
+    const item = await createCampaign(await getCurrentUserScope(), await request.json());
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
     const message =

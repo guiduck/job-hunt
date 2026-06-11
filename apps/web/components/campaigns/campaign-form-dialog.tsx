@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { NicheDto } from "@/lib/freelance/campaign-service";
 import { Button } from "@/components/ui/button";
+import { Autocomplete, type AutocompleteOption } from "@/components/ui/autocomplete";
 import {
   Dialog,
   DialogContent,
@@ -15,11 +16,40 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 
+type PostalCodeLookup = {
+  state: string;
+  city: string;
+  region?: string;
+};
+
+async function fetchOptions(path: string) {
+  const response = await fetch(path);
+  if (!response.ok) {
+    return [];
+  }
+  const body = (await response.json()) as { items?: AutocompleteOption[] };
+  return body.items ?? [];
+}
+
 export function CampaignFormDialog({ niches }: { niches: NicheDto[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [marketScope, setMarketScope] = useState<"BR" | "INTERNATIONAL">("BR");
-  const [nicheId, setNicheId] = useState(niches.find((niche) => niche.enabled)?.id ?? "");
+  const [country, setCountry] = useState("Brasil");
+  const [stateValue, setStateValue] = useState("");
+  const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [stateQuery, setStateQuery] = useState("");
+  const [cityQuery, setCityQuery] = useState("");
+  const [stateOptions, setStateOptions] = useState<AutocompleteOption[]>([]);
+  const [cityOptions, setCityOptions] = useState<AutocompleteOption[]>([]);
+  const [isLoadingStates, setIsLoadingStates] = useState(false);
+  const [isLoadingCities, setIsLoadingCities] = useState(false);
+  const [isLookingUpPostalCode, setIsLookingUpPostalCode] = useState(false);
+  const [nicheId, setNicheId] = useState(
+    niches.find((niche) => niche.enabled && niche.lifecycleStatus === "approved")?.id ?? ""
+  );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -27,6 +57,93 @@ export function CampaignFormDialog({ niches }: { niches: NicheDto[] }) {
     () => niches.find((niche) => niche.id === nicheId),
     [nicheId, niches]
   );
+
+  useEffect(() => {
+    let ignore = false;
+    setIsLoadingStates(true);
+    const searchParams = new URLSearchParams({ marketScope, q: stateQuery });
+    fetchOptions(`/api/freelance/localities/states?${searchParams.toString()}`)
+      .then((items) => {
+        if (!ignore) {
+          setStateOptions(items);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsLoadingStates(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [marketScope, stateQuery]);
+
+  useEffect(() => {
+    if (!stateValue.trim()) {
+      setCityOptions([]);
+      return;
+    }
+
+    let ignore = false;
+    setIsLoadingCities(true);
+    const searchParams = new URLSearchParams({
+      marketScope,
+      state: stateValue,
+      q: cityQuery
+    });
+    fetchOptions(`/api/freelance/localities/cities?${searchParams.toString()}`)
+      .then((items) => {
+        if (!ignore) {
+          setCityOptions(items);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsLoadingCities(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [cityQuery, marketScope, stateValue]);
+
+  function onMarketChange(nextMarket: "BR" | "INTERNATIONAL") {
+    setMarketScope(nextMarket);
+    setCountry(nextMarket === "BR" ? "Brasil" : "United States");
+    setStateValue("");
+    setCity("");
+    setRegion("");
+    setPostalCode("");
+    setStateQuery("");
+    setCityQuery("");
+  }
+
+  async function lookupPostalCode() {
+    if (marketScope !== "BR" || postalCode.replace(/\D/g, "").length !== 8) {
+      return;
+    }
+
+    setIsLookingUpPostalCode(true);
+    setError(null);
+    const response = await fetch(
+      `/api/freelance/localities/postal-code?postalCode=${encodeURIComponent(postalCode)}`
+    );
+    setIsLookingUpPostalCode(false);
+
+    if (!response.ok) {
+      setError("CEP not found.");
+      return;
+    }
+
+    const item = (await response.json()) as PostalCodeLookup;
+    setStateValue(item.state);
+    setStateQuery(item.state);
+    setCity(item.city);
+    setCityQuery(item.city);
+    setRegion(item.region ?? "");
+  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,10 +154,10 @@ export function CampaignFormDialog({ niches }: { niches: NicheDto[] }) {
     const payload = {
       name: String(formData.get("name") || ""),
       marketScope,
-      country: String(formData.get("country") || ""),
-      region: String(formData.get("region") || ""),
-      state: String(formData.get("state") || ""),
-      city: String(formData.get("city") || ""),
+      country,
+      region,
+      state: stateValue,
+      city,
       nicheId,
       searchSettings: {
         maxResults: Number(formData.get("maxResults") || 25)
@@ -85,7 +202,7 @@ export function CampaignFormDialog({ niches }: { niches: NicheDto[] }) {
               <Select
                 value={marketScope}
                 onChange={(event) =>
-                  setMarketScope(event.target.value as "BR" | "INTERNATIONAL")
+                  onMarketChange(event.target.value as "BR" | "INTERNATIONAL")
                 }
               >
                 <option value="BR">BR</option>
@@ -96,10 +213,10 @@ export function CampaignFormDialog({ niches }: { niches: NicheDto[] }) {
               Niche
               <Select value={nicheId} onChange={(event) => setNicheId(event.target.value)}>
                 {niches
-                  .filter((niche) => niche.enabled)
+                  .filter((niche) => niche.enabled && niche.lifecycleStatus === "approved")
                   .map((niche) => (
                     <option key={niche.id} value={niche.id}>
-                      {niche.name}
+                      {niche.displayName}
                     </option>
                   ))}
               </Select>
@@ -124,23 +241,83 @@ export function CampaignFormDialog({ niches }: { niches: NicheDto[] }) {
               <Input
                 name="country"
                 required
-                defaultValue={marketScope === "BR" ? "Brasil" : ""}
+                value={country}
+                onChange={(event) => setCountry(event.target.value)}
               />
             </label>
             <label className="space-y-1 text-xs text-slate-400">
               {marketScope === "BR" ? "State" : "State / region"}
-              <Input name="state" placeholder={marketScope === "BR" ? "SC" : "TX"} />
+              <Autocomplete
+                name="state"
+                value={stateValue}
+                options={stateOptions}
+                placeholder={marketScope === "BR" ? "SC" : "TX"}
+                isLoading={isLoadingStates}
+                emptyLabel="No states found"
+                onValueChange={(value) => {
+                  setStateValue(value);
+                  setCity("");
+                  setCityQuery("");
+                }}
+                onQueryChange={setStateQuery}
+                onSelect={(option) => {
+                  setStateQuery(option.label);
+                  setCity("");
+                  setCityQuery("");
+                }}
+              />
             </label>
           </div>
+
+          {marketScope === "BR" ? (
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <label className="space-y-1 text-xs text-slate-400">
+                CEP
+                <Input
+                  value={postalCode}
+                  inputMode="numeric"
+                  placeholder="89000-000"
+                  onChange={(event) => setPostalCode(event.target.value)}
+                />
+              </label>
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={lookupPostalCode}
+                  disabled={isLookingUpPostalCode || postalCode.replace(/\D/g, "").length !== 8}
+                >
+                  {isLookingUpPostalCode ? "Looking..." : "Use CEP"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1 text-xs text-slate-400">
               Region
-              <Input name="region" placeholder="Optional" />
+              <Input
+                name="region"
+                value={region}
+                placeholder="Optional"
+                onChange={(event) => setRegion(event.target.value)}
+              />
             </label>
             <label className="space-y-1 text-xs text-slate-400">
               City
-              <Input name="city" required placeholder={marketScope === "BR" ? "Indaial" : "Alamo"} />
+              <Autocomplete
+                name="city"
+                value={city}
+                required
+                disabled={!stateValue.trim()}
+                options={cityOptions}
+                placeholder={marketScope === "BR" ? "Indaial" : "Orlando"}
+                isLoading={isLoadingCities}
+                emptyLabel={stateValue.trim() ? "No cities found" : "Choose a state first"}
+                onValueChange={setCity}
+                onQueryChange={setCityQuery}
+                onSelect={(option) => setCityQuery(option.label)}
+              />
             </label>
           </div>
 

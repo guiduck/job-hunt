@@ -56,6 +56,9 @@ Estado atual:
   scrollavel real e mede progresso por `scrollTarget`, `scrollTop`, altura e posts encontrados,
   reduzindo travamentos quando o LinkedIn carrega resultados depois do `complete` da aba ou quando a
   altura do documento nao muda a cada avancada
+- quando o infinite scroll do LinkedIn aparenta travar no fim da lista, a extensao tenta dois scrolls
+  para cima e uma nova descida antes de contabilizar falha, preservando `max scrolls` como contagem
+  apenas dos scrolls principais
 - a verificacao da captura na extensao tem timeout amplo; quando o worker nao conclui a tempo, a UI
   mostra timeout terminal e libera nova busca em vez de ficar presa em `processing`
 - o feedback da Search UI usa os counters do run como fonte principal e nao deve ficar zerado quando
@@ -74,6 +77,8 @@ Estado atual:
 Gate restante desta fase:
 
 - continuar medindo qualidade real: candidatos inspecionados, aceitos, rejeitados, duplicados e falhas
+- validar capturas longas reais do LinkedIn com cerca de 250 posts para confirmar que a recuperacao de
+  infinite scroll reduz truncamentos prematuros
 - estabilizar seletores da extensao conforme o DOM real do LinkedIn mudar
 - harden login de usuario, ownership por `user_id` e backfill dos dados locais antes de deploy real
 - estabilizar testes, contrato OpenAPI, deploy/configuracao, OAuth e banco fora do ambiente local
@@ -109,6 +114,8 @@ Estado atual:
 - a UI de Jobs foi simplificada para operacao diaria: filtro Review saiu da listagem, selecao total usa
   checkbox mestre, `Delete all listed` age sobre os resultados filtrados, nomes repetidos sao
   deduplicados e parte do estado do popup persiste ao fechar/reabrir
+- a lista Jobs mantem hot state local por lane/filtros/pagina por uma janela curta, reduzindo
+  recarregamentos ao abrir links externos ou alternar entre `With email` e `External applications`
 - o input de busca em Jobs encontra oportunidades por descricao, keywords, cargo, empresa e email de
   contato salvo
 - login/cadastro com Google funciona como autenticacao primaria da extensao, vinculando identidade
@@ -159,6 +166,8 @@ Estado atual:
   novas buscas enquanto uma estiver rodando; aplicacao manual usa `job_stage=applied`; e o worker deve
   respeitar tanto o maximo de oportunidades aceitas quanto um teto configuravel de candidatos
   inspecionados baseado em custo
+- `External applications` agora aceita filtro `All/Not sent/Sent`; nesse lane, `sent` significa
+  aplicada/respondida/entrevista em `job_stage`, nao envio por Gmail
 - `specs/013-serpapi-career-search/tasks.md` foi gerado com tarefas para API, worker, extensao,
   contratos, testes, docs e validacao; a implementacao deve comecar por fundacao + US1 como MVP antes
   de avancar para abas, IA, aplicacao manual e metricas
@@ -247,17 +256,77 @@ Google/Google Maps por nicho/localidade, como planejado inicialmente, mas separa
 `Full-time`.
 
 Status: `specs/014-freelance-web-app/spec.md` foi criada via `/speckit-specify`, clarificada via
-`/speckit-clarify`, planejada via `/speckit-plan` e detalhada via `/speckit-tasks`;
-`.specify/feature.json` aponta para ela. A implementacao concluiu T001-T062: scaffold `apps/web`,
-Prisma schema/migration/seed, provider abstraction, worker shell, layout shell, validacoes, testes
-base, Docker services e US1 de campanhas/nichos com tela `/campaigns`, rotas internas e smoke local
-criando uma campanha BR e uma internacional. O proximo passo e continuar `/speckit-implement` em US2
-T063-T091, usando `docs/next-spec-prompt.md`, para descoberta/classificacao e leads salvos.
+`/speckit-clarify`, planejada via `/speckit-plan`, detalhada via `/speckit-tasks` e implementada como
+vertical revisavel em `apps/web`. Entregue: scaffold `Next.js`/Prisma/Tailwind, bootstrap aditivo de
+banco, seed de nichos/templates, provider mock, adapters esqueleto Apify/SerpApi, job de prospeccao,
+dedupe, analise leve de website, leads salvos, dashboard, campanhas, leads, detalhe, prompt Lovable
+sob demanda, mensagens comerciais, templates e configuracoes.
+
+Validacao em 2026-06-08: `npm run db:bootstrap`, `npm run typecheck`, `npm run test` (31 arquivos, 43
+testes), `npm run build`, smoke HTTP em `localhost:3000` cobrindo nichos, campanhas, job mock
+`completed`, leads, detalhe, prompt, mensagem e settings, e `apps/extension npm run typecheck`.
+
+Status de `015-freelance-niche-catalog`: T001-T087 foram implementados. O app web agora possui
+schema/migration Prisma para governanca de nichos, seed backfill com source evidence, normalizacao de
+nomes, schemas Zod, audit service, rota `GET /api/freelance/niche-audit` e pagina
+`Settings -> Niche audit`. O audit compara a baseline de 30 nichos, evidencia de origem, encoding
+danificado, duplicados, entries extras/missing e mantem o conflito `Imobiliaria` visivel com `11.0`
+versus `6.1` ate override explicito do operador. A tab `Approved niches` adiciona CRUD/governanca
+interna, prevencao de duplicados por slug/alias, source evidence obrigatoria, disable/re-enable/merge
+e preservacao de snapshots historicos de campanha. A tab `Candidate review` adiciona candidatos de
+nicho vindos de referencias/imagens, seed deterministico, matching sugerido contra a baseline,
+decisoes approve/reject/defer/already-covered, rotas `GET/PATCH /api/freelance/niche-candidates` e
+contadores/achados de candidatos no audit. Candidatos continuam fora da selecao de campanhas ate
+aprovacao e nao criam leads, jobs, contatos, mensagens ou outreach.
+
+Hotfix local em 2026-06-09: o bootstrap do `apps/web` foi ajustado para aplicar a migration de
+governanca de nichos tambem em bancos locais ja existentes. Isso evita que telas dependentes de
+`freelance_niches.display_name` quebrem quando o banco foi criado antes de `015-freelance-niche-catalog`.
+Na mesma data, `Igrejas` entrou como nicho BR aprovado pelo operador para prospectar igrejas
+evangelicas e catolicas com demanda por CMS/admin de site, postagens, eventos, calendario, carousel de
+imagens e comunicacao comunitaria.
+Em 2026-06-10, o formulario de campanha passou a usar autocomplete de localidades: IBGE para estados e
+municipios BR, ViaCEP para preenchimento por CEP e uma rota internacional focada inicialmente em EUA
+com estados/FIPS, tentativa de Census ACS places e fallback local de cidades principais.
+Tambem em 2026-06-10, a prospeccao com provider real foi corrigida para respeitar o maximo salvo na
+campanha, exibir/pollar o ultimo job no card e carregar `.env.local` no worker local. Operacionalmente,
+SerpApi/Apify precisam do processo `web-worker` ativo; caso contrario o job fica enfileirado.
+Na sequencia, o inicio de prospeccao pela UI passou a usar a rota plana
+`POST /api/freelance/prospecting-jobs` com `campaignId` no corpo, evitando falha generica quando a
+rota aninhada devolvia 404/HTML no dev server. A grid de campanhas foi ampliada e os controles dos
+cards foram ajustados para evitar quebra de `View leads` e para expandir o painel de status do job.
+Depois, o feedback `Queued` foi ajustado para nao culpar o worker quando o job ainda esta apenas
+aguardando pickup/polling, o SerpApi passou a paginar para tentar chegar ao `maxResults` solicitado e
+o dedupe passou a comparar novos resultados com leads ja existentes da campanha, evitando inflar
+contadores em execucoes repetidas.
+Em 2026-06-11, os filtros de leads foram hardenizados para aceitar selects vazios na query string:
+filtrar por `websiteStatus=no_site` nao deve quebrar quando `commercialStatus`, `temperature` ou
+`minScore` chegam vazios pelo form.
+Tambem em 2026-06-11, o web app `Freelance` passou a conectar Google pela mesma API/auth session da
+extensao. A barra superior mostra `Connect Google`, redireciona para `/auth/google/start`, recebe o
+token via `/auth/google/callback`, salva cookie HTTP-only no Next e passa a usar o `user.id` autenticado
+como owner scope. Localmente isso exige `postgres` + `api` alem de `freelance-postgres` + `web`; o
+Compose aponta o client OAuth para `/app/.local/gmail/client_secret.json` dentro dos containers para
+reaproveitar a credencial existente da extensao.
+No mesmo ciclo, leads passaram a separar `website_url` de `social_url` e a UI deixou de mostrar scores
+mockados como auditoria real; o analyzer atual registra apenas status/evidencia ate existir crawl real.
+A tela de lead agora deve mostrar link de verificacao no Google Maps para conferencia manual do
+resultado capturado.
+
+Validacao complementar em 2026-06-09: `apps/web` passou em typecheck, suíte completa, build, bootstrap
+local, smoke HTTP de `/settings/niches`, `/api/freelance/niche-audit` e
+`/api/freelance/niche-candidates`, alem de guardas sem CSV, sem linguagem Full-time indevida na UI de
+nichos e sem caminhos de candidatos criando lead/job/outreach.
+
+Proximo passo recomendado: rodar `/speckit-analyze` para uma revisao nao destrutiva de consistencia
+entre `spec.md`, `plan.md` e `tasks.md` de `015`, ou iniciar uma nova spec para provider real de
+Google Maps/SerpApi/Apify usando apenas nichos enabled+approved.
 
 Decisoes clarificadas para o MVP:
 
 - entregar uma fatia vertical completa, nao apenas descoberta ou apenas UI
-- exigir analise leve de website no MVP e deferir auditorias profundas de navegador/design
+- exigir sinal revisavel de status de website no MVP e deferir auditorias reais/profundas de
+  navegador, design, performance e SEO
 - suportar BR e internacional no fluxo, com smoke podendo focar um mercado representativo
 - nao incluir CSV export no MVP nem planejar por padrao
 - gerar prompts/mensagens sob demanda e salvar apenas a ultima versao gerada por lead, sem historico
@@ -299,11 +368,13 @@ Decisao de coleta:
 - consultas por nicho, cidade, bairro e mercado usando busca local Google/Maps como primeira fonte
 - seed inicial de nichos vindo de `references/opportunity-desk-pro/src/lib/mockData.ts` (`NICHE_OPTIONS`)
 - deteccao de website com estados revisaveis
-- deteccao de negocio sem site, so com rede social ou com site fraco
+- deteccao de negocio sem site, so com rede social ou com site fraco, sem tratar rede social como
+  website proprio
 - captura de nota Google, quantidade de reviews, endereco, telefone, website e fonte
 - captura de `source_query`, `source_url`, place ids/data ids quando disponiveis e evidencia textual
 - deduplicacao por nome, contato e origem
-- score inicial separado por conteudo, design, performance, SEO e temperatura comercial
+- score inicial de oportunidade/temperatura comercial; scores de conteudo, design, performance e SEO
+  so devem aparecer quando houver auditoria real de website
 - salvar URL da demo por lead
 - gerar prompt para `Lovable`
 - templates iniciais de email

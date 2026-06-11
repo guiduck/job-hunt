@@ -10,6 +10,8 @@ import {
 } from "@/lib/freelance/constants";
 
 const optionalText = z.string().trim().optional().nullable();
+const emptyStringToUndefined = (value: unknown) => (value === "" ? undefined : value);
+const optionalQueryText = z.preprocess(emptyStringToUndefined, z.string().trim().optional());
 
 export const campaignCreateSchema = z.object({
   name: optionalText,
@@ -30,14 +32,17 @@ export const campaignUpdateSchema = z.object({
 });
 
 export const leadFiltersSchema = z.object({
-  campaignId: z.string().optional(),
-  nicheId: z.string().optional(),
-  q: z.string().optional(),
-  city: z.string().optional(),
-  websiteStatus: z.enum(websiteStatuses).optional(),
-  commercialStatus: z.enum(commercialStatuses).optional(),
-  temperature: z.enum(leadTemperatures).optional(),
-  minScore: z.coerce.number().int().min(0).max(100).optional()
+  campaignId: optionalQueryText,
+  nicheId: optionalQueryText,
+  q: optionalQueryText,
+  city: optionalQueryText,
+  websiteStatus: z.preprocess(emptyStringToUndefined, z.enum(websiteStatuses).optional()),
+  commercialStatus: z.preprocess(emptyStringToUndefined, z.enum(commercialStatuses).optional()),
+  temperature: z.preprocess(emptyStringToUndefined, z.enum(leadTemperatures).optional()),
+  minScore: z.preprocess(
+    emptyStringToUndefined,
+    z.coerce.number().int().min(0).max(100).optional()
+  )
 });
 
 export const leadUpdateSchema = z.object({

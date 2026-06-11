@@ -66,8 +66,57 @@ O projeto roda dois bancos Postgres no Docker:
 - `postgres`: banco do fluxo full-time/API/worker, gerenciado por Alembic
 - `freelance-postgres`: banco do web app freelance, gerenciado por Prisma
 
-Nunca aponte o Prisma para o banco `postgres` da API. Nunca rode `prisma db push` no banco da API.
-O comando `prisma db push` pode apagar tabelas que nao existem no schema Prisma.
+Isso existe porque o projeto tem dois sistemas no mesmo repositorio, mas eles nao devem controlar o
+mesmo banco:
+
+- API/worker/full-time usam SQLAlchemy + Alembic e conhecem tabelas como `opportunities`,
+  `job_search_runs`, `job_search_candidates`, `users` e `send_requests`.
+- Web app freelance usa Prisma e conhece apenas as tabelas do produto freelance, como
+  `freelance_campaigns`, `freelance_leads`, `freelance_niches`, `prospecting_jobs` e
+  `website_analyses`.
+
+O problema que causou o incidente foi o Prisma apontando para o mesmo banco da API. Ao rodar
+`prisma db push`, o Prisma tentou fazer o banco inteiro ficar igual ao schema dele. Como o schema
+Prisma nao conhecia as tabelas full-time, ele removeu dados dessas tabelas.
+
+Regra permanente:
+
+- Nunca aponte o Prisma para o banco `postgres` da API.
+- Nunca rode `npx prisma db push` na VPS.
+- Em producao/VPS, use apenas `npx prisma migrate deploy` para Prisma.
+- Se precisar de `db push`, use somente em ambiente descartavel/local e conferindo o `DATABASE_URL`.
+
+## Variaveis De Ambiente Dos Bancos
+
+No `.env.local` da VPS e no `.env.local` local, mantenha variaveis separadas para os dois bancos.
+
+Banco da API/full-time:
+
+```bash
+POSTGRES_DB=scrapper_freelance
+POSTGRES_USER=scrapper
+POSTGRES_PASSWORD=<senha-da-api>
+POSTGRES_PORT=5432
+DATABASE_URL=postgresql+psycopg://scrapper:<senha-da-api>@localhost:5432/scrapper_freelance
+```
+
+Banco do freelance/Prisma:
+
+```bash
+FREELANCE_POSTGRES_DB=freelance_app
+FREELANCE_POSTGRES_USER=scrapper
+FREELANCE_POSTGRES_PASSWORD=<senha-do-freelance>
+FREELANCE_POSTGRES_PORT=5433
+FREELANCE_DATABASE_URL=postgresql://scrapper:<senha-do-freelance>@localhost:5433/freelance_app
+```
+
+Observacao: dentro do Docker Compose, `web` e `web-worker` recebem `DATABASE_URL` apontando para
+`freelance-postgres:5432`. Fora do Docker, por exemplo rodando Next localmente direto na maquina,
+use `apps/web/.env.local` com:
+
+```bash
+DATABASE_URL=postgresql://scrapper:<senha-do-freelance>@localhost:5433/freelance_app
+```
 
 Antes de migrations em producao, faca um backup:
 

@@ -87,8 +87,8 @@ paths:
           description: Campaign not found
   /api/freelance/campaigns/{campaignId}/prospecting-jobs:
     post:
-      summary: Start prospecting job for campaign
-      operationId: startProspectingJob
+      summary: Start prospecting job for campaign (legacy nested route)
+      operationId: startProspectingJobForCampaign
       parameters:
         - $ref: "#/components/parameters/CampaignId"
       requestBody:
@@ -111,6 +111,38 @@ paths:
                 $ref: "#/components/schemas/ProspectingJob"
         "400":
           description: Campaign is not ready for prospecting
+        "409":
+          description: Campaign already has an active prospecting job
+  /api/freelance/prospecting-jobs:
+    post:
+      summary: Start prospecting job
+      operationId: startProspectingJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [campaignId]
+              properties:
+                campaignId:
+                  type: string
+                providerName:
+                  type: string
+                  enum: [serpapi_google_maps, apify_google_maps, mock]
+                maxResults:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+      responses:
+        "201":
+          description: Job created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProspectingJob"
+        "400":
+          description: Invalid campaign, provider, or prospecting request
         "409":
           description: Campaign already has an active prospecting job
   /api/freelance/prospecting-jobs/{jobId}:

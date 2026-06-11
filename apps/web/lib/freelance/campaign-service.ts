@@ -1,13 +1,23 @@
 import { type CampaignStatus, type Prisma } from "@prisma/client";
 import { campaignCreateSchema, campaignUpdateSchema } from "@/lib/validation/freelance";
+import { normalizeDisplayName } from "./niche-normalization";
 import { freelanceRepositories, requireOwnerScope, type OwnerScope } from "./repositories";
 
 export type NicheDto = {
   id: string;
   name: string;
+  displayName: string;
   slug: string;
   market: string;
+  marketApplicability: string;
   conversionHint: number | null;
+  conversionHintSource: string | null;
+  aliases: string[];
+  queryTerms: string[];
+  sourcePath: string | null;
+  sourceNote: string | null;
+  lifecycleStatus: string;
+  lastAuditedAt: string | null;
   enabled: boolean;
   sortOrder: number;
 };
@@ -28,7 +38,28 @@ export type CampaignDto = {
   hotLeadCount: number;
   contactedCount: number;
   notes: string | null;
+  searchSettings: Record<string, unknown>;
+  latestProspectingJob: ProspectingJobDto | null;
   lastRunAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProspectingJobDto = {
+  id: string;
+  status: string;
+  currentStep: string;
+  providerName: string;
+  providerStatus: string;
+  providerErrorMessage: string | null;
+  requestedMaxResults: number;
+  inspectedCount: number;
+  acceptedCount: number;
+  duplicateCount: number;
+  rejectedCount: number;
+  failedCount: number;
+  startedAt: string | null;
+  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -37,22 +68,78 @@ function decimalToNumber(value: Prisma.Decimal | null | undefined) {
   return value == null ? null : Number(value);
 }
 
-function serializeNiche(niche: {
+function jsonObject(value: Prisma.JsonValue): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function serializeProspectingJob(job: {
   id: string;
-  name: string;
-  slug: string;
-  market: string;
-  conversionHint: Prisma.Decimal | null;
-  enabled: boolean;
-  sortOrder: number;
-}): NicheDto {
+  status: string;
+  currentStep: string;
+  providerName: string;
+  providerStatus: string;
+  providerErrorMessage: string | null;
+  requestedMaxResults: number;
+  inspectedCount: number;
+  acceptedCount: number;
+  duplicateCount: number;
+  rejectedCount: number;
+  failedCount: number;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): ProspectingJobDto {
   return {
-    ...niche,
-    conversionHint: decimalToNumber(niche.conversionHint)
+    ...job,
+    startedAt: job.startedAt?.toISOString() ?? null,
+    completedAt: job.completedAt?.toISOString() ?? null,
+    createdAt: job.createdAt.toISOString(),
+    updatedAt: job.updatedAt.toISOString()
   };
 }
 
-function serializeCampaign(campaign: {
+export function serializeNiche(niche: {
+  id: string;
+  name: string;
+  displayName: string | null;
+  slug: string;
+  market: string;
+  marketApplicability: string;
+  conversionHint: Prisma.Decimal | null;
+  conversionHintSource: string | null;
+  aliases: Prisma.JsonValue;
+  queryTerms: Prisma.JsonValue;
+  sourcePath: string | null;
+  sourceNote: string | null;
+  lifecycleStatus: string;
+  lastAuditedAt: Date | null;
+  enabled: boolean;
+  sortOrder: number;
+}): NicheDto {
+  const arrayValue = (value: Prisma.JsonValue) =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+
+  return {
+    ...niche,
+    displayName: niche.displayName ?? normalizeDisplayName(niche.name),
+    conversionHint: decimalToNumber(niche.conversionHint),
+    aliases: arrayValue(niche.aliases),
+    queryTerms: arrayValue(niche.queryTerms),
+    lastAuditedAt: niche.lastAuditedAt?.toISOString() ?? null
+  };
+}
+
+export function isCampaignSelectableNiche(niche: {
+  enabled: boolean;
+  lifecycleStatus: string;
+}) {
+  return niche.enabled && niche.lifecycleStatus === "approved";
+}
+
+export function serializeCampaign(campaign: {
   id: string;
   name: string;
   marketScope: "BR" | "INTERNATIONAL";
@@ -68,6 +155,25 @@ function serializeCampaign(campaign: {
   hotLeadCount: number;
   contactedCount: number;
   notes: string | null;
+  searchSettings?: Prisma.JsonValue;
+  jobs?: Array<{
+    id: string;
+    status: string;
+    currentStep: string;
+    providerName: string;
+    providerStatus: string;
+    providerErrorMessage: string | null;
+    requestedMaxResults: number;
+    inspectedCount: number;
+    acceptedCount: number;
+    duplicateCount: number;
+    rejectedCount: number;
+    failedCount: number;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
   lastRunAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -75,6 +181,8 @@ function serializeCampaign(campaign: {
   return {
     ...campaign,
     conversionHintSnapshot: decimalToNumber(campaign.conversionHintSnapshot),
+    searchSettings: jsonObject(campaign.searchSettings ?? {}),
+    latestProspectingJob: campaign.jobs?.[0] ? serializeProspectingJob(campaign.jobs[0]) : null,
     lastRunAt: campaign.lastRunAt?.toISOString() ?? null,
     createdAt: campaign.createdAt.toISOString(),
     updatedAt: campaign.updatedAt.toISOString()
@@ -86,8 +194,9 @@ export function buildCampaignName(input: { city: string; nicheName: string; mark
   return `${input.nicheName} - ${input.city} (${marketLabel})`;
 }
 
-export async function listNiches() {
+export async function listNiches(options: { includeDisabled?: boolean; includeAuditFields?: boolean } = {}) {
   const niches = await freelanceRepositories.niches.findMany({
+    where: options.includeDisabled ? undefined : { enabled: true, lifecycleStatus: "approved" },
     orderBy: [{ enabled: "desc" }, { sortOrder: "asc" }, { name: "asc" }]
   });
   return niches.map(serializeNiche);
@@ -98,7 +207,13 @@ export async function listCampaigns(scope: OwnerScope) {
   const campaigns = await freelanceRepositories.campaigns.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
-    include: { niche: true }
+    include: {
+      niche: true,
+      jobs: {
+        orderBy: { createdAt: "desc" },
+        take: 1
+      }
+    }
   });
   return campaigns.map(serializeCampaign);
 }
@@ -107,7 +222,7 @@ export async function createCampaign(scope: OwnerScope, payload: unknown) {
   const { userId } = requireOwnerScope(scope);
   const input = campaignCreateSchema.parse(payload);
   const niche = await freelanceRepositories.niches.findFirst({
-    where: { id: input.nicheId, enabled: true }
+    where: { id: input.nicheId, enabled: true, lifecycleStatus: "approved" }
   });
 
   if (!niche) {
@@ -121,7 +236,7 @@ export async function createCampaign(scope: OwnerScope, payload: unknown) {
         input.name?.trim() ||
         buildCampaignName({
           city: input.city,
-          nicheName: niche.name,
+          nicheName: niche.displayName ?? normalizeDisplayName(niche.name),
           marketScope: input.marketScope
         }),
       marketScope: input.marketScope,
@@ -130,7 +245,7 @@ export async function createCampaign(scope: OwnerScope, payload: unknown) {
       state: input.state || null,
       city: input.city,
       nicheId: niche.id,
-      nicheNameSnapshot: niche.name,
+      nicheNameSnapshot: niche.displayName ?? normalizeDisplayName(niche.name),
       conversionHintSnapshot: niche.conversionHint,
       status: "ready",
       searchSettings: input.searchSettings as Prisma.InputJsonObject
@@ -167,5 +282,21 @@ export async function updateCampaign(scope: OwnerScope, campaignId: string, payl
 }
 
 export async function refreshCampaignCounters(_scope: OwnerScope, _campaignId: string) {
-  return { leadCount: 0, hotLeadCount: 0, contactedCount: 0 };
+  const { userId } = requireOwnerScope(_scope);
+  const [leadCount, hotLeadCount, contactedCount] = await Promise.all([
+    freelanceRepositories.leads.count({ where: { userId, campaignId: _campaignId } }),
+    freelanceRepositories.leads.count({
+      where: { userId, campaignId: _campaignId, temperature: "hot" }
+    }),
+    freelanceRepositories.leads.count({
+      where: { userId, campaignId: _campaignId, commercialStatus: "contacted" }
+    })
+  ]);
+
+  await freelanceRepositories.campaigns.update({
+    where: { id: _campaignId },
+    data: { leadCount, hotLeadCount, contactedCount }
+  });
+
+  return { leadCount, hotLeadCount, contactedCount };
 }

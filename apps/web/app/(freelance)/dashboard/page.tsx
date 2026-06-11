@@ -1,8 +1,18 @@
 import Link from "next/link";
+import { FreelanceDashboard } from "@/components/dashboard/freelance-dashboard";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getCurrentUserScope } from "@/lib/freelance/current-user";
+import { getDashboardMetrics, listRecentLeads } from "@/lib/freelance/metrics-service";
 
-export default function DashboardPage() {
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  const scope = await getCurrentUserScope();
+  const [metrics, recentLeads] = await Promise.all([
+    getDashboardMetrics(scope),
+    listRecentLeads(scope)
+  ]);
+
   return (
     <div className="mx-auto max-w-6xl space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -12,8 +22,7 @@ export default function DashboardPage() {
           </p>
           <h1 className="mt-3 text-3xl font-semibold">Dashboard</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-400">
-            Campaign, lead, and generation metrics will appear here as the
-            Freelance workflow is implemented.
+            Track campaigns, saved businesses and commercial follow-up readiness.
           </p>
         </div>
         <Button asChild>
@@ -21,15 +30,7 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Next action</CardTitle>
-        </CardHeader>
-        <CardContent>
-          Start by creating a BR or international prospecting campaign from the
-          seeded niche catalog.
-        </CardContent>
-      </Card>
+      <FreelanceDashboard metrics={metrics} recentLeads={recentLeads} />
     </div>
   );
 }

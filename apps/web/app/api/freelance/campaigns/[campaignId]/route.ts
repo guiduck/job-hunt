@@ -10,7 +10,7 @@ export async function PATCH(
   try {
     const { campaignId } = await params;
     const item = await updateCampaign(
-      getCurrentUserScope(),
+      await getCurrentUserScope(),
       campaignId,
       await request.json()
     );

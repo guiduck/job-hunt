@@ -13,6 +13,9 @@ export function requireOwnerScope(scope: OwnerScope) {
 
 export const freelanceRepositories = {
   niches: prisma.freelanceNiche,
+  nicheCandidates: prisma.nicheCandidate,
+  nicheAuditRuns: prisma.nicheAuditRun,
+  nicheAuditFindings: prisma.nicheAuditFinding,
   campaigns: prisma.freelanceCampaign,
   jobs: prisma.prospectingJob,
   leads: prisma.freelanceLead,

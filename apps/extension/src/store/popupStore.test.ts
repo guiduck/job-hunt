@@ -30,8 +30,12 @@ if (externalLaneFilters.job_application_kind !== "external_application") {
   throw new Error("External lane should request external application jobs.")
 }
 
-if ("contact_available" in externalLaneFilters || "send_status" in externalLaneFilters) {
-  throw new Error("External lane should not keep email-only filters.")
+if ("contact_available" in externalLaneFilters) {
+  throw new Error("External lane should not keep email contact filters.")
+}
+
+if (externalLaneFilters.send_status !== "unsent") {
+  throw new Error("External lane should keep sent/not sent filters.")
 }
 
 const emailLaneFilters = opportunityFiltersForLane("email", {

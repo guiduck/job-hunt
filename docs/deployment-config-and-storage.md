@@ -112,9 +112,12 @@ Variaveis recomendadas para desenvolvimento local e deploy:
 - `CAREER_PAGE_DEFAULT_ACCEPTED_LIMIT`: maximo padrao de oportunidades aceitas por run career-page.
 - `CAREER_PAGE_DEFAULT_INSPECTED_CAP`: teto padrao de candidatos inspecionados por run career-page.
 - `CAREER_PAGE_REQUEST_TIMEOUT_SECONDS`: timeout HTTP do worker para chamadas ao provider.
-- `FREELANCE_MAPS_PROVIDER`: provider inicial do app freelance, por exemplo `apify_google_maps` ou
-  `serpapi_google_maps`.
-- `APIFY_TOKEN`: token server-side quando Apify for usado para Google Maps/local search.
+- `APIFY_TOKEN`: token server-side quando Apify for escolhido em uma rodada de Google Maps/local
+  search.
+- `SERPAPI_API_KEY`: chave server-side quando SerpApi for escolhido em uma rodada de Google
+  Maps/local search. A UI do app Freelance permite escolher SerpApi, Apify ou mock explicito por
+  prospeccao; se a chave da fonte escolhida estiver ausente, a API deve retornar erro claro em vez de
+  cair no mock.
 - `FREELANCE_WEBSITE_ANALYSIS_TIMEOUT_SECONDS`: timeout para baixar e analisar sites de leads
   freelance.
 - `DATABASE_URL`: Postgres usado pelo app `Next.js`/`Prisma` localmente via Docker Compose e

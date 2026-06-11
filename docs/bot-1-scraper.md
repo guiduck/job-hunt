@@ -75,6 +75,19 @@ Lista inicial normalizada:
 Cada nicho pode carregar um `conversion_hint`/percentual estimado vindo da referencia. Esse valor e
 apenas heuristica de priorizacao e UI, nao promessa de conversao.
 
+Nota `015-freelance-niche-catalog`: provider/worker futuros devem ler nichos aprovados do catalogo
+governado (`freelance_niches`) e usar `query_terms`/`aliases` como fonte das consultas. Nichos
+`disabled`, `merged` ou candidatos ainda nao aprovados nao devem entrar em novas campanhas. O conflito
+`Imobiliaria` permanece auditavel ate escolha explicita do operador. A gestao interna de nichos ja
+permite criar, editar, desativar, reativar e mesclar entradas aprovadas sem deploy, mas nao deve
+disparar coleta automaticamente; o worker continua usando apenas nichos enabled+approved.
+
+US3 de `015-freelance-niche-catalog` adicionou `niche_candidates` para sugestoes de categorias vindas
+de referencias/imagens. O scraper/API/provider nao deve tratar esses registros como negocios reais:
+eles so podem virar fonte de query depois de aprovados em `freelance_niches`. Leads reais para contato
+continuam vindo da busca Google/Google Maps ou provider equivalente, com nome do negocio, contato,
+origem, query e evidencia de classificacao.
+
 ## Fluxo recomendado
 
 1. gerar queries especializadas por nicho e geografia, como `dentist Austin Texas`, `barbershop
@@ -95,6 +108,12 @@ apenas heuristica de priorizacao e UI, nao promessa de conversao.
 
 A melhor opcao inicial e usar uma camada `freelance_maps_provider` com um provider externo como
 Apify Google Maps Scraper ou SerpApi Google Maps.
+
+Nota operacional: a escolha da fonte deve acontecer por rodada de prospeccao, nao por um env global
+silencioso. SerpApi e Apify devem aparecer como fontes reais selecionaveis; `mock` pode continuar
+disponivel apenas como teste explicito de UI, retornando dados falsos e poucos resultados. Se a chave
+server-side da fonte escolhida (`SERPAPI_API_KEY` ou `APIFY_TOKEN`) nao existir, a API deve falhar com
+mensagem clara antes de criar uma expectativa de coleta real.
 
 Motivo: o objetivo nao e apenas consultar um cadastro oficial de lugares; e reproduzir o que uma
 pessoa encontraria pesquisando no Google ou Google Maps por nicho e localidade. Isso importa para

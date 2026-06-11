@@ -48,7 +48,7 @@ For general prompt refinement or change-risk review, consider:
 
 The active Spec Kit task list is:
 
-- `specs/014-freelance-web-app/tasks.md` for the first `Freelance` web app implementation
+- `specs/015-freelance-niche-catalog/tasks.md` for Freelance niche catalog governance
 
 ## Conflict Handling
 

@@ -228,6 +228,7 @@ def list_opportunities(
             analysis_status,
             matched_keyword,
             job_application_kind,
+            send_status,
         ]
     )
     if needs_detail_join:
@@ -283,7 +284,11 @@ def list_opportunities(
                 JobOpportunityDetail.contact_email.ilike(search),
             )
         )
-    if send_status in {"sent", "unsent"}:
+    if send_status in {"sent", "unsent"} and job_application_kind == "external_application":
+        external_sent_stages = [JobStage.APPLIED.value, JobStage.RESPONDED.value, JobStage.INTERVIEW.value]
+        external_sent_application = JobOpportunityDetail.job_stage.in_(external_sent_stages)
+        statement = statement.where(external_sent_application if send_status == "sent" else ~external_sent_application)
+    elif send_status in {"sent", "unsent"}:
         sent_application_conditions = [
             SendRequest.opportunity_id == Opportunity.id,
             SendRequest.template_kind == TemplateKind.JOB_APPLICATION.value,

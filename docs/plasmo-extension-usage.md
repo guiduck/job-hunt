@@ -9,11 +9,19 @@ Este guia cobre a primeira versao da extensao Chrome para o modo `Full-time`.
 - Rola a pagina de resultados e captura textos visiveis dos posts.
 - Quando a lista visivel para de carregar e aparece um controle de mais resultados, tenta acionar esse
   controle como parte do fluxo iniciado pelo usuario.
+- Quando o LinkedIn aparenta travar no fim da lista sem novos posts, a captura tenta destravar o
+  infinite scroll com dois scrolls para cima e uma nova descida antes de contar falha; esses scrolls
+  extras entram apenas nos diagnosticos e nao consomem `max scrolls`.
 - Envia os textos para a API como `authenticated_browser_search`.
 - Lista oportunidades `job` ja processadas pelo worker e mostra dashboard focado em jobs totais e
   jobs ainda nao enviados, sem reaproveitar filtros ativos da lista Jobs.
+- Mantem um hot state local da pagina de Jobs por filtros/lane por cerca de 30 segundos, para reabrir
+  o popup ou alternar entre `With email` e `External applications` sem tela vazia enquanto uma
+  atualizacao periodica ainda nao e necessaria.
 - Permite atualizar status operacional `unsent/sent/interview` e notas, preservando campos legados de
   `review_status`/`job_stage` no contrato.
+- Permite filtrar `With email` e `External applications` por `All`, `Not sent` e `Sent`; nas externas,
+  `Sent` representa vagas marcadas como aplicadas/respondidas/entrevista.
 - Permite conectar uma conta Google/Gmail pelo backend, subir um curriculo PDF, escolher o curriculo
   padrao e preparar/enviar emails pela API/worker.
 - Permite salvar sender profile com nome, email, portfolio, LinkedIn, WhatsApp e informacoes extras;
@@ -142,6 +150,18 @@ apps/extension/build/chrome-mv3-prod
    minutos; se estourar esse tempo, a captura vira um timeout terminal na UI e libera uma nova busca.
 11. Volte para a aba `jobs` e clique em `Refresh`.
 
+## Lista De Jobs
+
+A aba `jobs` tem duas lanes: `With email` para vagas com contato de email e `External applications`
+para vagas com link de candidatura externa. Ambas compartilham filtros de busca, score, ordenacao e
+status `All/Not sent/Sent`.
+
+Para reduzir recarregamentos quando o popup fecha ao abrir um link externo, a extensao salva em
+`localStorage` a ultima pagina carregada por combinacao de lane/filtros/pagina. Ao reabrir ou alternar
+abas, essa pagina e reaplicada imediatamente quando disponivel; depois de cerca de 30 segundos, a
+proxima atualizacao volta a consultar a API. Alteracoes destrutivas ou de status, como delete ou
+`Mark applied`, limpam esse cache local antes de recarregar.
+
 ## Validacao Rapida
 
 ```bash
@@ -166,6 +186,8 @@ curl "http://localhost:8000/opportunities?opportunity_type=job&contact_available
 - A extracao depende do DOM atual do LinkedIn e pode precisar de ajuste se a pagina mudar.
 - A extensao trata apenas controles visiveis de mais resultados na pagina de resultados; mudancas de
   DOM/idioma podem exigir novos labels ou seletores.
+- A recuperacao de infinite scroll tenta compensar atrasos/interrupcoes do LinkedIn, mas ainda deve ser
+  validada em buscas reais longas, especialmente com `max posts` perto de 250.
 - O worker marca runs `running` muito antigas como falha por timeout configuravel; isso nao cancela um
   processo Python preso no meio da execucao, mas evita que reinicios/loops posteriores deixem runs
   antigas bloqueando a operacao.

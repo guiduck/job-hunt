@@ -139,38 +139,38 @@
 
 ### Tests for User Story 2
 
-- [ ] T063 [P] [US2] Create contract tests for `POST /api/freelance/campaigns/{campaignId}/prospecting-jobs` and `GET /api/freelance/prospecting-jobs/{jobId}` in `apps/web/tests/contract/prospecting-jobs-contract.test.ts`
-- [ ] T064 [P] [US2] Create provider normalization tests in `apps/web/tests/unit/maps-provider-normalization.test.ts`
-- [ ] T065 [P] [US2] Create dedupe rule tests in `apps/web/tests/unit/freelance-dedupe.test.ts`
-- [ ] T066 [P] [US2] Create website status mapping tests in `apps/web/tests/unit/website-status.test.ts`
-- [ ] T067 [P] [US2] Create lightweight website analyzer tests in `apps/web/tests/unit/website-analyzer.test.ts`
-- [ ] T068 [P] [US2] Create worker lifecycle integration test in `apps/web/tests/integration/prospecting-worker-flow.test.ts`
-- [ ] T069 [P] [US2] Create no-results/provider-failure integration tests in `apps/web/tests/integration/prospecting-failure-states.test.ts`
+- [X] T063 [P] [US2] Create contract tests for `POST /api/freelance/campaigns/{campaignId}/prospecting-jobs` and `GET /api/freelance/prospecting-jobs/{jobId}` in `apps/web/tests/contract/prospecting-jobs-contract.test.ts`
+- [X] T064 [P] [US2] Create provider normalization tests in `apps/web/tests/unit/maps-provider-normalization.test.ts`
+- [X] T065 [P] [US2] Create dedupe rule tests in `apps/web/tests/unit/freelance-dedupe.test.ts`
+- [X] T066 [P] [US2] Create website status mapping tests in `apps/web/tests/unit/website-status.test.ts`
+- [X] T067 [P] [US2] Create lightweight website analyzer tests in `apps/web/tests/unit/website-analyzer.test.ts`
+- [X] T068 [P] [US2] Create worker lifecycle integration test in `apps/web/tests/integration/prospecting-worker-flow.test.ts`
+- [X] T069 [P] [US2] Create no-results/provider-failure integration tests in `apps/web/tests/integration/prospecting-failure-states.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T070 [US2] Implement prospecting job create/list/read logic in `apps/web/lib/freelance/job-service.ts`
-- [ ] T071 [US2] Implement `POST /api/freelance/campaigns/[campaignId]/prospecting-jobs` route in `apps/web/app/api/freelance/campaigns/[campaignId]/prospecting-jobs/route.ts`
-- [ ] T072 [US2] Implement `GET /api/freelance/prospecting-jobs/[jobId]` route in `apps/web/app/api/freelance/prospecting-jobs/[jobId]/route.ts`
-- [ ] T073 [US2] Implement provider result normalization in `apps/web/lib/providers/freelance-maps-provider.ts`
-- [ ] T074 [US2] Implement deterministic mock provider payloads in `apps/web/lib/providers/mock-maps-provider.ts`
-- [ ] T075 [US2] Implement Apify adapter request/response mapping in `apps/web/lib/providers/apify-google-maps-provider.ts`
-- [ ] T076 [US2] Implement SerpApi adapter request/response mapping in `apps/web/lib/providers/serpapi-google-maps-provider.ts`
-- [ ] T077 [US2] Implement dedupe rules in `apps/web/worker/jobs/dedupe.ts`
-- [ ] T078 [US2] Implement candidate acceptance/rejection rules in `apps/web/worker/jobs/candidate-normalizer.ts`
-- [ ] T079 [US2] Implement lightweight homepage fetch in `apps/web/worker/website-analysis/analyzer.ts`
-- [ ] T080 [US2] Implement title/meta/headings/CTA/contact extraction in `apps/web/worker/website-analysis/analyzer.ts`
-- [ ] T081 [US2] Implement social-only, Linktree, aggregator, broken, weak-site, usable-site, and uncertain classification in `apps/web/worker/website-analysis/classifier.ts`
-- [ ] T082 [US2] Implement content/design/performance/SEO scoring in `apps/web/worker/website-analysis/scoring.ts`
-- [ ] T083 [US2] Implement prospecting job processor steps and counters in `apps/web/worker/jobs/process-prospecting-job.ts`
-- [ ] T084 [US2] Implement worker polling loop and active-job guard in `apps/web/worker/index.ts`
-- [ ] T085 [US2] Persist saved leads and website analysis snapshots in `apps/web/lib/freelance/lead-service.ts`
-- [ ] T086 [US2] Update campaign counters after job completion in `apps/web/lib/freelance/campaign-service.ts`
-- [ ] T087 [US2] Add Prospect button and progress polling to `apps/web/components/campaigns/campaign-card.tsx`
-- [ ] T088 [US2] Add running/progress UI to Campaigns page in `apps/web/app/(freelance)/campaigns/page.tsx`
-- [ ] T089 [US2] Add provider failure and no-results states to `apps/web/components/campaigns/campaign-card.tsx`
-- [ ] T090 [US2] Add structured worker logs without secrets in `apps/web/worker/jobs/process-prospecting-job.ts`
-- [ ] T091 [US2] Run and document US2 quickstart validation in `specs/014-freelance-web-app/quickstart.md`
+- [X] T070 [US2] Implement prospecting job create/list/read logic in `apps/web/lib/freelance/job-service.ts`
+- [X] T071 [US2] Implement `POST /api/freelance/campaigns/[campaignId]/prospecting-jobs` route in `apps/web/app/api/freelance/campaigns/[campaignId]/prospecting-jobs/route.ts`
+- [X] T072 [US2] Implement `GET /api/freelance/prospecting-jobs/[jobId]` route in `apps/web/app/api/freelance/prospecting-jobs/[jobId]/route.ts`
+- [X] T073 [US2] Implement provider result normalization in `apps/web/lib/providers/freelance-maps-provider.ts`
+- [X] T074 [US2] Implement deterministic mock provider payloads in `apps/web/lib/providers/mock-maps-provider.ts`
+- [X] T075 [US2] Implement Apify adapter request/response mapping in `apps/web/lib/providers/apify-google-maps-provider.ts`
+- [X] T076 [US2] Implement SerpApi adapter request/response mapping in `apps/web/lib/providers/serpapi-google-maps-provider.ts`
+- [X] T077 [US2] Implement dedupe rules in `apps/web/worker/jobs/dedupe.ts`
+- [X] T078 [US2] Implement candidate acceptance/rejection rules in `apps/web/worker/jobs/candidate-normalizer.ts`
+- [X] T079 [US2] Implement lightweight homepage fetch in `apps/web/worker/website-analysis/analyzer.ts`
+- [X] T080 [US2] Implement title/meta/headings/CTA/contact extraction in `apps/web/worker/website-analysis/analyzer.ts`
+- [X] T081 [US2] Implement social-only, Linktree, aggregator, broken, weak-site, usable-site, and uncertain classification in `apps/web/worker/website-analysis/classifier.ts`
+- [X] T082 [US2] Implement content/design/performance/SEO scoring in `apps/web/worker/website-analysis/scoring.ts`
+- [X] T083 [US2] Implement prospecting job processor steps and counters in `apps/web/worker/jobs/process-prospecting-job.ts`
+- [X] T084 [US2] Implement worker polling loop and active-job guard in `apps/web/worker/index.ts`
+- [X] T085 [US2] Persist saved leads and website analysis snapshots in `apps/web/lib/freelance/lead-service.ts`
+- [X] T086 [US2] Update campaign counters after job completion in `apps/web/lib/freelance/campaign-service.ts`
+- [X] T087 [US2] Add Prospect button and progress polling to `apps/web/components/campaigns/campaign-card.tsx`
+- [X] T088 [US2] Add running/progress UI to Campaigns page in `apps/web/app/(freelance)/campaigns/page.tsx`
+- [X] T089 [US2] Add provider failure and no-results states to `apps/web/components/campaigns/campaign-card.tsx`
+- [X] T090 [US2] Add structured worker logs without secrets in `apps/web/worker/jobs/process-prospecting-job.ts`
+- [X] T091 [US2] Run and document US2 quickstart validation in `specs/014-freelance-web-app/quickstart.md`
 
 **Checkpoint**: US2 is independently functional: a campaign can create a background job and save classified leads with evidence.
 
@@ -184,32 +184,32 @@
 
 ### Tests for User Story 3
 
-- [ ] T092 [P] [US3] Create contract tests for `GET /api/freelance/leads`, `GET /api/freelance/leads/{leadId}`, and `PATCH /api/freelance/leads/{leadId}` in `apps/web/tests/contract/leads-contract.test.ts`
-- [ ] T093 [P] [US3] Create integration tests for lead filtering in `apps/web/tests/integration/lead-filters.test.ts`
-- [ ] T094 [P] [US3] Create integration tests for lead detail updates in `apps/web/tests/integration/lead-detail-update.test.ts`
-- [ ] T095 [P] [US3] Create UI copy guard tests for Leads and Lead Detail in `apps/web/tests/unit/lead-copy-guard.test.ts`
-- [ ] T096 [P] [US3] Create unit tests for dashboard metrics calculation in `apps/web/tests/unit/freelance-metrics.test.ts`
+- [X] T092 [P] [US3] Create contract tests for `GET /api/freelance/leads`, `GET /api/freelance/leads/{leadId}`, and `PATCH /api/freelance/leads/{leadId}` in `apps/web/tests/contract/leads-contract.test.ts`
+- [X] T093 [P] [US3] Create integration tests for lead filtering in `apps/web/tests/integration/lead-filters.test.ts`
+- [X] T094 [P] [US3] Create integration tests for lead detail updates in `apps/web/tests/integration/lead-detail-update.test.ts`
+- [X] T095 [P] [US3] Create UI copy guard tests for Leads and Lead Detail in `apps/web/tests/unit/lead-copy-guard.test.ts`
+- [X] T096 [P] [US3] Create unit tests for dashboard metrics calculation in `apps/web/tests/unit/freelance-metrics.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T097 [US3] Implement lead list filters in `apps/web/lib/freelance/lead-service.ts`
-- [ ] T098 [US3] Implement lead detail read/update logic in `apps/web/lib/freelance/lead-service.ts`
-- [ ] T099 [US3] Implement dashboard metrics in `apps/web/lib/freelance/metrics-service.ts`
-- [ ] T100 [US3] Implement `GET /api/freelance/leads` route in `apps/web/app/api/freelance/leads/route.ts`
-- [ ] T101 [US3] Implement `GET` and `PATCH /api/freelance/leads/[leadId]` route in `apps/web/app/api/freelance/leads/[leadId]/route.ts`
-- [ ] T102 [US3] Create Leads page in `apps/web/app/(freelance)/leads/page.tsx`
-- [ ] T103 [P] [US3] Create lead filters component in `apps/web/components/leads/lead-filters.tsx`
-- [ ] T104 [P] [US3] Create dense lead table component in `apps/web/components/leads/lead-table.tsx`
-- [ ] T105 [P] [US3] Create score and status badge components in `apps/web/components/leads/lead-badges.tsx`
-- [ ] T106 [US3] Wire Zustand filter and row selection state in `apps/web/lib/freelance/ui-store.ts`
-- [ ] T107 [US3] Create Lead Detail page in `apps/web/app/(freelance)/leads/[leadId]/page.tsx`
-- [ ] T108 [P] [US3] Create business info and source evidence panels in `apps/web/components/leads/lead-detail-panels.tsx`
-- [ ] T109 [P] [US3] Create website analysis score/evidence panel in `apps/web/components/leads/website-analysis-panel.tsx`
-- [ ] T110 [P] [US3] Create commercial status, temperature, notes, and demo URL editor in `apps/web/components/leads/lead-review-panel.tsx`
-- [ ] T111 [US3] Create Dashboard page in `apps/web/app/(freelance)/dashboard/page.tsx`
-- [ ] T112 [US3] Add dashboard metric cards and recent leads section in `apps/web/components/dashboard/freelance-dashboard.tsx`
-- [ ] T113 [US3] Ensure CSV export is absent from `apps/web/app/(freelance)/leads/page.tsx`
-- [ ] T114 [US3] Run and document US3 quickstart validation in `specs/014-freelance-web-app/quickstart.md`
+- [X] T097 [US3] Implement lead list filters in `apps/web/lib/freelance/lead-service.ts`
+- [X] T098 [US3] Implement lead detail read/update logic in `apps/web/lib/freelance/lead-service.ts`
+- [X] T099 [US3] Implement dashboard metrics in `apps/web/lib/freelance/metrics-service.ts`
+- [X] T100 [US3] Implement `GET /api/freelance/leads` route in `apps/web/app/api/freelance/leads/route.ts`
+- [X] T101 [US3] Implement `GET` and `PATCH /api/freelance/leads/[leadId]` route in `apps/web/app/api/freelance/leads/[leadId]/route.ts`
+- [X] T102 [US3] Create Leads page in `apps/web/app/(freelance)/leads/page.tsx`
+- [X] T103 [P] [US3] Create lead filters component in `apps/web/components/leads/lead-filters.tsx`
+- [X] T104 [P] [US3] Create dense lead table component in `apps/web/components/leads/lead-table.tsx`
+- [X] T105 [P] [US3] Create score and status badge components in `apps/web/components/leads/lead-badges.tsx`
+- [X] T106 [US3] Wire Zustand filter and row selection state in `apps/web/lib/freelance/ui-store.ts`
+- [X] T107 [US3] Create Lead Detail page in `apps/web/app/(freelance)/leads/[leadId]/page.tsx`
+- [X] T108 [P] [US3] Create business info and source evidence panels in `apps/web/components/leads/lead-detail-panels.tsx`
+- [X] T109 [P] [US3] Create website analysis score/evidence panel in `apps/web/components/leads/website-analysis-panel.tsx`
+- [X] T110 [P] [US3] Create commercial status, temperature, notes, and demo URL editor in `apps/web/components/leads/lead-review-panel.tsx`
+- [X] T111 [US3] Create Dashboard page in `apps/web/app/(freelance)/dashboard/page.tsx`
+- [X] T112 [US3] Add dashboard metric cards and recent leads section in `apps/web/components/dashboard/freelance-dashboard.tsx`
+- [X] T113 [US3] Ensure CSV export is absent from `apps/web/app/(freelance)/leads/page.tsx`
+- [X] T114 [US3] Run and document US3 quickstart validation in `specs/014-freelance-web-app/quickstart.md`
 
 **Checkpoint**: US3 is independently functional: saved leads can be reviewed and updated from a dense Freelance UI.
 
@@ -223,27 +223,27 @@
 
 ### Tests for User Story 4
 
-- [ ] T115 [P] [US4] Create contract tests for generation routes in `apps/web/tests/contract/generation-contract.test.ts`
-- [ ] T116 [P] [US4] Create unit tests for Lovable prompt builder in `apps/web/tests/unit/lovable-prompt-builder.test.ts`
-- [ ] T117 [P] [US4] Create unit tests for commercial message builder in `apps/web/tests/unit/commercial-message-builder.test.ts`
-- [ ] T118 [P] [US4] Create integration tests for latest-generated replacement in `apps/web/tests/integration/latest-generated-text.test.ts`
-- [ ] T119 [P] [US4] Create human-gated outreach tests in `apps/web/tests/unit/human-gated-generation.test.ts`
+- [X] T115 [P] [US4] Create contract tests for generation routes in `apps/web/tests/contract/generation-contract.test.ts`
+- [X] T116 [P] [US4] Create unit tests for Lovable prompt builder in `apps/web/tests/unit/lovable-prompt-builder.test.ts`
+- [X] T117 [P] [US4] Create unit tests for commercial message builder in `apps/web/tests/unit/commercial-message-builder.test.ts`
+- [X] T118 [P] [US4] Create integration tests for latest-generated replacement in `apps/web/tests/integration/latest-generated-text.test.ts`
+- [X] T119 [P] [US4] Create human-gated outreach tests in `apps/web/tests/unit/human-gated-generation.test.ts`
 
 ### Implementation for User Story 4
 
-- [ ] T120 [US4] Implement latest generated text persistence in `apps/web/lib/freelance/generation-service.ts`
-- [ ] T121 [US4] Implement Lovable prompt builder in `apps/web/lib/generation/lovable-prompt-builder.ts`
-- [ ] T122 [US4] Implement commercial message builder in `apps/web/lib/generation/commercial-message-builder.ts`
-- [ ] T123 [US4] Implement `POST /api/freelance/generation/lovable-prompt` route in `apps/web/app/api/freelance/generation/lovable-prompt/route.ts`
-- [ ] T124 [US4] Implement `POST /api/freelance/generation/message` route in `apps/web/app/api/freelance/generation/message/route.ts`
-- [ ] T125 [P] [US4] Create Lovable prompt modal in `apps/web/components/leads/lovable-prompt-modal.tsx`
-- [ ] T126 [P] [US4] Create message generator panel in `apps/web/components/leads/message-generator-panel.tsx`
-- [ ] T127 [US4] Add complete/generic/compact prompt variant selection in `apps/web/components/leads/lovable-prompt-modal.tsx`
-- [ ] T128 [US4] Add first-contact/follow-up message stage selection in `apps/web/components/leads/message-generator-panel.tsx`
-- [ ] T129 [US4] Add editable generated text and copy feedback in `apps/web/components/leads/generated-text-editor.tsx`
-- [ ] T130 [US4] Wire prompt and message components into `apps/web/app/(freelance)/leads/[leadId]/page.tsx`
-- [ ] T131 [US4] Ensure email/WhatsApp actions are copy/open only in `apps/web/components/leads/message-generator-panel.tsx`
-- [ ] T132 [US4] Run and document US4 quickstart validation in `specs/014-freelance-web-app/quickstart.md`
+- [X] T120 [US4] Implement latest generated text persistence in `apps/web/lib/freelance/generation-service.ts`
+- [X] T121 [US4] Implement Lovable prompt builder in `apps/web/lib/generation/lovable-prompt-builder.ts`
+- [X] T122 [US4] Implement commercial message builder in `apps/web/lib/generation/commercial-message-builder.ts`
+- [X] T123 [US4] Implement `POST /api/freelance/generation/lovable-prompt` route in `apps/web/app/api/freelance/generation/lovable-prompt/route.ts`
+- [X] T124 [US4] Implement `POST /api/freelance/generation/message` route in `apps/web/app/api/freelance/generation/message/route.ts`
+- [X] T125 [P] [US4] Create Lovable prompt modal in `apps/web/components/leads/lovable-prompt-modal.tsx`
+- [X] T126 [P] [US4] Create message generator panel in `apps/web/components/leads/message-generator-panel.tsx`
+- [X] T127 [US4] Add complete/generic/compact prompt variant selection in `apps/web/components/leads/lovable-prompt-modal.tsx`
+- [X] T128 [US4] Add first-contact/follow-up message stage selection in `apps/web/components/leads/message-generator-panel.tsx`
+- [X] T129 [US4] Add editable generated text and copy feedback in `apps/web/components/leads/generated-text-editor.tsx`
+- [X] T130 [US4] Wire prompt and message components into `apps/web/app/(freelance)/leads/[leadId]/page.tsx`
+- [X] T131 [US4] Ensure email/WhatsApp actions are copy/open only in `apps/web/components/leads/message-generator-panel.tsx`
+- [X] T132 [US4] Run and document US4 quickstart validation in `specs/014-freelance-web-app/quickstart.md`
 
 **Checkpoint**: US4 is independently functional: lead detail generates reviewable latest prompt/message text with no automatic outreach.
 
@@ -257,29 +257,29 @@
 
 ### Tests for User Story 5
 
-- [ ] T133 [P] [US5] Create contract tests for templates routes in `apps/web/tests/contract/templates-contract.test.ts`
-- [ ] T134 [P] [US5] Create contract tests for settings routes in `apps/web/tests/contract/settings-contract.test.ts`
-- [ ] T135 [P] [US5] Create integration tests for template CRUD in `apps/web/tests/integration/template-management.test.ts`
-- [ ] T136 [P] [US5] Create integration tests for seller settings and message generation context in `apps/web/tests/integration/seller-settings-generation.test.ts`
-- [ ] T137 [P] [US5] Create unit tests for template variable validation in `apps/web/tests/unit/template-variable-validation.test.ts`
+- [X] T133 [P] [US5] Create contract tests for templates routes in `apps/web/tests/contract/templates-contract.test.ts`
+- [X] T134 [P] [US5] Create contract tests for settings routes in `apps/web/tests/contract/settings-contract.test.ts`
+- [X] T135 [P] [US5] Create integration tests for template CRUD in `apps/web/tests/integration/template-management.test.ts`
+- [X] T136 [P] [US5] Create integration tests for seller settings and message generation context in `apps/web/tests/integration/seller-settings-generation.test.ts`
+- [X] T137 [P] [US5] Create unit tests for template variable validation in `apps/web/tests/unit/template-variable-validation.test.ts`
 
 ### Implementation for User Story 5
 
-- [ ] T138 [US5] Implement commercial template CRUD in `apps/web/lib/freelance/template-service.ts`
-- [ ] T139 [US5] Implement seller settings read/upsert in `apps/web/lib/freelance/settings-service.ts`
-- [ ] T140 [US5] Implement `GET` and `POST /api/freelance/templates` route in `apps/web/app/api/freelance/templates/route.ts`
-- [ ] T141 [US5] Implement `PATCH` and `DELETE /api/freelance/templates/[templateId]` route in `apps/web/app/api/freelance/templates/[templateId]/route.ts`
-- [ ] T142 [US5] Implement `GET` and `PUT /api/freelance/settings` route in `apps/web/app/api/freelance/settings/route.ts`
-- [ ] T143 [US5] Create Templates page in `apps/web/app/(freelance)/templates/page.tsx`
-- [ ] T144 [P] [US5] Create template list/cards component in `apps/web/components/templates/template-list.tsx`
-- [ ] T145 [P] [US5] Create template editor dialog in `apps/web/components/templates/template-editor-dialog.tsx`
-- [ ] T146 [P] [US5] Create template preview component in `apps/web/components/templates/template-preview.tsx`
-- [ ] T147 [US5] Create Settings page in `apps/web/app/(freelance)/settings/page.tsx`
-- [ ] T148 [P] [US5] Create seller settings form in `apps/web/components/settings/seller-settings-form.tsx`
-- [ ] T149 [P] [US5] Create preferred niches selector in `apps/web/components/settings/preferred-niches-selector.tsx`
-- [ ] T150 [US5] Add missing-data alert for generation prerequisites in `apps/web/components/settings/settings-alert.tsx`
-- [ ] T151 [US5] Wire saved settings into message generation in `apps/web/lib/generation/commercial-message-builder.ts`
-- [ ] T152 [US5] Run and document US5 quickstart validation in `specs/014-freelance-web-app/quickstart.md`
+- [X] T138 [US5] Implement commercial template CRUD in `apps/web/lib/freelance/template-service.ts`
+- [X] T139 [US5] Implement seller settings read/upsert in `apps/web/lib/freelance/settings-service.ts`
+- [X] T140 [US5] Implement `GET` and `POST /api/freelance/templates` route in `apps/web/app/api/freelance/templates/route.ts`
+- [X] T141 [US5] Implement `PATCH` and `DELETE /api/freelance/templates/[templateId]` route in `apps/web/app/api/freelance/templates/[templateId]/route.ts`
+- [X] T142 [US5] Implement `GET` and `PUT /api/freelance/settings` route in `apps/web/app/api/freelance/settings/route.ts`
+- [X] T143 [US5] Create Templates page in `apps/web/app/(freelance)/templates/page.tsx`
+- [X] T144 [P] [US5] Create template list/cards component in `apps/web/components/templates/template-list.tsx`
+- [X] T145 [P] [US5] Create template editor dialog in `apps/web/components/templates/template-editor-dialog.tsx`
+- [X] T146 [P] [US5] Create template preview component in `apps/web/components/templates/template-preview.tsx`
+- [X] T147 [US5] Create Settings page in `apps/web/app/(freelance)/settings/page.tsx`
+- [X] T148 [P] [US5] Create seller settings form in `apps/web/components/settings/seller-settings-form.tsx`
+- [X] T149 [P] [US5] Create preferred niches selector in `apps/web/components/settings/preferred-niches-selector.tsx`
+- [X] T150 [US5] Add missing-data alert for generation prerequisites in `apps/web/components/settings/settings-alert.tsx`
+- [X] T151 [US5] Wire saved settings into message generation in `apps/web/lib/generation/commercial-message-builder.ts`
+- [X] T152 [US5] Run and document US5 quickstart validation in `specs/014-freelance-web-app/quickstart.md`
 
 **Checkpoint**: US5 is independently functional: templates/settings are manageable and generation uses saved commercial context.
 
@@ -289,24 +289,24 @@
 
 **Purpose**: Validate the full story, harden UX, update docs, and prepare the next Spec Kit step.
 
-- [ ] T153 [P] Add accessibility labels and keyboard support to modal/table/form controls in `apps/web/components/`
-- [ ] T154 [P] Add loading skeletons and terminal error states across `apps/web/app/(freelance)/`
-- [ ] T155 [P] Audit CSS for one-note palettes, text overflow, nested cards, and mobile/desktop overlap in `apps/web/app/globals.css`
-- [ ] T156 [P] Add route-level not-found/error boundaries in `apps/web/app/(freelance)/leads/[leadId]/not-found.tsx` and `apps/web/app/(freelance)/error.tsx`
-- [ ] T157 [P] Add server-only guard tests for provider/AI secrets in `apps/web/tests/unit/server-secret-guard.test.ts`
-- [ ] T158 Run `npm run typecheck` in `apps/web`
-- [ ] T159 Run `npm run test` in `apps/web`
-- [ ] T160 Run `npm run build` in `apps/web`
-- [ ] T161 Run Prisma migration and seed validation from `apps/web`
-- [ ] T162 Run quickstart smoke from `specs/014-freelance-web-app/quickstart.md`
-- [ ] T163 Verify `apps/extension npm run typecheck` still passes after Docker/package changes
-- [ ] T164 Verify no `Full-time`, resume, interview, or job application labels appear in `apps/web/app/(freelance)/`
-- [ ] T165 Update `docs/architecture.md` with implemented `apps/web` and web-worker details
-- [ ] T166 Update `docs/domain-model.md` with final Prisma entity names and any naming deviations from `data-model.md`
-- [ ] T167 Update `docs/reference-ui.md` if implementation intentionally differs from the reference UI contract
-- [ ] T168 Update `docs/handoff.md` with implementation status, validations, remaining risks, and latest prompt
-- [ ] T169 Update `docs/roadmap.md` with current Fase 4 implementation progress
-- [ ] T170 Prepare the next Spec Kit prompt in `docs/next-spec-prompt.md`
+- [X] T153 [P] Add accessibility labels and keyboard support to modal/table/form controls in `apps/web/components/`
+- [X] T154 [P] Add loading skeletons and terminal error states across `apps/web/app/(freelance)/`
+- [X] T155 [P] Audit CSS for one-note palettes, text overflow, nested cards, and mobile/desktop overlap in `apps/web/app/globals.css`
+- [X] T156 [P] Add route-level not-found/error boundaries in `apps/web/app/(freelance)/leads/[leadId]/not-found.tsx` and `apps/web/app/(freelance)/error.tsx`
+- [X] T157 [P] Add server-only guard tests for provider/AI secrets in `apps/web/tests/unit/server-secret-guard.test.ts`
+- [X] T158 Run `npm run typecheck` in `apps/web`
+- [X] T159 Run `npm run test` in `apps/web`
+- [X] T160 Run `npm run build` in `apps/web`
+- [X] T161 Run Prisma migration and seed validation from `apps/web`
+- [X] T162 Run quickstart smoke from `specs/014-freelance-web-app/quickstart.md`
+- [X] T163 Verify `apps/extension npm run typecheck` still passes after Docker/package changes
+- [X] T164 Verify no `Full-time`, resume, interview, or job application labels appear in `apps/web/app/(freelance)/`
+- [X] T165 Update `docs/architecture.md` with implemented `apps/web` and web-worker details
+- [X] T166 Update `docs/domain-model.md` with final Prisma entity names and any naming deviations from `data-model.md`
+- [X] T167 Update `docs/reference-ui.md` if implementation intentionally differs from the reference UI contract
+- [X] T168 Update `docs/handoff.md` with implementation status, validations, remaining risks, and latest prompt
+- [X] T169 Update `docs/roadmap.md` with current Fase 4 implementation progress
+- [X] T170 Prepare the next Spec Kit prompt in `docs/next-spec-prompt.md`
 
 ---
 

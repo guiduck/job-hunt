@@ -591,3 +591,48 @@ nao cria `send_requests`, `email_drafts` ou `outreach_events`.
   futura web.
 - O assistente de campos da extensao deve escopar respostas por usuario autenticado e nao deve
   aparecer quando a sessao local nao existir.
+
+## Modelo Prisma Implementado Para Freelance
+
+O app `apps/web` da spec `014-freelance-web-app` implementa o primeiro recorte Freelance em tabelas
+dedicadas, separadas do schema operacional do `Full-time`:
+
+- `freelance_niches`: catalogo seedado de nichos com `slug`, mercado, termos padrao e estimativa de
+  conversao.
+- `freelance_campaigns`: campanha por usuario, mercado BR/internacional, localidade, nicho snapshot,
+  status e contadores.
+- `prospecting_jobs`: job de descoberta/classificacao com provider, query, etapa, contadores,
+  diagnosticos e status terminal.
+- `freelance_leads`: negocio salvo, contato, origem, evidencias, status de website, scores,
+  temperatura, status comercial, demo URL e notas.
+- `website_analyses`: snapshot da analise leve de site com sinais de reachability, SEO, CTA, contato,
+  scores e evidencias humanas.
+- `commercial_templates`: templates comerciais `first_contact` e `follow_up`, seedados e extensíveis
+  por usuario.
+- `seller_settings`: dados comerciais do operador usados na geracao de mensagem.
+- `latest_generated_texts`: somente o ultimo prompt/mensagem gerado por lead, tipo, variante e
+  estagio. Historico de versoes nao faz parte do MVP.
+- `freelance_niches` foi estendido em `015-freelance-niche-catalog` com campos de governanca:
+  `display_name`, `source_name`, `source_path`, `source_note`, `conversion_hint_source`, `aliases`,
+  `query_terms`, `market_applicability`, `lifecycle_status`, `merged_into_niche_id` e
+  `last_audited_at`.
+- `niche_candidates`: propostas revisaveis vindas de referencias visuais/documentais, nunca
+  selecionaveis em campanhas antes de aprovacao. Elas possuem status `proposed`, `approved`,
+  `rejected`, `deferred` ou `already_covered`, guardam source evidence e podem apontar para um nicho
+  aprovado quando a referencia ja esta coberta.
+- `niche_audit_runs` e `niche_audit_findings`: snapshots do audit interno que compara catalogo atual,
+  baseline de 30 nichos, source evidence, encoding e conflitos como `Imobiliaria`.
+- A gestao US2 do catalogo usa `POST /api/freelance/niches` e
+  `PATCH /api/freelance/niches/[nicheId]` para criar/editar/desativar/reativar/mesclar nichos
+  aprovados. Essas operacoes nunca reescrevem `niche_name_snapshot` nem
+  `conversion_hint_snapshot` em campanhas historicas; novas campanhas continuam filtrando apenas
+  nichos `enabled` com `lifecycle_status=approved`.
+- A revisao US3 usa `GET /api/freelance/niche-candidates` e
+  `PATCH /api/freelance/niche-candidates/[candidateId]`. Aprovar um candidato chama a mesma validacao
+  de duplicidade/source evidence de `freelance_niches`; rejeitar, deferir ou marcar como ja coberto
+  mantem o candidato fora da selecao de campanhas. Nenhuma decisao de candidato cria
+  `freelance_leads`, `prospecting_jobs`, mensagens ou eventos de outreach.
+
+Desvio intencional do modelo compartilhado antigo: neste recorte, Freelance usa tabelas dedicadas do
+app web em vez de persistir em uma entidade unica `opportunities` com `opportunity_type=freelance`.
+Isso preserva o produto `Full-time` existente enquanto a vertical Freelance amadurece em separado.

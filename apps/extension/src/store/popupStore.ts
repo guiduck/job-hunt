@@ -62,6 +62,7 @@ import type {
   Opportunity,
   OpportunityFilters,
   OpportunityMetrics,
+  OpportunityPage,
   OutreachEvent,
   ResumeAttachment,
   SendingProviderAccount,
@@ -242,6 +243,19 @@ type PersistedPopupState = {
 }
 
 const POPUP_STATE_STORAGE_KEY = "opportunity-desk-popup-state"
+const OPPORTUNITY_PAGE_CACHE_STORAGE_KEY = "opportunity-desk-opportunity-page-cache"
+const OPPORTUNITY_PAGE_CACHE_TTL_MS = 30_000
+const OPPORTUNITY_PAGE_CACHE_MAX_ENTRIES = 12
+
+type CachedOpportunityPage = {
+  cachedAt: number
+  filtersKey: string
+  opportunityPage: OpportunityPage
+  dashboardMetrics: OpportunityMetrics
+  runsCount: number
+}
+
+type OpportunityPageCache = Record<string, CachedOpportunityPage>
 
 function loadPersistedPopupState(): PersistedPopupState {
   try {
@@ -258,6 +272,60 @@ function persistPopupState(update: PersistedPopupState) {
     window.localStorage.setItem(POPUP_STATE_STORAGE_KEY, JSON.stringify({ ...current, ...update }))
   } catch {
     // Best-effort UI persistence only.
+  }
+}
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`
+  }
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .filter(([, entryValue]) => entryValue !== undefined && entryValue !== null && entryValue !== "")
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entryValue]) => `${JSON.stringify(key)}:${stableStringify(entryValue)}`)
+      .join(",")}}`
+  }
+  return JSON.stringify(value)
+}
+
+function opportunityPageCacheKey(filters: OpportunityFilters) {
+  return stableStringify(filters)
+}
+
+function loadOpportunityPageCache(): OpportunityPageCache {
+  try {
+    const raw = window.localStorage.getItem(OPPORTUNITY_PAGE_CACHE_STORAGE_KEY)
+    return raw ? (JSON.parse(raw) as OpportunityPageCache) : {}
+  } catch {
+    return {}
+  }
+}
+
+function readCachedOpportunityPage(filters: OpportunityFilters) {
+  const key = opportunityPageCacheKey(filters)
+  return loadOpportunityPageCache()[key] || null
+}
+
+function persistCachedOpportunityPage(filters: OpportunityFilters, entry: Omit<CachedOpportunityPage, "cachedAt" | "filtersKey">) {
+  try {
+    const filtersKey = opportunityPageCacheKey(filters)
+    const cache = loadOpportunityPageCache()
+    cache[filtersKey] = { ...entry, cachedAt: Date.now(), filtersKey }
+    const trimmedEntries = Object.entries(cache)
+      .sort(([, left], [, right]) => right.cachedAt - left.cachedAt)
+      .slice(0, OPPORTUNITY_PAGE_CACHE_MAX_ENTRIES)
+    window.localStorage.setItem(OPPORTUNITY_PAGE_CACHE_STORAGE_KEY, JSON.stringify(Object.fromEntries(trimmedEntries)))
+  } catch {
+    // Best-effort hot state only.
+  }
+}
+
+function clearOpportunityPageCache() {
+  try {
+    window.localStorage.removeItem(OPPORTUNITY_PAGE_CACHE_STORAGE_KEY)
+  } catch {
+    // Best-effort hot state only.
   }
 }
 
@@ -305,7 +373,7 @@ export function resolveOpportunityPageFilters(current: OpportunityFilters, next:
 
 export function opportunityFiltersForLane(jobsLane: JobApplicationKind, filters: OpportunityFilters): OpportunityFilters {
   if (jobsLane === "external_application") {
-    const { contact_available: _contactAvailable, send_status: _sendStatus, ...externalFilters } = filters
+    const { contact_available: _contactAvailable, ...externalFilters } = filters
     return {
       ...externalFilters,
       job_application_kind: "external_application"
@@ -641,10 +709,37 @@ export const usePopupStore = create<PopupState>((set, get) => ({
 
   refreshData: async (nextFilters = get().filters) => {
     console.info("[Opportunity Desk] refreshData started", { filters: nextFilters })
-    set({ loading: true, error: null })
     try {
       const laneFilters = opportunityFiltersForLane(get().jobsLane, nextFilters)
       const pageFilters = { ...laneFilters, page: laneFilters.page || 1, page_size: laneFilters.page_size || 50 }
+      const cachedPage = readCachedOpportunityPage(pageFilters)
+      const cacheIsFresh = cachedPage ? Date.now() - cachedPage.cachedAt < OPPORTUNITY_PAGE_CACHE_TTL_MS : false
+      if (cachedPage) {
+        const visibleIds = new Set(cachedPage.opportunityPage.items.map((opportunity) => opportunity.id))
+        const selectedJobIds = get().selectedJobIds.filter((id) => visibleIds.has(id))
+        set({
+          opportunities: cachedPage.opportunityPage.items,
+          dashboardMetrics: cachedPage.dashboardMetrics,
+          opportunityPage: cachedPage.opportunityPage.page,
+          opportunityPageSize: cachedPage.opportunityPage.page_size,
+          opportunityTotalItems: cachedPage.opportunityPage.total_items,
+          opportunityTotalPages: cachedPage.opportunityPage.total_pages,
+          opportunityHasNext: cachedPage.opportunityPage.has_next,
+          opportunityHasPrevious: cachedPage.opportunityPage.has_previous,
+          selectedJobIds,
+          filters: { ...pageFilters, page: cachedPage.opportunityPage.page, page_size: cachedPage.opportunityPage.page_size },
+          runsCount: cachedPage.runsCount,
+          error: null
+        })
+        if (cacheIsFresh) {
+          console.info("[Opportunity Desk] refreshData used fresh cached opportunity page", {
+            opportunities: cachedPage.opportunityPage.items.length,
+            ageMs: Date.now() - cachedPage.cachedAt
+          })
+          return
+        }
+      }
+      set({ loading: !cachedPage, error: null })
       const [opportunityPage, runs, dashboardMetrics, curatedCareerSources, latestCareerPageRun] = await Promise.all([
         listOpportunityPage(pageFilters),
         listJobSearchRuns(),
@@ -661,6 +756,14 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       const visibleIds = new Set(opportunityPage.items.map((opportunity) => opportunity.id))
       const selectedJobIds = get().selectedJobIds.filter((id) => visibleIds.has(id))
       persistPopupState({ selectedJobIds, filters: { ...pageFilters, page: opportunityPage.page, page_size: opportunityPage.page_size } })
+      persistCachedOpportunityPage(
+        { ...pageFilters, page: opportunityPage.page, page_size: opportunityPage.page_size },
+        {
+          opportunityPage,
+          dashboardMetrics,
+          runsCount: runs.length
+        }
+      )
       set({
         opportunities: opportunityPage.items,
         dashboardMetrics,
@@ -920,6 +1023,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       return
     }
 
+    clearOpportunityPageCache()
     await get().refreshData()
     if (preferenceWarning) {
       set({ error: preferenceWarning })
@@ -1015,6 +1119,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     try {
       const updated = await updateOpportunity(selectedOpportunity.id, payload)
       set({ selectedOpportunity: updated })
+      clearOpportunityPageCache()
       await get().refreshData()
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Could not update opportunity." })
@@ -1032,6 +1137,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         selectedOpportunity: selectedOpportunity?.id === opportunityId ? updated : selectedOpportunity,
         opportunities: get().opportunities.map((opportunity) => (opportunity.id === opportunityId ? updated : opportunity))
       })
+      clearOpportunityPageCache()
       await get().refreshData()
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Could not update job status." })
@@ -1049,6 +1155,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         selectedOpportunity: selectedOpportunity?.id === opportunityId ? updated : selectedOpportunity,
         opportunities: get().opportunities.map((opportunity) => (opportunity.id === opportunityId ? updated : opportunity))
       })
+      clearOpportunityPageCache()
       await get().refreshData()
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Could not mark job applied." })
@@ -1072,6 +1179,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         selectedOpportunity: selectedOpportunity?.id === opportunityId ? null : selectedOpportunity,
         emailHistory: selectedOpportunity?.id === opportunityId ? [] : get().emailHistory
       })
+      clearOpportunityPageCache()
       await get().refreshData()
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Could not delete job." })
@@ -1097,6 +1205,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         selectedOpportunity: selectedOpportunity && deletedIds.has(selectedOpportunity.id) ? null : selectedOpportunity,
         emailHistory: selectedOpportunity && deletedIds.has(selectedOpportunity.id) ? [] : get().emailHistory
       })
+      clearOpportunityPageCache()
       await get().refreshData()
       return result.deleted_count
     } catch (error) {

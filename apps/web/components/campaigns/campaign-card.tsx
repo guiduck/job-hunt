@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CampaignDto } from "@/lib/freelance/campaign-service";
+import { ProspectButton } from "./prospect-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,13 +13,13 @@ function formatLocation(campaign: CampaignDto) {
 
 export function CampaignCard({ campaign }: { campaign: CampaignDto }) {
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div>
             <CardTitle>{campaign.name}</CardTitle>
             <p className="mt-1 text-xs text-slate-500">
-              {campaign.nicheNameSnapshot} · {formatLocation(campaign)}
+              {campaign.nicheNameSnapshot} - {formatLocation(campaign)}
             </p>
           </div>
           <Badge tone={campaign.status === "ready" ? "success" : "neutral"}>
@@ -48,13 +49,22 @@ export function CampaignCard({ campaign }: { campaign: CampaignDto }) {
             Conversion estimate: {campaign.conversionHintSnapshot.toFixed(1)}%
           </p>
         ) : null}
-        <div className="mt-4 flex gap-2">
-          <Button variant="secondary" size="sm" asChild>
+        <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(96px,auto)_minmax(0,1fr)]">
+          <Button variant="secondary" size="sm" className="whitespace-nowrap" asChild>
             <Link href={`/leads?campaignId=${campaign.id}`}>View leads</Link>
           </Button>
-          <Button variant="ghost" size="sm" disabled>
-            Prospect
-          </Button>
+          <div className="min-w-0">
+            <ProspectButton
+              campaignId={campaign.id}
+              defaultMaxResults={
+                typeof campaign.searchSettings.maxResults === "number"
+                  ? campaign.searchSettings.maxResults
+                  : 50
+              }
+              initialJob={campaign.latestProspectingJob}
+              disabled={campaign.status === "collecting"}
+            />
+          </div>
         </div>
       </CardContent>
     </Card>

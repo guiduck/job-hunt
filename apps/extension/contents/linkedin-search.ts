@@ -18,6 +18,7 @@ const SCROLL_PROGRESS_TIMEOUT_MS = 12000
 const SCROLL_PROGRESS_POLL_MS = 500
 const INITIAL_RESULTS_TIMEOUT_MS = 15000
 const MAX_NO_PROGRESS_SCROLLS = 5
+const STALLED_SCROLL_RECOVERY_UP_SCROLLS = 2
 const SHOW_MORE_RESULTS_LABELS = [
   "exibir mais resultados",
   "mostrar mais resultados",
@@ -160,13 +161,17 @@ function dispatchWheel(target: ScrollTarget, deltaY: number) {
   )
 }
 
-function scrollPageDown() {
+function scrollPageBy(direction: "up" | "down") {
   const target = findBestScrollTarget()
   const before = getScrollMetrics(target)
   const step = Math.max(Math.floor(before.clientHeight * 0.85), 600)
-  const targetTop = Math.min(before.maxScrollTop, before.scrollTop + step)
+  const deltaY = direction === "down" ? step : -step
+  const targetTop =
+    direction === "down"
+      ? Math.min(before.maxScrollTop, before.scrollTop + step)
+      : Math.max(0, before.scrollTop - step)
 
-  dispatchWheel(target, step)
+  dispatchWheel(target, deltaY)
   if (target.isWindow) {
     window.scrollTo({ top: targetTop, behavior: "auto" })
     document.documentElement.scrollTop = targetTop
@@ -177,7 +182,15 @@ function scrollPageDown() {
     element.scrollTo({ top: targetTop, behavior: "auto" })
   }
 
-  return { before, targetTop }
+  return { before, targetTop, direction }
+}
+
+function scrollPageDown() {
+  return scrollPageBy("down")
+}
+
+function scrollPageUp() {
+  return scrollPageBy("up")
 }
 
 function scrollPageToTop() {
@@ -514,6 +527,46 @@ async function waitForInitialReadablePosts(maxPosts: number, diagnostics: Captur
   return extractVisiblePosts(maxPosts, diagnostics, state, { recordDiagnostics: false })
 }
 
+async function recoverStalledScroll(
+  previousPostsFound: number,
+  previousMetrics: ScrollMetrics,
+  maxPosts: number,
+  diagnostics: CaptureDiagnostics,
+  state: CaptureState,
+  scrollDelayMs: number
+) {
+  console.info("[Opportunity Desk] attempting LinkedIn stalled scroll recovery", {
+    upScrolls: STALLED_SCROLL_RECOVERY_UP_SCROLLS,
+    previousPostsFound,
+    previousMetrics
+  })
+
+  for (let index = 0; index < STALLED_SCROLL_RECOVERY_UP_SCROLLS; index += 1) {
+    const recoveryUpAttempt = scrollPageUp()
+    console.info("[Opportunity Desk] LinkedIn recovery scroll up", {
+      recoveryScroll: index + 1,
+      from: recoveryUpAttempt.before.scrollTop,
+      to: recoveryUpAttempt.targetTop,
+      target: recoveryUpAttempt.before.targetLabel
+    })
+    await delay(scrollDelayMs)
+  }
+
+  const recoveryDownAttempt = scrollPageDown()
+  await delay(scrollDelayMs)
+  const progress = await waitForScrollProgress(previousPostsFound, previousMetrics, maxPosts, diagnostics, state)
+  console.info("[Opportunity Desk] LinkedIn recovery scroll down complete", {
+    from: recoveryDownAttempt.before.scrollTop,
+    to: recoveryDownAttempt.targetTop,
+    target: recoveryDownAttempt.before.targetLabel,
+    progressed: progress.progressed,
+    postsFound: progress.currentPostsFound,
+    scrollHeight: progress.currentMetrics.scrollHeight,
+    scrollTop: progress.currentMetrics.scrollTop
+  })
+  return progress
+}
+
 async function capturePosts(payload: ContentCaptureMessage["payload"]): Promise<ContentCaptureResponse> {
   const diagnostics: CaptureDiagnostics = {
     startedAt: new Date().toISOString(),
@@ -547,6 +600,7 @@ async function capturePosts(payload: ContentCaptureMessage["payload"]): Promise<
     await delay(payload.scrollDelayMs)
     let progress = await waitForScrollProgress(previousPostsFound, scrollAttempt.before, payload.maxPosts, diagnostics, state)
     let showMoreResult = progress.showMoreResult
+    let recoveryScrolls = 0
     if (!progress.progressed || !hasScrollablePage()) {
       showMoreResult = await clickShowMoreResultsIfPresent()
       if (showMoreResult.clicked) {
@@ -559,6 +613,18 @@ async function capturePosts(payload: ContentCaptureMessage["payload"]): Promise<
           state
         )
       }
+    }
+    if (!progress.progressed) {
+      recoveryScrolls = STALLED_SCROLL_RECOVERY_UP_SCROLLS + 1
+      progress = await recoverStalledScroll(
+        previousPostsFound,
+        scrollAttempt.before,
+        payload.maxPosts,
+        diagnostics,
+        state,
+        payload.scrollDelayMs
+      )
+      showMoreResult = progress.showMoreResult.clicked ? progress.showMoreResult : showMoreResult
     }
     posts = extractVisiblePosts(payload.maxPosts, diagnostics, state)
     const postsAdded = Math.max(0, posts.length - previousPostsFound)
@@ -575,6 +641,7 @@ async function capturePosts(payload: ContentCaptureMessage["payload"]): Promise<
       noProgressCount,
       clickedShowMoreResults: showMoreResult.clicked,
       showMoreButtonLabel: showMoreResult.label || undefined,
+      recoveryScrolls,
       stoppedReason: noProgressCount >= MAX_NO_PROGRESS_SCROLLS ? "no_new_posts_after_scroll_timeout" : undefined
     }
     diagnostics.scrolls.push(scrollProgress)

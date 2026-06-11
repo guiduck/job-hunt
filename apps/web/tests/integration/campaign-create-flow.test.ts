@@ -4,15 +4,15 @@ import { seedNiches } from "@/prisma/seed-data/niches";
 
 describe("campaign create flow", () => {
   it("supports BR campaign naming from seeded niches", () => {
-    const niche = seedNiches.find((item) => item.name === "Imobiliária");
+    const niche = seedNiches.find((item) => item.name === "Imobiliaria");
     expect(niche).toBeDefined();
     expect(
       buildCampaignName({
         city: "Indaial",
-        nicheName: niche?.name ?? "",
+        nicheName: niche?.displayName ?? "",
         marketScope: "BR"
       })
-    ).toBe("Imobiliária - Indaial (BR)");
+    ).toBe("Imobiliaria - Indaial (BR)");
   });
 
   it("supports international campaign naming from seeded niches", () => {
@@ -21,7 +21,7 @@ describe("campaign create flow", () => {
     expect(
       buildCampaignName({
         city: "Alamo",
-        nicheName: niche?.name ?? "",
+        nicheName: niche?.displayName ?? "",
         marketScope: "INTERNATIONAL"
       })
     ).toBe("Plumber - Alamo (International)");

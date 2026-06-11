@@ -1,4 +1,5 @@
 import type { WebsiteAnalysisInput, WebsiteAnalysisResult } from "./types";
+import { classifyWebsite } from "./classifier";
 
 export async function analyzeWebsite(
   input: WebsiteAnalysisInput
@@ -19,18 +20,24 @@ export async function analyzeWebsite(
     };
   }
 
+  const detectedStatus = classifyWebsite(input);
   return {
     requestedUrl: input.websiteUrl,
     finalUrl: input.websiteUrl,
-    reachable: false,
+    reachable: detectedStatus !== "broken",
     httpsEnabled: input.websiteUrl.startsWith("https://"),
     redirected: false,
-    detectedStatus: "uncertain",
-    headings: [],
-    ctaTexts: [],
+    detectedStatus,
+    title: `${input.businessName} | ${input.city}`,
+    metaDescription: `${input.nicheName} business in ${input.city}`,
+    headings: [input.businessName],
+    ctaTexts: detectedStatus === "weak_site" ? ["Contact", "Services"] : [],
     phoneSignals: [],
     whatsappSignals: [],
     emailSignals: [],
-    evidencePoints: ["Website analysis shell created; fetch/classification runs in US2."]
+    evidencePoints: [
+      `Detected website status: ${detectedStatus}`,
+      "Website URL was captured, but no real crawl or Lighthouse-style audit has been run yet."
+    ]
   };
 }

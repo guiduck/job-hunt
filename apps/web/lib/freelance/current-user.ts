@@ -1,7 +1,9 @@
 import type { OwnerScope } from "./repositories";
+import { getFreelanceCurrentUser } from "@/lib/auth/session";
 
-export function getCurrentUserScope(): OwnerScope {
+export async function getCurrentUserScope(): Promise<OwnerScope> {
+  const currentUser = await getFreelanceCurrentUser();
   return {
-    userId: process.env.DEFAULT_FREELANCE_USER_ID || "local-operator"
+    userId: currentUser?.id || process.env.DEFAULT_FREELANCE_USER_ID || "local-operator"
   };
 }

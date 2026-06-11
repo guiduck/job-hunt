@@ -10,11 +10,11 @@ export default async function CampaignsPage() {
   try {
     const [niches, campaigns] = await Promise.all([
       listNiches(),
-      listCampaigns(getCurrentUserScope())
+      listCampaigns(await getCurrentUserScope())
     ]);
 
     return (
-      <div className="mx-auto max-w-6xl space-y-5">
+      <div className="mx-auto w-full max-w-screen-2xl space-y-5 px-1">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-cyan-300">
@@ -34,7 +34,7 @@ export default async function CampaignsPage() {
             description="Create your first Freelance campaign from a niche and locality."
           />
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid w-full gap-4 md:grid-cols-2 2xl:grid-cols-3">
             {campaigns.map((campaign) => (
               <CampaignCard key={campaign.id} campaign={campaign} />
             ))}
@@ -44,7 +44,7 @@ export default async function CampaignsPage() {
     );
   } catch (error) {
     return (
-      <div className="mx-auto max-w-6xl space-y-5">
+      <div className="mx-auto w-full max-w-screen-2xl space-y-5 px-1">
         <h1 className="text-3xl font-semibold">Prospecting campaigns</h1>
         <ErrorState
           message={

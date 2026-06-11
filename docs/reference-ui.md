@@ -750,3 +750,18 @@ Para evitar o erro do prototipo anterior:
 - templates em cards
 - configuracoes com alertas e formulario
 - poucos cliques entre lead, prompt/mensagem e acao
+
+Nota de implementacao `014-freelance-web-app`: apesar do prototipo mencionar CSV em alguns pontos,
+CSV import/export foi removido do MVP por decisao de produto. A tela entregue deve manter filtros e
+tabela densa, mas sem acao de exportacao.
+
+Nota de implementacao `015-freelance-niche-catalog`: o catalogo de nichos ganhou uma entrada interna
+em `Settings -> Niche audit`. A tela mostra status do audit, contadores da baseline de 30 nichos,
+achados por severidade e o conflito `Imobiliaria` com `11.0` do seed textual versus `6.1` da referencia
+visual. A mesma tela agora inclui a tab `Approved niches`, com formulario interno para criar/editar
+nichos aprovados, preview de slug, aliases/query terms, source evidence, conversion hint source,
+enabled state, sort order e acoes de disable/re-enable/merge. Essa tela continua sem import/export
+CSV. A tab `Candidate review` mostra candidatos de nicho vindos de referencias/imagens, evidencia de
+origem, termos propostos, match sugerido com nichos aprovados e acoes de aprovar, rejeitar, deferir ou
+marcar como ja coberto. Esses candidatos sao categorias possiveis para o catalogo; eles nao sao
+negocios reais, nao entram em campanhas antes de aprovacao e nao criam leads, contatos ou outreach.

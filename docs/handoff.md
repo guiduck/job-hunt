@@ -17,7 +17,55 @@
 - `fase_atual_roadmap`: Fase 4 `Freelance`, com fine tuning pontual restante no produto `Full-time`
 - `etapa_atual_action_plan`: clarificar e planejar o app web `Freelance` separado, mantendo a extensao `Full-time`
   como produto dedicado ja satisfatorio para candidaturas
-- `plano_ativo_spec_kit`: `specs/014-freelance-web-app/tasks.md`
+- `plano_ativo_spec_kit`: `specs/015-freelance-niche-catalog/tasks.md`
+- `hotfix_local_freelance_db`: em 2026-06-09, `apps/web/scripts/bootstrap-db.ts` passou a aplicar a
+  migration `20260609000100_niche_catalog_governance` quando um banco local antigo ja tem as tabelas
+  freelance iniciais mas ainda nao possui `freelance_niches.display_name`. O bootstrap tambem atualiza
+  os campos novos do seed de nichos, corrigindo falhas em Leads, Campanhas e Configuracoes apos
+  rodar `cd apps/web && npm.cmd run db:bootstrap`.
+- `nicho_igrejas`: em 2026-06-09, `Igrejas` foi seedado e aplicado no banco local como nicho BR
+  enabled/approved, com `conversion_hint=12.0`, `conversion_hint_source=operator_override`, aliases
+  para igreja evangelica/catolica/paroquia e source note focada em sites CMS/admin para postagens,
+  eventos, calendario, carousel de imagens e comunicacao comunitaria.
+- `localidades_campanha`: em 2026-06-10, o modal de criar campanha ganhou autocomplete scrollavel de
+  estado/cidade. BR usa IBGE Localidades para UF/municipios e ViaCEP para preencher UF/cidade/bairro a
+  partir de CEP. Internacional usa estados dos EUA com tentativa de Census ACS places e fallback local
+  de cidades principais quando a fonte externa devolve erro/HTML.
+- `prospeccao_provider_real`: em 2026-06-10, corrigido o botao Prospect para respeitar
+  `campaign.searchSettings.maxResults` em vez de enviar sempre `25`, mostrar o ultimo job no card,
+  pollar `/api/freelance/prospecting-jobs/{jobId}` apos iniciar e exibir status/step/contadores/erro
+  do provider. O worker local agora carrega `.env.local` antes do Prisma, entao `npm.cmd run worker`
+  usa o banco freelance em `localhost:5433`. Provider real continua exigindo `web-worker` rodando; sem
+  ele, jobs SerpApi/Apify ficam em `pending/queued`.
+- `campanhas_prospeccao_polish`: em 2026-06-10, o botao Prospect passou a criar jobs pela rota plana
+  `POST /api/freelance/prospecting-jobs`, enviando `campaignId` no corpo para evitar 404/HTML da rota
+  aninhada no dev server. A tela de campanhas tambem recebeu largura maior, cards com altura completa,
+  `View leads` sem quebra de linha e painel de status do job ocupando a largura disponivel do card.
+- `prospeccao_worker_feedback_dedupe`: em 2026-06-10, corrigida a mensagem enganosa que dizia para
+  iniciar o `web-worker` quando o job estava apenas aguardando pickup/polling. O SerpApi Google Maps
+  agora pagina resultados quando `maxResults` passa do tamanho da primeira pagina, e o worker carrega
+  chaves de leads ja salvos da campanha para nao recriar duplicados em execucoes repetidas.
+- `lead_filters_empty_values`: em 2026-06-11, corrigido crash em `/leads` ao filtrar apenas por
+  `websiteStatus=no_site`. Query params vazios vindos de selects como `commercialStatus=`,
+  `temperature=` e `minScore=` agora sao normalizados para `undefined` antes da validacao Zod.
+- `freelance_google_auth_web`: em 2026-06-11, o app Next.js `apps/web` ganhou login Google usando a
+  mesma API/auth session da extensao. O web guarda o token da API em cookie HTTP-only
+  `freelance_auth_token`, valida `/auth/me` e usa o `user.id` autenticado como owner scope; sem login,
+  continua caindo em `DEFAULT_FREELANCE_USER_ID || local-operator`. Para rodar local com a mesma conta
+  da extensao, suba tambem `postgres` + `api`, porque o OAuth vive no backend FastAPI. O Compose agora
+  força `GMAIL_OAUTH_CLIENT_SECRETS_FILE=/app/.local/gmail/client_secret.json` dentro dos containers
+  para reaproveitar o `.local/gmail/client_secret.json` montado pelo volume do repo.
+- `lead_social_maps_evidence`: em 2026-06-10, leads passaram a separar site proprio (`website_url`)
+  de perfil social (`social_url`). A pagina de detalhe nao mostra mais score mockado como auditoria
+  real de website; o analyzer atual registra apenas status/evidencia ate existir crawl real. A tela
+  sempre oferece um link de verificacao no Google Maps para conferir a fonte.
+- `full_time_jobs_hot_state_external_filters`: em 2026-06-11, a extensao passou a cachear localmente a
+  pagina de Jobs por filtros/lane por 30s, evitando recarregar a lista ao alternar entre `With email`
+  e `External applications` ou reabrir o popup apos abrir um link externo. As externas agora tambem
+  mantem/enviam `send_status`, e a API interpreta `sent` para `external_application` como
+  `job_stage` aplicado/respondido/entrevista. Validacao: `apps/extension npm.cmd run typecheck`,
+  `apps/extension npm.cmd run build` e
+  `docker compose exec api python -m pytest tests/integration/test_external_application_jobs.py`.
 - `status_resumido`: a extensao Plasmo opera o fluxo `Full-time` local com login persistente, captura
   autenticada de posts do LinkedIn, listagem/detalhe de vagas, delete individual/bulk, templates,
   curriculos, login Google primary auth, Gmail OAuth, envio individual, bulk send revisavel com IA e
@@ -324,20 +372,189 @@ external application. Depois desse smoke, ajustar caps conforme amostra real de 
   server nao esta conectado
 - planejar futuramente retencao/limpeza automatica de vagas antigas por politica configuravel
 
+## Status Atual - 014 Freelance Web App
+
+`/speckit-implement` concluiu a vertical revisavel de `specs/014-freelance-web-app/tasks.md`.
+Entregue em `apps/web`: app `Next.js`/Prisma/Tailwind, `db:bootstrap` aditivo para o banco local,
+seed de nichos/templates, campanhas BR/internacional, provider mock deterministicamente, job de
+prospeccao, dedupe, analise leve de website, persistencia de leads, dashboard, lista/detalhe de leads,
+edicao de status/notas/demo URL, prompt Lovable sob demanda, geracao de mensagem comercial,
+templates, configuracoes e guardrails contra CSV/envio automatico.
+
+Validacao feita em 2026-06-08:
+
+- `cd apps/web && npm run db:bootstrap`
+- `cd apps/web && npm run typecheck`
+- `cd apps/web && npm run test` -> 31 arquivos, 43 testes
+- `cd apps/web && npm run build`
+- smoke HTTP em `http://127.0.0.1:3000`: nichos 200, campanhas 200, prospecting job 201 com
+  `status=completed` e 3 leads aceitos, `/leads` 200, detalhe 200, prompt 200, mensagem 200,
+  `/settings` 200
+- `npm run typecheck --prefix apps/extension`
+
+Como rodar localmente para revisar:
+
+```bash
+cd apps/web
+npm install
+npm run db:bootstrap
+npm run dev
+```
+
+Abra `http://localhost:3000/campaigns`, crie ou use uma campanha, clique em prospectar, depois revise
+`/leads`, `/templates` e `/settings`.
+
+Riscos/pendencias residuais:
+
+- provider real Apify/SerpApi ainda e adapter inicial; a validacao completa foi feita com mock
+- auth/ownership real ainda esta em modo interno/local
+- polish visual fino deve ser guiado pela revisao manual do operador
+- o browser interno do Codex falhou ao conectar nesta sessao, entao a verificacao visual final foi
+  feita por build e smoke HTTP, nao por screenshot automatizado
+
+Revisao manual inicial em 2026-06-08:
+
+- `http://127.0.0.1:3000/campaigns` mostrando campanha `Barbearia - Indaial (BR)` com leads gerados
+  pelo provider mock e status `completed` e resultado esperado para o MVP local.
+- `/templates`, `/leads/{leadId}` e `/settings` renderizaram a casca operacional esperada, com dados
+  seed/mock e aviso de provider mock ate credenciais reais serem configuradas.
+- Confirmado que a fonte principal de nichos planejada para o seed inicial veio de `NICHE_OPTIONS` em
+  `references/opportunity-desk-pro/src/lib/mockData.ts`, espelhada em `docs/reference-ui.md` e
+  `docs/bot-1-scraper.md`. Em 2026-06-09, `Igrejas` foi adicionada como nicho aprovado pelo operador
+  para oportunidades de sites CMS/admin para postagens, eventos, calendario, carousel de imagens e
+  comunicacao comunitaria.
+
+## Status Atual - 015 Freelance Niche Catalog
+
+`/speckit-specify` criou `specs/015-freelance-niche-catalog/spec.md` e checklist de qualidade para o
+recorte de governanca do catalogo de nichos Freelance, auditoria seed x referencias, normalizacao de
+nomes, source evidence, adicao/edicao/desativacao de nichos sem deploy e fluxo controlado para
+candidatos vindos de `references/`.
+
+`/speckit-plan` foi executado manualmente a partir de `.specify/feature.json` porque
+`.specify/scripts/bash/setup-plan.sh --json` continua bloqueado neste Windows sem distribuicao WSL.
+Foram gerados `plan.md`, `research.md`, `data-model.md`, `quickstart.md` e contratos
+`contracts/api.md`, `contracts/web-ui.md` e `contracts/audit-report.md`.
+
+O plano preserva os `NICHE_OPTIONS` originais e a adicao aprovada `Igrejas` como baseline, exige metadados de governanca/source
+evidence, trata nomes com mojibake como problema auditavel, preserva snapshots historicos de campanha
+quando nichos mudarem, cria candidatos revisaveis para referencias futuras e mantem CSV/provider-real
+fora do escopo. O conflito de conversao `Imobiliaria` (`11.0%` no seed textual versus `6.1%` nas
+imagens) deve aparecer no audit com ambos os valores e impedir catalogo alinhado ate escolha explicita
+do operador.
+
+Em 2026-06-09, `/speckit-clarify` registrou essa decisao de manter ambos os valores ate escolha do
+operador, e `/speckit-plan` foi reconciliado com a clarificacao. Depois, uma nova clarificacao separou
+`niche_candidates` de leads/oportunidades reais: imagens e referencias sao fonte de verdade para
+possiveis nichos de catalogo, `Igrejas` pode entrar como nicho aprovado quando docs/source evidence
+sao atualizados, mas negocios reais para contato continuam vindo somente do scraper/API/provider
+Google Maps ou equivalente, com dados contextuais para outreach. `/speckit-tasks` foi reconciliado
+depois dessa clarificacao: US3 agora fala explicitamente em `niche candidates`, T060/T064/T086 guardam
+contra criacao de leads/oportunidades/outreach a partir de referencias/imagens, e T071 preserva
+`Igrejas` como baseline aprovado separado dos candidatos de referencia.
+
+Em seguida, `/speckit-tasks` gerou `specs/015-freelance-niche-catalog/tasks.md` com 87 tarefas
+organizadas por setup, fundacao, US1 auditoria de catalogo, US2 CRUD/governanca de nichos, US3
+candidatos de referencias e polish/validacao. `.specify/feature.json` aponta para
+`specs/015-freelance-niche-catalog`.
+
+Em seguida, `/speckit-implement` concluiu o MVP T001-T037. Entregue em `apps/web`: enums/modelos
+Prisma aditivos para governanca de nichos, candidatos e audit runs/findings; migration
+`20260609000100_niche_catalog_governance`; seed backfill com display names normalizados, source
+evidence, query terms e conversion hint source; utilitarios de normalizacao/mojibake; constantes de
+baseline e referencias visuais; schemas Zod de catalogo; repositorios; listagem de nichos campaign-safe
+por padrao; campanha usando apenas nichos enabled+approved; rota `GET /api/freelance/niche-audit`;
+pagina `Settings -> Niche audit`; componentes de resumo, achados e conflito `Imobiliaria`; testes
+focados T019-T026; guardas sem CSV e sem linguagem Full-time/job/resume/candidature na nova UI.
+
+Validacao feita em 2026-06-09:
+
+- `cd apps/web && npx.cmd prisma generate`
+- `cd apps/web && npm.cmd run test -- tests/unit/niche-normalization.test.ts tests/unit/niche-validation.test.ts tests/unit/niche-audit-service.test.ts tests/unit/niche-conversion-conflicts.test.ts tests/contract/niche-audit-contract.test.ts tests/integration/niche-seed-backfill.test.ts tests/integration/niche-audit-run.test.ts tests/integration/niche-audit-ui.test.tsx` -> 8 arquivos, 16 testes
+- `cd apps/web && npm.cmd run typecheck`
+- guardas `rg` sem matches para CSV import/export e sem labels Full-time/job/resume/candidature em `apps/web/components/niches` e `apps/web/app/(freelance)`
+
+Em seguida, `/speckit-implement` continuou US2 e concluiu T038-T055. Entregue em `apps/web`:
+`niche-service` com create/update, duplicate slug/alias guard, source evidence enforcement,
+disable/re-enable/merge e self-merge validation; `POST /api/freelance/niches`; `PATCH
+/api/freelance/niches/[nicheId]`; tab `Approved niches` em `Settings -> Niche audit`; componentes
+`niche-form`, `approved-niche-table` e `niche-conflict-warning`; campaign selector usando
+`displayName` e filtrando apenas enabled+approved; testes focados para contrato, lifecycle,
+duplicados, selecao de campanha, snapshot historico e UI.
+
+Validacao US2 feita em 2026-06-09:
+
+- `cd apps/web && npm.cmd run test -- tests/unit/niche-duplicate-guard.test.ts tests/unit/niche-lifecycle.test.ts tests/contract/niche-management-contract.test.ts tests/integration/niche-campaign-selection.test.ts tests/integration/niche-campaign-snapshot.test.ts tests/integration/niche-management-ui.test.tsx` -> 6 arquivos, 13 testes
+- `cd apps/web && npm.cmd run typecheck`
+
+Hotfix de infinite scroll LinkedIn validado em 2026-06-11:
+
+- A captura da extensao em `apps/extension/contents/linkedin-search.ts` agora, quando um scroll
+  estoura timeout sem progresso, tenta recuperar o infinite scroll do LinkedIn com dois scrolls para
+  cima e uma nova descida antes de incrementar `noProgressCount`.
+- Esses scrolls de recuperacao nao avançam o loop de `maxScrolls`; ficam registrados apenas em
+  `diagnostics.scrolls[].recoveryScrolls` para depuracao.
+- Validacao: `cd apps/extension && npm.cmd run typecheck`.
+- Smoke manual recomendado: repetir uma busca longa com `max posts` perto de 250 e confirmar no
+  console/diagnosticos que timeouts intermediarios acionam `recoveryScrolls: 3` antes de a captura
+  desistir por `no_new_posts_after_scroll_timeout`.
+
+Hotfix de localidade validado em 2026-06-10:
+
+- `cd apps/web && npm.cmd run test -- tests/unit/locality-service.test.ts tests/contract/campaigns-contract.test.ts` -> 2 arquivos, 6 testes
+- `cd apps/web && npm.cmd run typecheck`
+- Smoke HTTP local: `GET /api/freelance/localities/states?marketScope=BR&q=santa` retornou `SC`,
+  `GET /api/freelance/localities/cities?marketScope=BR&state=SC&q=inda` retornou `Indaial`,
+  `GET /api/freelance/localities/postal-code?postalCode=89010000` retornou Blumenau/SC/Centro e
+  `GET /api/freelance/localities/cities?marketScope=INTERNATIONAL&state=FL&q=orlan` retornou
+  `Orlando` pelo fallback local.
+- Tentativa de smoke visual com Playwright CLI abriu a pagina, mas o CLI travou em `snapshot/list`; a
+  verificacao final ficou em testes, typecheck e rotas HTTP.
+
+Hotfix de prospeccao validado em 2026-06-10:
+
+- Reproducao: Docker tinha apenas `freelance-postgres` rodando; sem `web-worker`, job SerpApi ficava
+  `pending/queued` e campanha ficava `collecting`. O botao tambem enviava `maxResults: 25` hardcoded
+  apesar da campanha ter `{"maxResults":50}`.
+- `cd apps/web && npm.cmd run test -- tests/contract/prospecting-jobs-contract.test.ts tests/integration/prospecting-worker-flow.test.ts tests/integration/niche-campaign-snapshot.test.ts` -> 3 arquivos, 3 testes
+- `cd apps/web && npm.cmd run typecheck`
+- `cd apps/web && npm.cmd run build`
+- `FREELANCE_WORKER_RUN_ONCE=1 npm.cmd run worker` agora conecta ao banco certo. Com rede liberada,
+  job SerpApi novo para campanha `igrejas teste api` gravou `requested_max_results=50`, inspecionou
+  20 resultados e salvou 20 leads (`hot=3`, `failed=0`).
+
+Em seguida, `/speckit-implement` concluiu US3 e polish T056-T087. Entregue em `apps/web`:
+`niche-candidate-service` com geracao/matching de candidatos, revisao approve/reject/defer/
+already-covered, aprovacao reaproveitando `createNiche`, rotas `GET /api/freelance/niche-candidates`
+e `PATCH /api/freelance/niche-candidates/[candidateId]`, componentes `niche-candidate-list` e
+`niche-candidate-decision-dialog`, tab `Candidate review`, contadores de candidatos no audit, seed
+deterministico de candidatos visuais em `prisma/seed.ts` e `scripts/bootstrap-db.ts`, e guardas para
+nao criar leads/oportunidades/outreach a partir de referencias/imagens.
+
+Validacao US3/polish feita em 2026-06-09:
+
+- `cd apps/web && npm.cmd run test -- tests/unit/niche-candidate-service.test.ts tests/unit/niche-candidate-decisions.test.ts tests/contract/niche-candidates-contract.test.ts tests/integration/niche-candidate-approval.test.ts tests/integration/niche-candidate-selection-guard.test.ts tests/integration/niche-candidate-ui.test.tsx` -> 6 arquivos, 10 testes
+- `cd apps/web && npm.cmd run typecheck`
+- `cd apps/web && npm.cmd run test` -> 51 arquivos, 83 testes
+- `cd apps/web && npm.cmd run build`
+- `cd apps/web && npm.cmd run db:bootstrap`
+- smoke HTTP no dev server existente em `http://localhost:3000`: `/settings/niches` 200,
+  `/api/freelance/niche-audit` 200 e `/api/freelance/niche-candidates` retornando 3 candidatos
+  seedados com match sugerido
+- guardas `rg` sem matches para CSV, labels Full-time/resume/candidature na area de nichos e imports
+  de lead/job/outreach em `niche-candidate-service`/rotas de candidatos
+
 ## Proximo Passo Spec Kit Recomendado
 
-O proximo passo recomendado agora e executar `/speckit-implement` a partir de `docs/next-spec-prompt.md`
-para implementar US2 do app web `Freelance`: descoberta/classificacao local com provider mock,
-worker, dedupe, analise leve de site e leads salvos.
-
-Use `specs/014-freelance-web-app/tasks.md` como artifact ativo. T001-T062 ja estao marcadas como
-concluidas; continue em T063-T091. O recorte deve entregar job de prospeccao, normalizacao provider,
-dedupe, analise leve/classificacao/scoring de website, persistencia de leads e feedback de progresso
-na tela de campanhas.
+Executar `/speckit-analyze` para revisar a consistencia final de `specs/015-freelance-niche-catalog`
+apos implementacao completa, ou iniciar uma nova `/speckit-specify` para provider real de Google
+Maps/SerpApi/Apify consumindo apenas nichos enabled+approved. Nao confundir candidatos de nicho com
+leads/oportunidades: nenhum candidato vindo de imagem/referencia deve criar negocio real ou contato;
+isso segue no fluxo scraper/API.
 
 Pendencia de fine tuning do `Full-time`: executar o smoke manual T112 de
 `specs/013-serpapi-career-search/tasks.md` com provider real e vagas mistas email + external
-application. Isso deve virar ajuste pontual do produto `Full-time`, nao bloquear o inicio do app
+application. Isso deve virar ajuste pontual do produto `Full-time`, nao bloquear a revisao do app
 `Freelance`.
 
 Durante `012-extension-settings-polish`, a tentativa de criar a branch `codex/012-extension-settings-polish`

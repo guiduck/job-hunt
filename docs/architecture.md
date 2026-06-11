@@ -163,10 +163,46 @@ Ele deve seguir o prototipo em `references/opportunity-desk-pro` e os requisitos
 `docs/reference-ui.md`, mas escopado ao fluxo freelance: nicho/localidade, analise de site, score,
 demo URL, prompt Lovable, mensagens comerciais e status comercial.
 
+Status implementado em `014-freelance-web-app`:
+
+- `apps/web` existe como app `Next.js` isolado, com App Router, Tailwind, componentes operacionais e
+  rotas internas `/api/freelance/*`.
+- O schema Prisma do app cria tabelas dedicadas `freelance_*`, `prospecting_jobs`,
+  `website_analyses`, `commercial_templates`, `seller_settings` e `latest_generated_texts`.
+- `npm run db:bootstrap` aplica as tabelas Freelance de forma aditiva ao banco local existente e
+  sem depender de baseline Prisma contra as tabelas FastAPI antigas.
+- O provider `freelance_maps_provider` roda em mock deterministicamente e tem adapters esqueleto para
+  Apify/SerpApi.
+- O worker de `apps/web` processa jobs de prospeccao, deduplica candidatos, separa site proprio de
+  perfil social, registra evidencia de fonte e salva leads revisaveis. Auditoria real de website e
+  score SEO/design/performance ficam para etapa propria.
+- A UI interna entregue cobre dashboard, campanhas, leads, detalhe de lead, prompt Lovable sob
+  demanda, mensagens comerciais, templates e configuracoes.
+- CSV import/export e envio automatico por email/WhatsApp continuam fora do MVP.
+
 Os nichos iniciais nao devem ser inventados durante a implementacao. Use a lista ja registrada em
 `references/opportunity-desk-pro/src/lib/mockData.ts` (`NICHE_OPTIONS`) e refletida em
 `docs/reference-ui.md` como seed/configuracao inicial do app. O schema deve permitir adicionar,
 desativar ou ajustar nichos depois sem alterar codigo.
+
+Localidades de campanha no app `Freelance`:
+
+- BR: as rotas internas em `apps/web/app/api/freelance/localities/*` usam IBGE Localidades para
+  estados/municipios e ViaCEP para preenchimento por CEP.
+- Internacional: o recorte inicial mira EUA. Estados ficam mapeados localmente com FIPS; cidades
+  tentam a API Census ACS places e caem para uma lista local de cidades principais quando a fonte
+  externa retorna erro ou HTML.
+- O formulario de campanha consome apenas as rotas internas do Next.js, mantendo detalhes de provider
+  fora dos componentes client-side.
+
+Evidencia de lead no app `Freelance`:
+
+- `website_url` deve guardar apenas site proprio do negocio; Instagram/Facebook e perfis equivalentes
+  ficam em `social_url`.
+- `source_url` deve apontar para o resultado/fonte quando o provider entregar esse link; quando nao
+  entregar, a UI gera uma busca verificavel no Google Maps com nome, endereco e localidade.
+- Scores de conteudo, design, performance e SEO nao devem ser exibidos quando a analise for mock,
+  social-only, diretorio/agregador ou ausencia de site.
 
 ### Descoberta freelance e analise de site
 
@@ -180,19 +216,19 @@ Racional:
 
 - Google Places oficial e estavel, mas tem termos restritivos para salvar/copiar dados de Maps e pode
   nao reproduzir tao bem a experiencia de busca local orgânica do usuario final.
-- Apify/SerpApi entregam resultados parecidos com a SERP/Maps real, com nome, telefone, website,
-  rating, reviews, endereco, source URL e place ids.
+- Apify/SerpApi entregam resultados parecidos com a SERP/Maps real, com nome, telefone, website ou
+  perfil social, rating, reviews, endereco, source URL e place ids.
 - Playwright pode existir como spike/fallback de validacao, mas nao deve ser a primeira dependencia
   de produto porque tende a exigir manutencao de DOM, sessao, captcha e proxy.
 
 Apos coletar o candidato, a avaliacao do site deve ser nossa:
 
 - baixar HTML da `website_url`, quando existir
-- detectar se o site e rede social, Linktree, agregador, pagina quebrada ou site proprio
+- detectar se existe site proprio e registrar perfis sociais separadamente
 - coletar title, meta description, headings, CTAs, telefones, WhatsApp, formularios, HTTPS, tamanho,
   scripts, imagens sem alt e sinais basicos de SEO
 - medir performance com fetch/headless/lighthouse-like quando viavel
-- calcular score de conteudo, design, performance e SEO
+- calcular score de conteudo, design, performance e SEO apenas quando houver auditoria real
 - salvar evidencia e motivo de classificacao para revisao humana
 
 ## Fronteiras importantes
@@ -219,6 +255,12 @@ Apos coletar o candidato, a avaliacao do site deve ser nossa:
 - busca em career pages/ATS curados e worker-owned: a API cria runs `search_kind=career_page`, guarda
   fontes selecionadas e expoe status; o worker usa secrets backend-only do provider, executa queries,
   normaliza resultados, deduplica e persiste oportunidades
+- governanca de nichos Freelance fica no `apps/web`: route handlers de catalogo validam CRUD,
+  disable/re-enable/merge e source evidence, enquanto coleta/provider continua fora do request path e
+  usa apenas nichos aprovados quando o worker for acionado
+- candidatos de nicho (`niche_candidates`) tambem ficam no `apps/web` e sao somente sugestoes de
+  catalogo vindas de referencias/imagens; aprovar um candidato reutiliza a validacao do catalogo, mas
+  nao aciona provider, nao cria leads e nao dispara email/WhatsApp/outreach
 
 ### Dados operacionais x dados tecnicos
 
@@ -258,7 +300,7 @@ apps/
   api/
   worker/
   extension/    # Plasmo, interface local-first para captura/revisao/outreach
-  web/          # Next.js/Prisma, proximo app interno para Freelance
+  web/          # Next.js/Prisma, app interno para Freelance
 docs/
 docker-compose.yml
 ```

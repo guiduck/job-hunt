@@ -153,3 +153,40 @@ def test_mark_applied_sets_stage_and_creates_no_gmail_events(
     assert db_session.scalar(select(func.count()).select_from(SendRequest)) == 0
     assert db_session.scalar(select(func.count()).select_from(EmailDraft)) == 0
     assert db_session.scalar(select(func.count()).select_from(OutreachEvent)) == 0
+
+
+def test_external_application_send_status_filters_use_applied_stage(
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    external_id = create_external_job(client, auth_headers)
+
+    unsent_before = client.get(
+        "/opportunities?opportunity_type=job&job_application_kind=external_application&send_status=unsent",
+        headers=auth_headers,
+    )
+    sent_before = client.get(
+        "/opportunities?opportunity_type=job&job_application_kind=external_application&send_status=sent",
+        headers=auth_headers,
+    )
+
+    assert unsent_before.status_code == 200
+    assert sent_before.status_code == 200
+    assert [item["id"] for item in unsent_before.json()] == [external_id]
+    assert sent_before.json() == []
+
+    client.patch(f"/opportunities/{external_id}/mark-applied", headers=auth_headers)
+
+    unsent_after = client.get(
+        "/opportunities?opportunity_type=job&job_application_kind=external_application&send_status=unsent",
+        headers=auth_headers,
+    )
+    sent_after = client.get(
+        "/opportunities?opportunity_type=job&job_application_kind=external_application&send_status=sent",
+        headers=auth_headers,
+    )
+
+    assert unsent_after.status_code == 200
+    assert sent_after.status_code == 200
+    assert unsent_after.json() == []
+    assert [item["id"] for item in sent_after.json()] == [external_id]

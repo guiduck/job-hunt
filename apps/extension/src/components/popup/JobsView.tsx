@@ -95,23 +95,21 @@ export function JobsView() {
       </nav>
 
       <section className="card filters">
-        {!isExternalLane ? (
-          <div className="filter-tabs" aria-label="Email send status">
-            {[
-              ["", "All"],
-              ["unsent", "Not sent"],
-              ["sent", "Sent"]
-            ].map(([value, label]) => (
-              <button
-                aria-pressed={(filters.send_status || "") === value}
-                key={value || "all"}
-                onClick={() => void updateFilters({ ...filters, send_status: value as "" | "sent" | "unsent" })}
-                type="button">
-                {label}
-              </button>
-            ))}
-          </div>
-        ) : null}
+        <div className="filter-tabs" aria-label={isExternalLane ? "External application status" : "Email send status"}>
+          {[
+            ["", "All"],
+            ["unsent", "Not sent"],
+            ["sent", "Sent"]
+          ].map(([value, label]) => (
+            <button
+              aria-pressed={(filters.send_status || "") === value}
+              key={value || "all"}
+              onClick={() => void updateFilters({ ...filters, send_status: value as "" | "sent" | "unsent" })}
+              type="button">
+              {label}
+            </button>
+          ))}
+        </div>
         <label className="field">
           <span>Search jobs</span>
           <input

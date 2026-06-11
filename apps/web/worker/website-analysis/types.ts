@@ -26,4 +26,11 @@ export type WebsiteAnalysisResult = {
   whatsappSignals: string[];
   emailSignals: string[];
   evidencePoints: string[];
+  scores?: {
+    content: number;
+    design: number;
+    performance: number;
+    seo: number;
+    overallOpportunity: number;
+  };
 };

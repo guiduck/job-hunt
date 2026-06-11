@@ -81,21 +81,130 @@ enum GeneratedTextKind {
   commercial_message
 }
 
-model FreelanceNiche {
-  id             String              @id @default(cuid())
-  name           String
-  slug           String              @unique
-  market         String              @default("both")
-  conversionHint Decimal?            @map("conversion_hint") @db.Decimal(5, 2)
-  defaultTerms   Json                @default("[]") @map("default_query_terms")
-  enabled        Boolean             @default(true)
-  sortOrder      Int                 @default(0) @map("sort_order")
-  createdAt      DateTime            @default(now()) @map("created_at")
-  updatedAt      DateTime            @updatedAt @map("updated_at")
-  campaigns      FreelanceCampaign[]
-  leads          FreelanceLead[]
+enum NicheLifecycleStatus {
+  approved
+  disabled
+  merged
+}
 
+enum NicheCandidateStatus {
+  proposed
+  approved
+  rejected
+  deferred
+  already_covered
+}
+
+enum NicheAuditSeverity {
+  info
+  warning
+  blocking
+}
+
+enum NicheAuditStatus {
+  passed
+  warnings
+  failed
+}
+
+model FreelanceNiche {
+  id                   String                @id @default(cuid())
+  name                 String
+  slug                 String                @unique
+  market               String                @default("both")
+  conversionHint       Decimal?              @map("conversion_hint") @db.Decimal(5, 2)
+  defaultTerms         Json                  @default("[]") @map("default_query_terms")
+  displayName          String?               @map("display_name")
+  sourceName           String?               @map("source_name")
+  sourcePath           String?               @map("source_path")
+  sourceNote           String?               @map("source_note")
+  conversionHintSource String?               @map("conversion_hint_source")
+  aliases              Json                  @default("[]")
+  queryTerms           Json                  @default("[]") @map("query_terms")
+  marketApplicability  String                @default("both") @map("market_applicability")
+  lifecycleStatus      NicheLifecycleStatus  @default(approved) @map("lifecycle_status")
+  mergedIntoNicheId    String?               @map("merged_into_niche_id")
+  lastAuditedAt        DateTime?             @map("last_audited_at")
+  enabled              Boolean               @default(true)
+  sortOrder            Int                   @default(0) @map("sort_order")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  campaigns            FreelanceCampaign[]
+  leads                FreelanceLead[]
+  mergedIntoNiche      FreelanceNiche?       @relation("MergedNiches", fields: [mergedIntoNicheId], references: [id])
+  mergedNiches         FreelanceNiche[]      @relation("MergedNiches")
+  matchedCandidates    NicheCandidate[]      @relation("CandidateMatchedNiche")
+  auditFindings        NicheAuditFinding[]
+
+  @@index([enabled, lifecycleStatus])
+  @@index([marketApplicability])
   @@map("freelance_niches")
+}
+
+model NicheCandidate {
+  id                     String               @id @default(cuid())
+  proposedName           String               @map("proposed_name")
+  normalizedName         String               @map("normalized_name")
+  proposedSlug           String               @map("proposed_slug")
+  marketApplicability    String               @default("both") @map("market_applicability")
+  proposedConversionHint Decimal?             @map("proposed_conversion_hint") @db.Decimal(5, 2)
+  proposedQueryTerms     Json                 @default("[]") @map("proposed_query_terms")
+  sourcePath             String               @map("source_path")
+  sourceExcerpt          String?              @map("source_excerpt")
+  sourceNote             String?              @map("source_note")
+  status                 NicheCandidateStatus @default(proposed)
+  matchedNicheId         String?              @map("matched_niche_id")
+  decisionReason         String?              @map("decision_reason")
+  reviewedAt             DateTime?            @map("reviewed_at")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+  matchedNiche           FreelanceNiche?      @relation("CandidateMatchedNiche", fields: [matchedNicheId], references: [id])
+  auditFindings          NicheAuditFinding[]
+
+  @@index([status, marketApplicability])
+  @@index([proposedSlug])
+  @@map("niche_candidates")
+}
+
+model NicheAuditRun {
+  id                      String              @id @default(cuid())
+  status                  NicheAuditStatus
+  baselineCount           Int                 @map("baseline_count")
+  approvedCount           Int                 @map("approved_count")
+  candidateCount          Int                 @default(0) @map("candidate_count")
+  missingCount            Int                 @default(0) @map("missing_count")
+  extraCount              Int                 @default(0) @map("extra_count")
+  duplicateCount          Int                 @default(0) @map("duplicate_count")
+  encodingIssueCount      Int                 @default(0) @map("encoding_issue_count")
+  conversionMismatchCount Int                 @default(0) @map("conversion_mismatch_count")
+  sourceSummary           Json                @default("{}") @map("source_summary")
+  createdAt               DateTime            @default(now()) @map("created_at")
+  findings                NicheAuditFinding[]
+
+  @@index([status, createdAt])
+  @@map("niche_audit_runs")
+}
+
+model NicheAuditFinding {
+  id             String             @id @default(cuid())
+  runId          String             @map("run_id")
+  severity       NicheAuditSeverity
+  findingType    String             @map("finding_type")
+  nicheId        String?            @map("niche_id")
+  candidateId    String?            @map("candidate_id")
+  referenceName  String?            @map("reference_name")
+  currentName    String?            @map("current_name")
+  expectedValue  String?            @map("expected_value")
+  currentValue   String?            @map("current_value")
+  message        String
+  createdAt      DateTime           @default(now()) @map("created_at")
+  run            NicheAuditRun      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  niche          FreelanceNiche?    @relation(fields: [nicheId], references: [id])
+  candidate      NicheCandidate?    @relation(fields: [candidateId], references: [id])
+
+  @@index([runId, severity])
+  @@index([findingType])
+  @@map("niche_audit_findings")
 }
 
 model FreelanceCampaign {
@@ -177,6 +286,7 @@ model FreelanceLead {
   whatsapp              String?
   email                 String?
   websiteUrl            String?            @map("website_url")
+  socialUrl             String?            @map("social_url")
   websiteStatus         WebsiteStatus      @default(uncertain) @map("website_status")
   sourceName            String             @map("source_name")
   sourceUrl             String?            @map("source_url")
