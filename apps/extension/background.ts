@@ -228,7 +228,8 @@ async function startCapture(payload: CaptureRequest): Promise<CaptureResult> {
     active: true,
     url: buildLinkedInContentSearchUrl({
       keywords: payload.keywords,
-      sortMode: payload.sortMode
+      sortMode: payload.sortMode,
+      pastMonthOnly: payload.pastMonthOnly
     })
   })
 

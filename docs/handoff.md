@@ -66,6 +66,11 @@
   `job_stage` aplicado/respondido/entrevista. Validacao: `apps/extension npm.cmd run typecheck`,
   `apps/extension npm.cmd run build` e
   `docker compose exec api python -m pytest tests/integration/test_external_application_jobs.py`.
+- `full_time_linkedin_past_month_filter`: em 2026-06-17, a Search UI da extensao ganhou checkbox
+  `Past month`. Quando marcado, a captura abre o LinkedIn com `datePosted="past-month"` junto do
+  `sortBy="date_posted"`, preservando a mesma API run/search query e aumentando diversidade de posts
+  capturados. Validacao: `apps/extension npm.cmd run typecheck` e `apps/extension npm.cmd run build`
+  passed; o build manteve os avisos conhecidos de `punycode` e `svgo`/htmlnano.
 - `vps_freelance_web_production`: em 2026-06-11, o servico `web` do Docker Compose foi ajustado para
   rodar Next.js em modo producao na VPS (`prisma generate`, `db:bootstrap`, `next build`, `next
   start`) em vez de `next dev`. O subdominio recomendado e `freelance.gfig.space` via Caddy para
@@ -282,6 +287,8 @@ O caminho funcional atual de `job` e LinkedIn-first:
 - Search UI preenchida pela ultima busca confirmada, com keywords salvas como badges abaixo do input,
   limite de 30 por usuario, reutilizacao por clique no badge e remocao manual por `X`; a captura usa
   somente o texto atual do input
+- Search UI com checkbox `Past month`, que aplica o facet de publicacoes do ultimo mes na URL do
+  LinkedIn (`datePosted="past-month"`) sem mudar os filtros pos-captura da IA
 - feedback visual de captura/run no painel de Search, com status do run separado do status da captura
   e contadores atualizados durante o processamento do worker; se a verificacao nao completar em cerca
   de 10 minutos, a extensao deve mostrar timeout terminal e liberar nova busca. Valores compostos de

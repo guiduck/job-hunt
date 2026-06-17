@@ -6,11 +6,13 @@ export const MAX_SAVED_SEARCH_KEYWORDS = 30
 export type LinkedInContentSearchUrlOptions = {
   keywords: string
   sortMode?: "recent" | "relevant"
+  pastMonthOnly?: boolean
 }
 
 export function buildLinkedInContentSearchUrl({
   keywords,
-  sortMode
+  sortMode,
+  pastMonthOnly
 }: LinkedInContentSearchUrlOptions) {
   const effectiveKeywords = keywords.trim()
   const params = new URLSearchParams({
@@ -20,6 +22,9 @@ export function buildLinkedInContentSearchUrl({
   })
   if (sortMode !== "relevant") {
     params.set("sortBy", '"date_posted"')
+  }
+  if (pastMonthOnly) {
+    params.set("datePosted", '"past-month"')
   }
 
   return `https://www.linkedin.com/search/results/content/?${params.toString()}`

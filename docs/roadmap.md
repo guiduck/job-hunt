@@ -73,6 +73,9 @@ Estado atual:
 - a Search UI agora lembra a ultima busca usada pelo operador, salva novas palavras como badges
   owner-scoped com limite de 30, permite reutilizar/remover badges manualmente e continua iniciando
   captura somente com o texto atual do input
+- a Search UI tambem oferece `Past month` como checkbox opcional para abrir a busca de conteudo do
+  LinkedIn com `datePosted="past-month"` junto do sort recente, aumentando a diversidade de posts
+  capturados sem alterar o contrato da API
 
 Gate restante desta fase:
 

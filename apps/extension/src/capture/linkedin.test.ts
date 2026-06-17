@@ -25,6 +25,18 @@ if (searchUrl.searchParams.get("sortBy") !== '"date_posted"') {
   throw new Error("Recent LinkedIn search should request date posted sort.")
 }
 
+const pastMonthSearchUrl = new URL(
+  buildLinkedInContentSearchUrl({
+    keywords: "vaga react frontend remoto",
+    sortMode: "recent",
+    pastMonthOnly: true
+  })
+)
+
+if (pastMonthSearchUrl.searchParams.get("datePosted") !== '"past-month"') {
+  throw new Error("Past-month LinkedIn search should request the LinkedIn datePosted facet.")
+}
+
 const parsedKeywords = normalizeSearchKeywords("Hiring React react, TypeScript/remoto\njobs")
 if (parsedKeywords.join("|") !== "react|typescript|remoto") {
   throw new Error("Search keyword parsing should split words, skip intent terms, and dedupe.")

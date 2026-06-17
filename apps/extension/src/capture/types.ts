@@ -22,6 +22,7 @@ export type CaptureRequest = {
   remoteOnly: boolean
   excludeOnsite: boolean
   sortMode: "recent" | "relevant"
+  pastMonthOnly: boolean
   maxPosts: number
   maxScrolls: number
   scrollDelayMs: number

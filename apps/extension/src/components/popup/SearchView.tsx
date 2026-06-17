@@ -13,6 +13,7 @@ export function SearchView() {
   const remoteOnly = usePopupStore((state) => state.remoteOnly)
   const excludeOnsite = usePopupStore((state) => state.excludeOnsite)
   const sortMode = usePopupStore((state) => state.sortMode)
+  const pastMonthOnly = usePopupStore((state) => state.pastMonthOnly)
   const maxPosts = usePopupStore((state) => state.maxPosts)
   const maxScrolls = usePopupStore((state) => state.maxScrolls)
   const curatedCareerSources = usePopupStore((state) => state.curatedCareerSources)
@@ -31,6 +32,7 @@ export function SearchView() {
   const setRemoteOnly = usePopupStore((state) => state.setRemoteOnly)
   const setExcludeOnsite = usePopupStore((state) => state.setExcludeOnsite)
   const setSortMode = usePopupStore((state) => state.setSortMode)
+  const setPastMonthOnly = usePopupStore((state) => state.setPastMonthOnly)
   const setMaxPosts = usePopupStore((state) => state.setMaxPosts)
   const setMaxScrolls = usePopupStore((state) => state.setMaxScrolls)
   const setSelectedCareerSourceKeys = usePopupStore((state) => state.setSelectedCareerSourceKeys)
@@ -99,7 +101,14 @@ export function SearchView() {
           <option value="relevant">Most relevant</option>
         </select>
       </label>
-      <p className="message">LinkedIn opens with only this search text and sort order.</p>
+      <label className="toggle-row">
+        <input checked={pastMonthOnly} onChange={(event) => setPastMonthOnly(event.target.checked)} type="checkbox" />
+        <span>
+          <strong>Past month</strong>
+          <small>Apply LinkedIn's last-month date facet.</small>
+        </span>
+      </label>
+      <p className="message">LinkedIn opens with only this search text, sort order, and optional date facet.</p>
       </div>
       <div className={`search-section ${aiFiltersEnabled ? "" : "search-section--disabled"}`}>
         <label className="toggle-row">

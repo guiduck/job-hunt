@@ -50,6 +50,9 @@ Review `specs/015-freelance-niche-catalog` for final cross-artifact consistency 
   `With email` and `External applications` does not immediately blank/reload the list. External
   applications now keep `send_status`, and the API treats external `sent` as applied/responded/interview
   `job_stage` rather than Gmail send history.
+- Full-time LinkedIn Search UI hotfix on 2026-06-17: the extension now has a `Past month` checkbox
+  that opens LinkedIn content search with `datePosted="past-month"` plus the existing recent sort,
+  without changing the backend run contract.
 
 ## Analysis Goals
 - Check `spec.md`, `plan.md`, `tasks.md`, `quickstart.md`, contracts, and docs for contradictions.

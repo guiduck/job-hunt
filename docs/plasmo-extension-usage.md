@@ -4,7 +4,8 @@ Este guia cobre a primeira versao da extensao Chrome para o modo `Full-time`.
 
 ## O Que Ela Faz
 
-- Abre uma busca de publicacoes do LinkedIn usando `sortBy="date_posted"`.
+- Abre uma busca de publicacoes do LinkedIn usando `sortBy="date_posted"`; quando o operador marca
+  `Past month`, tambem aplica o facet `datePosted="past-month"`.
 - Usa a sessao real do Chrome, entao voce deve estar logado no LinkedIn.
 - Rola a pagina de resultados e captura textos visiveis dos posts.
 - Quando a lista visivel para de carregar e aparece um controle de mais resultados, tenta acionar esse
@@ -142,13 +143,14 @@ apps/extension/build/chrome-mv3-prod
 3. Crie conta ou faca login na extensao.
 4. Entre na aba `search`.
 5. Informe keywords como `hiring typescript`.
-6. Opcionalmente ligue `AI filters` e configure remoto/regioes para avaliacao pos-captura.
-7. Ajuste `max posts` e `max scrolls`.
-8. Clique em `Open LinkedIn and capture`.
-9. A extensao abre uma aba do LinkedIn, rola os resultados, captura posts e cria uma run autenticada na API.
-10. Aguarde o worker processar a run. A verificacao da extensao acompanha o status por ate cerca de 10
+6. Opcionalmente marque `Past month` para abrir o LinkedIn com o filtro de publicacoes do ultimo mes.
+7. Opcionalmente ligue `AI filters` e configure remoto/regioes para avaliacao pos-captura.
+8. Ajuste `max posts` e `max scrolls`.
+9. Clique em `Open LinkedIn and capture`.
+10. A extensao abre uma aba do LinkedIn, rola os resultados, captura posts e cria uma run autenticada na API.
+11. Aguarde o worker processar a run. A verificacao da extensao acompanha o status por ate cerca de 10
    minutos; se estourar esse tempo, a captura vira um timeout terminal na UI e libera uma nova busca.
-11. Volte para a aba `jobs` e clique em `Refresh`.
+12. Volte para a aba `jobs` e clique em `Refresh`.
 
 ## Lista De Jobs
 

@@ -147,6 +147,7 @@ type PopupState = {
   remoteOnly: boolean
   excludeOnsite: boolean
   sortMode: "recent" | "relevant"
+  pastMonthOnly: boolean
   maxPosts: number
   maxScrolls: number
   filters: OpportunityFilters
@@ -162,6 +163,7 @@ type PopupState = {
   setRemoteOnly: (remoteOnly: boolean) => void
   setExcludeOnsite: (excludeOnsite: boolean) => void
   setSortMode: (sortMode: "recent" | "relevant") => void
+  setPastMonthOnly: (pastMonthOnly: boolean) => void
   setMaxPosts: (maxPosts: number) => void
   setMaxScrolls: (maxScrolls: number) => void
   setSelectedCareerSourceKeys: (selectedCareerSourceKeys: string[]) => void
@@ -471,6 +473,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   remoteOnly: false,
   excludeOnsite: false,
   sortMode: "recent",
+  pastMonthOnly: false,
   maxPosts: CAPTURE_DEFAULT_MAX_POSTS,
   maxScrolls: CAPTURE_DEFAULT_MAX_SCROLLS,
   filters: initialOpportunityFilters,
@@ -497,6 +500,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   setRemoteOnly: (remoteOnly) => set({ remoteOnly }),
   setExcludeOnsite: (excludeOnsite) => set({ excludeOnsite }),
   setSortMode: (sortMode) => set({ sortMode }),
+  setPastMonthOnly: (pastMonthOnly) => set({ pastMonthOnly }),
   setMaxPosts: (maxPosts) => set({ maxPosts: clampNumber(maxPosts, 1, CAPTURE_MAX_POSTS) }),
   setMaxScrolls: (maxScrolls) => set({ maxScrolls: clampNumber(maxScrolls, 0, CAPTURE_MAX_SCROLLS) }),
   setSelectedCareerSourceKeys: (selectedCareerSourceKeys) => set({ selectedCareerSourceKeys }),
@@ -979,6 +983,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       remoteOnly,
       excludeOnsite,
       sortMode,
+      pastMonthOnly,
       maxPosts,
       maxScrolls
     } = get()
@@ -1013,6 +1018,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       remoteOnly,
       excludeOnsite,
       sortMode,
+      pastMonthOnly,
       maxPosts,
       maxScrolls,
       scrollDelayMs: 2000

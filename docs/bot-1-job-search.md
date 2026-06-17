@@ -29,6 +29,7 @@ O bot deve receber ou usar:
 - keywords mockadas enquanto o usuario nao configurar nada
 - futuras keywords extraidas do curriculo
 - localidade, remoto ou preferencia de mercado quando houver
+- filtro opcional de data do LinkedIn para diversificar a captura com publicacoes do ultimo mes
 - filtros opcionais de IA para senioridade, stack, cargo, modalidade e regiao
 
 Keywords mockadas iniciais:
@@ -44,16 +45,17 @@ Keywords mockadas iniciais:
 2. preencher a Search UI com a ultima busca salva, quando existir
 3. permitir que badges salvos adicionem keywords ao input sem alterar a busca automaticamente
 4. abrir/capturar publicacoes e anuncios no LinkedIn usando a sessao local do navegador
-5. salvar o texto atual como ultima busca e adicionar novas palavras aos badges salvos
-6. filtrar textos com keywords relevantes
-7. detectar empresa, cargo, email publico ou convite claro de contato e link da publicacao/vaga
-8. registrar a fonte e o trecho que justificou a captura
-9. aplicar review scoring e filtros de IA apenas quando habilitados
-10. salvar a oportunidade como `opportunity_type=job`
-11. listar no painel em uma aba ou modo `Full-time Job`
-12. permitir revisao individual antes de envio
-13. permitir selecao em massa para envio real de email com curriculo anexado, com aprovacao humana
-14. apoiar preenchimento de formularios externos de candidatura com respostas geradas por IA a partir
+5. quando marcado, aplicar o facet de publicacoes do ultimo mes na URL de busca do LinkedIn
+6. salvar o texto atual como ultima busca e adicionar novas palavras aos badges salvos
+7. filtrar textos com keywords relevantes
+8. detectar empresa, cargo, email publico ou convite claro de contato e link da publicacao/vaga
+9. registrar a fonte e o trecho que justificou a captura
+10. aplicar review scoring e filtros de IA apenas quando habilitados
+11. salvar a oportunidade como `opportunity_type=job`
+12. listar no painel em uma aba ou modo `Full-time Job`
+13. permitir revisao individual antes de envio
+14. permitir selecao em massa para envio real de email com curriculo anexado, com aprovacao humana
+15. apoiar preenchimento de formularios externos de candidatura com respostas geradas por IA a partir
     do curriculo e perfil do operador
 
 ## UI Esperada No Modo Full-Time
@@ -312,8 +314,9 @@ Ja existe implementacao inicial para:
   visual antes do envio humano-aprovado
 - coletor local autenticado em `tools/linkedin_browser_collector.py`, usando Playwright com perfil
   persistente em `.local/`
-- Search UI com filtros de IA opcionais e Jobs UI com selecao total por checkbox, `Delete all listed`
-  e estado persistido do popup
+- Search UI com filtros de IA opcionais, checkbox `Past month` para abrir o LinkedIn com
+  `datePosted="past-month"`, e Jobs UI com selecao total por checkbox, `Delete all listed` e estado
+  persistido do popup
 
 Ainda falta calibrar a busca publica com respostas reais do LinkedIn, incluindo bloqueios, login walls
 e rate limits. Tambem falta evoluir a revisao para um fluxo operacional mais completo de candidatura,
