@@ -180,7 +180,7 @@ As the operator, I want Settings to store commercial context and channel readine
 ### Measurable Outcomes
 
 - **SC-001**: The operator can select at least 50 visible Freelance leads from a filtered table and open the bulk outreach flow in under 30 seconds without losing filter context.
-- **SC-002**: 100% of selected leads appear in the batch review flow as eligible, blocked, skipped, duplicate, invalid, missing-contact, generated, or failed; none disappear silently.
+- **SC-002**: 100% of selected leads are counted in the batch summary as eligible, blocked, skipped, duplicate, invalid, missing-contact, generated, or failed; missing-contact and duplicate leads are excluded from editable delivery review instead of blocking eligible leads.
 - **SC-003**: At least 95% of eligible selected leads receive an individualized generated draft or a specific generation failure reason during a completed generation run.
 - **SC-004**: The operator can review, edit, skip, and save changes for any generated item before approval, and the saved state persists after a page refresh.
 - **SC-005**: Zero delivery requests are created before explicit operator approval in acceptance testing.

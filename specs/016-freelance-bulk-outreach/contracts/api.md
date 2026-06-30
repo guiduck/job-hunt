@@ -55,7 +55,7 @@ Success `201`:
       "leadId": "lead_2",
       "status": "missing_contact",
       "validationErrorCode": "missing_email",
-      "validationErrorMessage": "Add an email address before approving Email delivery."
+      "validationErrorMessage": "No email address was found for this lead, so it is excluded from Email delivery."
     }
   ]
 }

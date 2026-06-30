@@ -21,6 +21,7 @@ Behavior:
 - Clicking `Generate WhatsApp` creates a WhatsApp batch.
 - The chosen channel is shown in the review panel title and cannot silently change.
 - Each action previews selected, eligible, missing-contact, invalid, and duplicate counts.
+- Leads missing the selected channel contact are counted as excluded and do not enter draft generation or editable delivery review.
 
 ## Review Panel
 

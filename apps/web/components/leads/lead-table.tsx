@@ -41,6 +41,8 @@ type CreatedBatch = {
   missingContactCount: number;
   invalidContactCount: number;
   duplicateCount: number;
+  generatedCount?: number;
+  failedCount?: number;
 };
 
 export function LeadTable({ leads }: { leads: LeadRow[] }) {
@@ -109,6 +111,14 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
 
   async function generateDrafts() {
     if (!batch) {
+      return;
+    }
+    if (batch.eligibleCount === 0) {
+      setError(
+        batch.channel === "email"
+          ? "No selected leads have saved email addresses. Email drafts were not generated; use WhatsApp or add emails first."
+          : "No selected leads have WhatsApp-ready phone numbers. WhatsApp drafts were not generated; add phone numbers first."
+      );
       return;
     }
     setGenerating(true);

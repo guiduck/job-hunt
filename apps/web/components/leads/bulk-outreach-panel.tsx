@@ -55,6 +55,16 @@ export function BulkOutreachPanel({
     return null;
   }
 
+  const hasEligibleItems = Boolean(batch && batch.eligibleCount > 0);
+  const channelLabel = batch?.channel === "email" ? "Email" : "WhatsApp";
+  const noEligibleMessage =
+    batch?.channel === "email"
+      ? "No selected leads have saved email addresses. Email drafts were not generated; use WhatsApp or add emails first."
+      : "No selected leads have WhatsApp-ready phone numbers. WhatsApp drafts were not generated; add phone numbers first.";
+  const reviewItems = items?.filter(
+    (item) => !["missing_contact", "duplicate_blocked"].includes(item.status)
+  );
+
   return (
     <section className="rounded-md border border-slate-800 bg-slate-950/70 p-4">
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
@@ -76,8 +86,16 @@ export function BulkOutreachPanel({
             <span>Generated: {batch.generatedCount ?? 0}</span>
             <span>Failed: {batch.failedCount ?? 0}</span>
           </div>
+          {batch.missingContactCount > 0 ? (
+            <p className="text-sm text-amber-200">
+              Leads without a{" "}
+              {batch.channel === "email" ? "saved email address" : "WhatsApp-ready phone number"}{" "}
+              are excluded from this {channelLabel} batch and do not block eligible leads.
+            </p>
+          ) : null}
+          {!hasEligibleItems ? <p className="text-sm text-slate-400">{noEligibleMessage}</p> : null}
           {onGenerate ? (
-            <Button size="sm" onClick={onGenerate} disabled={generating}>
+            <Button size="sm" onClick={onGenerate} disabled={generating || !hasEligibleItems}>
               {generating ? "Generating..." : "Generate drafts"}
             </Button>
           ) : null}
@@ -85,7 +103,7 @@ export function BulkOutreachPanel({
             <div className="space-y-2 rounded-md border border-slate-800 bg-slate-900/60 p-3 text-sm">
               <p className="font-medium text-slate-100">Delivery approval</p>
               <p className="text-slate-400">
-                Approving sends only reviewed {batch.channel === "email" ? "Email" : "WhatsApp"} items.
+                Approving sends only reviewed {channelLabel} items.
                 Skipped, duplicate, invalid, missing-contact, and failed-generation items stay excluded.
               </p>
               {channelReadiness?.diagnosticMessage ? (
@@ -120,7 +138,7 @@ export function BulkOutreachPanel({
               channel={batch.channel}
               generatedCount={batch.generatedCount}
               failedCount={batch.failedCount}
-              items={items}
+              items={reviewItems}
               onSaveItem={onSaveItem}
             />
           ) : null}

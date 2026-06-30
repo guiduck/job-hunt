@@ -87,6 +87,49 @@ describe("bulk outreach selection UI", () => {
     );
   });
 
+  it("excludes Email leads without saved addresses without generating drafts", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          batch: {
+            id: "batch_1",
+            channel: "email",
+            status: "draft",
+            selectedCount: 1,
+            eligibleCount: 0,
+            missingContactCount: 1,
+            invalidContactCount: 0,
+            duplicateCount: 0
+          },
+          items: [
+            {
+              id: "item_1",
+              leadId: "lead_2",
+              channel: "email",
+              status: "missing_contact",
+              recipientEmail: null,
+              validationErrorCode: "missing_email",
+              validationErrorMessage:
+                "No email address was found for this lead, so it is excluded from Email delivery."
+            }
+          ]
+        })
+      }))
+    );
+
+    render(<LeadTable leads={leads} />);
+    fireEvent.click(screen.getByLabelText("Select Second Studio"));
+    fireEvent.click(screen.getByRole("button", { name: /Generate Email/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/No selected leads have saved email addresses/i)).toBeInTheDocument()
+    );
+    expect(screen.getByText(/do not block eligible leads/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate drafts" })).toBeDisabled();
+  });
+
   it("shows generated items and saves review edits", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url.endsWith("/generate")) {

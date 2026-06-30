@@ -48,7 +48,8 @@ function getInitialItemState(input: {
         status: "missing_contact" as const,
         recipientEmail: null,
         validationErrorCode: "missing_email",
-        validationErrorMessage: "Add an email address before approving Email delivery."
+        validationErrorMessage:
+          "No email address was found for this lead, so it is excluded from Email delivery."
       };
     }
     if (!EMAIL_PATTERN.test(input.lead.email)) {
@@ -72,7 +73,8 @@ function getInitialItemState(input: {
       recipientWhatsapp: null,
       recipientPhone: null,
       validationErrorCode: "missing_whatsapp",
-      validationErrorMessage: "Add a WhatsApp-ready phone number before approval."
+      validationErrorMessage:
+        "No WhatsApp-ready phone number was found for this lead, so it is excluded from WhatsApp delivery."
     };
   }
   if (!isValidPhone(recipientWhatsapp)) {
