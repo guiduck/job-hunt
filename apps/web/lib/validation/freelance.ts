@@ -1,10 +1,13 @@
 import { z } from "zod";
 import {
+  bulkOutreachItemStatuses,
   campaignStatuses,
+  channelReadinessStatuses,
   commercialStatuses,
   generatedPromptVariants,
   leadTemperatures,
   marketScopes,
+  outreachChannels,
   templateStages,
   websiteStatuses
 } from "@/lib/freelance/constants";
@@ -89,6 +92,61 @@ export const messageGenerationSchema = z.object({
   stage: z.enum(templateStages),
   templateId: z.string().trim().min(1)
 });
+
+export const bulkOutreachCreateSchema = z.object({
+  channel: z.enum(outreachChannels),
+  leadIds: z.array(z.string().trim().min(1)).min(1),
+  templateId: z.string().trim().min(1).optional(),
+  stage: z.enum(templateStages).default("first_contact"),
+  campaignId: z.string().trim().min(1).optional()
+});
+
+export const bulkOutreachGenerateSchema = z.object({
+  itemIds: z.array(z.string().trim().min(1)).optional(),
+  retryFailed: z.boolean().default(false)
+});
+
+export const bulkOutreachItemUpdateSchema = z
+  .object({
+    recipientEmail: z.string().trim().email().optional().or(z.literal("")),
+    recipientPhone: optionalText,
+    recipientWhatsapp: optionalText,
+    subject: optionalText,
+    body: optionalText,
+    message: optionalText,
+    skip: z.boolean().optional(),
+    skipReason: optionalText
+  })
+  .refine((value) => value.skip || Object.keys(value).length > 0, {
+    message: "Provide at least one review field to update."
+  });
+
+export const bulkOutreachApproveSchema = z.object({
+  confirm: z.literal(true)
+});
+
+export const channelSettingsSchema = z.object({
+  channel: z.enum(outreachChannels),
+  enabled: z.boolean().optional(),
+  providerName: z.string().trim().min(1).optional(),
+  displayName: optionalText,
+  displayAddress: optionalText
+});
+
+export const channelReadinessSchema = z.object({
+  channel: z.enum(outreachChannels),
+  providerName: z.string().trim().min(1),
+  status: z.enum(channelReadinessStatuses),
+  requiredEnvVars: z.array(z.string().trim().min(1)).default([]),
+  missingEnvVars: z.array(z.string().trim().min(1)).default([]),
+  dailyLimit: z.number().int().positive().optional(),
+  remainingToday: z.number().int().min(0).optional(),
+  limitResetAt: z.string().optional(),
+  diagnosticCode: z.string().optional(),
+  diagnosticMessage: z.string().optional()
+});
+
+export const bulkOutreachItemStatusSchema = z.enum(bulkOutreachItemStatuses);
 
 export const providerSearchInputSchema = z.object({
   jobId: z.string().min(1),

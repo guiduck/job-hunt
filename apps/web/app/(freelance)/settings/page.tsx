@@ -5,13 +5,18 @@ import { SettingsAlert } from "@/components/settings/settings-alert";
 import { Button } from "@/components/ui/button";
 import { getCurrentUserScope } from "@/lib/freelance/current-user";
 import { listNiches } from "@/lib/freelance/campaign-service";
+import { getChannelSettings } from "@/lib/freelance/channel-settings-service";
 import { getSellerSettings } from "@/lib/freelance/settings-service";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const scope = await getCurrentUserScope();
-  const [settings, niches] = await Promise.all([getSellerSettings(scope), listNiches()]);
+  const [settings, niches, channelSettings] = await Promise.all([
+    getSellerSettings(scope),
+    listNiches(),
+    getChannelSettings(scope)
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
@@ -31,7 +36,7 @@ export default async function SettingsPage() {
         </Button>
       </div>
       <SettingsAlert settings={settings} />
-      <SellerSettingsForm settings={settings} niches={niches} />
+      <SellerSettingsForm settings={settings} niches={niches} channelSettings={channelSettings} />
     </div>
   );
 }

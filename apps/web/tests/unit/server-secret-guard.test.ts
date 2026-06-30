@@ -8,6 +8,8 @@ describe("server secret guard", () => {
       "components/campaigns/prospect-button.tsx",
       "components/leads/lovable-prompt-modal.tsx",
       "components/leads/message-generator-panel.tsx",
+      "components/leads/bulk-outreach-panel.tsx",
+      "components/settings/channel-settings-panel.tsx",
       "components/settings/seller-settings-form.tsx"
     ];
 
@@ -17,6 +19,21 @@ describe("server secret guard", () => {
       expect(source).not.toContain("OPENAI_API_KEY");
       expect(source).not.toContain("APIFY_TOKEN");
       expect(source).not.toContain("SERPAPI_API_KEY");
+      expect(source).not.toContain("RESEND_API_KEY");
+      expect(source).not.toContain("TWILIO_AUTH_TOKEN");
     }
+  });
+
+  it("scrubs provider route-safe payload fields", async () => {
+    const { scrubProviderPayload } = await import("@/lib/providers/outreach-diagnostics");
+
+    expect(
+      scrubProviderPayload({
+        providerMessageId: "msg_1",
+        authorization: "Bearer secret",
+        authToken: "secret",
+        apiKey: "secret"
+      })
+    ).toEqual({ providerMessageId: "msg_1" });
   });
 });

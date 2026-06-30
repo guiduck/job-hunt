@@ -48,6 +48,42 @@ export function buildCommercialMessage({
   return text.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+export function buildBulkCommercialDraft({
+  lead,
+  template,
+  settings,
+  channel
+}: {
+  lead: LeadWithCampaign;
+  template: CommercialTemplate;
+  settings: SellerSettings | null;
+  channel: "email" | "whatsapp";
+}) {
+  const message = buildCommercialMessage({ lead, template, settings });
+  if (channel === "whatsapp") {
+    return {
+      message,
+      inputContext: {
+        channel,
+        leadId: lead.id,
+        templateId: template.id,
+        sellerSettingsPresent: Boolean(settings)
+      }
+    };
+  }
+
+  return {
+    subject: `Quick idea for ${lead.businessName}`,
+    body: message,
+    inputContext: {
+      channel,
+      leadId: lead.id,
+      templateId: template.id,
+      sellerSettingsPresent: Boolean(settings)
+    }
+  };
+}
+
 export function findTemplateVariables(template: string) {
   return [...template.matchAll(/\{\{([a-zA-Z0-9_]+)\}\}/g)].map((match) => match[1]);
 }

@@ -107,6 +107,66 @@ enum NicheAuditStatus {
   failed
 }
 
+enum OutreachChannel {
+  email
+  whatsapp
+}
+
+enum BulkOutreachBatchStatus {
+  draft
+  queued
+  running
+  completed
+  failed
+  approved
+  partially_sent
+  sent
+}
+
+enum BulkOutreachItemStatus {
+  queued
+  generating
+  generated
+  generation_failed
+  missing_contact
+  invalid_contact
+  duplicate_blocked
+  skipped
+  approved
+  sending
+  sent
+  failed_send
+}
+
+enum OutreachEventType {
+  generated
+  generation_failed
+  item_updated
+  skipped
+  unskipped
+  approved
+  queued_send
+  sent
+  failed_send
+  blocked_missing_contact
+  blocked_invalid_contact
+  blocked_duplicate
+  blocked_channel_not_ready
+  blocked_rate_limit
+}
+
+enum ChannelReadinessStatus {
+  ready
+  missing_config
+  missing_credentials
+  not_approved
+  missing_template
+  missing_opt_in
+  rate_limited
+  provider_error
+  disabled
+}
+
 model FreelanceNiche {
   id                   String                @id @default(cuid())
   name                 String
@@ -232,6 +292,9 @@ model FreelanceCampaign {
   niche                  FreelanceNiche     @relation(fields: [nicheId], references: [id])
   jobs                   ProspectingJob[]
   leads                  FreelanceLead[]
+  bulkOutreachBatches    BulkOutreachBatch[]
+  bulkOutreachItems      BulkOutreachItem[]
+  outreachEvents         OutreachEvent[]
 
   @@index([userId, status])
   @@index([nicheId])
@@ -314,6 +377,8 @@ model FreelanceLead {
   niche                 FreelanceNiche?    @relation(fields: [nicheId], references: [id])
   websiteAnalyses       WebsiteAnalysis[]
   latestGenerated       LatestGeneratedText[]
+  bulkOutreachItems     BulkOutreachItem[]
+  outreachEvents        OutreachEvent[]
 
   @@index([userId, commercialStatus])
   @@index([campaignId])
@@ -375,6 +440,8 @@ model CommercialTemplate {
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
   generatedTexts  LatestGeneratedText[]
+  bulkOutreachBatches BulkOutreachBatch[]
+  bulkOutreachItems   BulkOutreachItem[]
 
   @@index([userId, stage, isActive])
   @@map("commercial_templates")
@@ -423,4 +490,145 @@ model LatestGeneratedText {
   @@index([userId, leadId, kind])
   @@unique([leadId, kind, variant, stage])
   @@map("latest_generated_texts")
+}
+
+model BulkOutreachBatch {
+  id                        String                  @id @default(cuid())
+  userId                    String                  @map("user_id")
+  channel                   OutreachChannel
+  campaignId                String?                 @map("campaign_id")
+  templateId                String?                 @map("template_id")
+  stage                     TemplateStage           @default(first_contact)
+  status                    BulkOutreachBatchStatus @default(draft)
+  selectedCount             Int                     @default(0) @map("selected_count")
+  eligibleCount             Int                     @default(0) @map("eligible_count")
+  missingContactCount       Int                     @default(0) @map("missing_contact_count")
+  invalidContactCount       Int                     @default(0) @map("invalid_contact_count")
+  duplicateCount            Int                     @default(0) @map("duplicate_count")
+  generatedCount            Int                     @default(0) @map("generated_count")
+  failedCount               Int                     @default(0) @map("failed_count")
+  skippedCount              Int                     @default(0) @map("skipped_count")
+  approvedCount             Int                     @default(0) @map("approved_count")
+  sentCount                 Int                     @default(0) @map("sent_count")
+  failedSendCount           Int                     @default(0) @map("failed_send_count")
+  channelLimitSnapshot      Json                    @default("{}") @map("channel_limit_snapshot")
+  generationContextSnapshot Json                    @default("{}") @map("generation_context_snapshot")
+  diagnostics               Json                    @default("[]")
+  createdAt                 DateTime                @default(now()) @map("created_at")
+  updatedAt                 DateTime                @updatedAt @map("updated_at")
+  generatedAt               DateTime?               @map("generated_at")
+  approvedAt                DateTime?               @map("approved_at")
+  completedAt               DateTime?               @map("completed_at")
+  campaign                  FreelanceCampaign?      @relation(fields: [campaignId], references: [id])
+  template                  CommercialTemplate?     @relation(fields: [templateId], references: [id])
+  items                     BulkOutreachItem[]
+  events                    OutreachEvent[]
+
+  @@index([userId, status])
+  @@index([userId, channel, stage])
+  @@index([campaignId])
+  @@map("bulk_outreach_batches")
+}
+
+model BulkOutreachItem {
+  id                     String                 @id @default(cuid())
+  userId                 String                 @map("user_id")
+  batchId                String                 @map("batch_id")
+  leadId                 String                 @map("lead_id")
+  campaignId             String?                @map("campaign_id")
+  channel                OutreachChannel
+  status                 BulkOutreachItemStatus @default(queued)
+  contactSource          String                 @default("lead_existing") @map("contact_source")
+  recipientEmail         String?                @map("recipient_email")
+  recipientPhone         String?                @map("recipient_phone")
+  recipientWhatsapp      String?                @map("recipient_whatsapp")
+  subject                String?
+  body                   String?
+  message                String?
+  templateId             String?                @map("template_id")
+  generationInputContext Json                   @default("{}") @map("generation_input_context")
+  generationErrorCode    String?                @map("generation_error_code")
+  generationErrorMessage String?                @map("generation_error_message")
+  validationErrorCode    String?                @map("validation_error_code")
+  validationErrorMessage String?                @map("validation_error_message")
+  duplicateOfEventId     String?                @map("duplicate_of_event_id")
+  skipReason             String?                @map("skip_reason")
+  operatorEditedAt       DateTime?              @map("operator_edited_at")
+  approvedAt             DateTime?              @map("approved_at")
+  sentAt                 DateTime?              @map("sent_at")
+  providerName           String?                @map("provider_name")
+  providerMessageId      String?                @map("provider_message_id")
+  providerStatus         String?                @map("provider_status")
+  providerErrorCode      String?                @map("provider_error_code")
+  providerErrorMessage   String?                @map("provider_error_message")
+  createdAt              DateTime               @default(now()) @map("created_at")
+  updatedAt              DateTime               @updatedAt @map("updated_at")
+  batch                  BulkOutreachBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  lead                   FreelanceLead          @relation(fields: [leadId], references: [id])
+  campaign               FreelanceCampaign?     @relation(fields: [campaignId], references: [id])
+  template               CommercialTemplate?    @relation(fields: [templateId], references: [id])
+  duplicateOfEvent       OutreachEvent?         @relation("DuplicateOutreachEvent", fields: [duplicateOfEventId], references: [id])
+  events                 OutreachEvent[]
+
+  @@index([userId, batchId])
+  @@index([userId, leadId, channel, status])
+  @@index([campaignId, channel])
+  @@map("bulk_outreach_items")
+}
+
+model OutreachChannelSetting {
+  id                 String                 @id @default(cuid())
+  userId             String                 @map("user_id")
+  channel            OutreachChannel
+  providerName       String                 @map("provider_name")
+  displayName        String?                @map("display_name")
+  displayAddress     String?                @map("display_address")
+  status             ChannelReadinessStatus @default(disabled)
+  enabled            Boolean                @default(false)
+  dailyLimit         Int?                   @map("daily_limit")
+  remainingToday     Int?                   @map("remaining_today")
+  limitResetAt       DateTime?              @map("limit_reset_at")
+  requiredEnvVars    Json                   @default("[]") @map("required_env_vars")
+  missingEnvVars     Json                   @default("[]") @map("missing_env_vars")
+  diagnosticCode     String?                @map("diagnostic_code")
+  diagnosticMessage  String?                @map("diagnostic_message")
+  lastCheckedAt      DateTime?              @map("last_checked_at")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+
+  @@unique([userId, channel])
+  @@index([userId, status])
+  @@map("outreach_channel_settings")
+}
+
+model OutreachEvent {
+  id                String              @id @default(cuid())
+  userId            String              @map("user_id")
+  batchId           String?             @map("batch_id")
+  itemId            String?             @map("item_id")
+  leadId            String              @map("lead_id")
+  campaignId        String?             @map("campaign_id")
+  channel           OutreachChannel
+  stage             TemplateStage       @default(first_contact)
+  eventType         OutreachEventType   @map("event_type")
+  providerName      String?             @map("provider_name")
+  providerMessageId String?             @map("provider_message_id")
+  recipient         String?
+  subject           String?
+  status            String
+  diagnosticCode    String?             @map("diagnostic_code")
+  diagnosticMessage String?             @map("diagnostic_message")
+  payload           Json                @default("{}")
+  occurredAt        DateTime            @default(now()) @map("occurred_at")
+  batch             BulkOutreachBatch?  @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  item              BulkOutreachItem?   @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  lead              FreelanceLead       @relation(fields: [leadId], references: [id])
+  campaign          FreelanceCampaign?  @relation(fields: [campaignId], references: [id])
+  duplicateItems    BulkOutreachItem[]  @relation("DuplicateOutreachEvent")
+
+  @@index([userId, leadId, channel, stage])
+  @@index([userId, batchId])
+  @@index([campaignId, channel])
+  @@index([eventType, occurredAt])
+  @@map("outreach_events")
 }

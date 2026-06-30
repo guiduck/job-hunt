@@ -325,9 +325,13 @@ local, smoke HTTP de `/settings/niches`, `/api/freelance/niche-audit` e
 `/api/freelance/niche-candidates`, alem de guardas sem CSV, sem linguagem Full-time indevida na UI de
 nichos e sem caminhos de candidatos criando lead/job/outreach.
 
-Proximo passo recomendado: rodar `/speckit-analyze` para uma revisao nao destrutiva de consistencia
-entre `spec.md`, `plan.md` e `tasks.md` de `015`, ou iniciar uma nova spec para provider real de
-Google Maps/SerpApi/Apify usando apenas nichos enabled+approved.
+Proximo passo recomendado: `specs/016-freelance-bulk-outreach/spec.md` foi criado para o recorte de
+outreach em massa de leads `Freelance`; executar `/speckit-plan` para definir arquitetura, contratos,
+schema, UI e validacao. O recorte aproveita a tabela de leads existente, settings/templates e o padrao
+ja validado na extensao `Full-time`: selecao por checkbox, geracao IA por item usando template como
+referencia, revisao/edicao/skip antes de qualquer envio real e tracking de status por lead. Provider
+real de Google Maps/SerpApi/Apify segue como dependencia importante para qualidade de entrada, mas nao
+deve ser misturado com a implementacao de envio.
 
 Decisoes clarificadas para o MVP:
 
@@ -389,6 +393,71 @@ Decisao de coleta:
 - selecao manual de destinatarios
 - eventos tecnicos de envio e resposta
 - base para email e WhatsApp
+
+## Fase 4.5. Outreach Freelance Em Massa
+
+Objetivo: transformar leads revisados do app web `Freelance` em campanhas de contato controladas,
+com geracao assistida por IA e envio real apenas depois de revisao humana.
+
+Status: `specs/016-freelance-bulk-outreach/spec.md` foi criada via `/speckit-specify` em
+2026-06-24, com checklist completo e `.specify/feature.json` apontando para o novo recorte. Em
+2026-06-25, `/speckit-clarify` registrou que email do `Freelance` deve ficar dentro do `apps/web`,
+WhatsApp entra end-to-end quando configurado, contatos podem vir de provider/edicao/enriquecimento
+apos revisao, limites por canal sao configuraveis por env/provider, e Email/WhatsApp usam botoes de
+acao separados apos selecao de leads. Em seguida, `/speckit-plan` gerou `plan.md`, `research.md`,
+`data-model.md`, `quickstart.md` e contratos `api`, `web-ui` e `provider-diagnostics`. Depois,
+`/speckit-tasks` gerou `specs/016-freelance-bulk-outreach/tasks.md` com 77 tarefas organizadas por
+setup, fundacao, US1 selecao/batch, US2 geracao IA, US3 review/edicao/skip, US4 Email real, US5
+settings/WhatsApp/diagnostics e polish. `/speckit-implement` concluiu T001-T077: fundacao Prisma/
+config/diagnostics, selecao por checkbox na tabela de Leads, batch duravel por canal, geracao de
+drafts sem side effects, review/editor por item, skip/unskip, envio real por Email via adapter Resend,
+readiness/settings por canal, WhatsApp provider-backed via Twilio quando configurado, eventos/
+historico por lead, bloqueio de duplicidade, guardas de copy/segredo/acessibilidade, docs e validacao
+final. O fluxo `Freelance` agora pode gerar, revisar e aprovar Email/WhatsApp dentro de `apps/web`,
+mostrando env/config/rate-limit/provider diagnostics sem expor secrets.
+
+Escopo planejado:
+
+- adicionar checkboxes na tabela de leads e selecao em massa limitada aos leads visiveis/filtrados
+- oferecer botoes separados para bulk Email e bulk WhatsApp depois da selecao; o botao escolhido
+  define o canal do batch antes da geracao
+- criar painel de bulk outreach para leads selecionados, inspirado no `BulkEmailPanel` da extensao
+  `Full-time` como referencia de UX, mas sem depender do servico/API `Full-time`
+- gerar mensagens comerciais com IA por lead, usando oportunidade, nicho, site/status, telefone/email
+  quando existirem, `SellerSettings.extraContext`, site/portfolio do prestador e template comercial
+  como referencia de tom/estrutura
+- permitir revisar, editar, pular e salvar cada item antes de aprovar o envio
+- manter contadores por lote: elegivel, sem contato, duplicado, invalido, gerado, falhou, pulado e
+  enviado
+- separar configuracoes de perfil/oferta ja existentes em `Settings` de configuracoes de providers de
+  envio, preservando secrets em ambiente seguro
+- suportar email real como primeiro canal, com provider configuravel proprio do `apps/web` e eventos
+  por destinatario
+- pesquisar/enriquecer email de leads em recorte proprio se o provider de Maps entregar apenas telefone
+  ou site, sem bloquear leads que ja tiverem email valido
+- implementar WhatsApp real por provider como Twilio/WhatsApp Business API ou equivalente, nao por
+  link com texto em query string, com opt-in, rate limit, credenciais por ambiente, templates aprovados
+  quando exigido, diagnosticos de configuracao/erro no app e historico de envio/falha por lead
+- impedir envio automatico sem aprovacao explicita do operador e bloquear reenvio duplicado para o
+  mesmo lead/canal/campanha sem confirmacao
+
+Validacao final de `016-freelance-bulk-outreach`:
+
+- `apps/web` typecheck, testes unitarios, contratos, integracao e build passaram.
+- Prisma validate/generate passaram com `DATABASE_URL` local do app web.
+- Os testes focados cobrem providers Email/WhatsApp, readiness, duplicidade, contratos de approve e
+  channel settings, fluxo de review/delivery, Settings context e guardas de copy/segredo/acessibilidade.
+
+Decisoes de seguranca e produto:
+
+- a IA gera rascunhos, nao envia sozinha
+- templates sao referencia editavel, nao fonte para inventar fatos
+- WhatsApp depende de configuracao/provider real; quando faltar env var, credencial, template, opt-in,
+  janela de mensagem, limite ou permissao de conta, a UI deve explicar exatamente o bloqueio
+- limites de envio nao devem ser caps pequenos hardcoded; usar limites altos configuraveis por env ou
+  capacidade reportada pelo provider, com capacidade restante visivel
+- mensagens devem usar somente dados registrados do lead, settings do vendedor/prestador e contexto
+  adicional preenchido pelo operador
 
 ## Fase 5. IA E Inteligencia Comercial
 

@@ -178,7 +178,29 @@ Status implementado em `014-freelance-web-app`:
   score SEO/design/performance ficam para etapa propria.
 - A UI interna entregue cobre dashboard, campanhas, leads, detalhe de lead, prompt Lovable sob
   demanda, mensagens comerciais, templates e configuracoes.
-- CSV import/export e envio automatico por email/WhatsApp continuam fora do MVP.
+- CSV import/export continua fora do MVP.
+
+Status implementado em `016-freelance-bulk-outreach`:
+
+- `apps/web` agora possui bulk outreach proprio para leads `Freelance`, sem depender do servico/API
+  `Full-time` rodando para envio.
+- A tabela de Leads suporta selecao por checkbox, checkbox mestre para leads visiveis e botoes
+  separados `Generate Email` e `Generate WhatsApp`.
+- `BulkOutreachBatch`, `BulkOutreachItem`, `OutreachChannelSetting` e `OutreachEvent` ficam no Prisma
+  do app web, escopados por `user_id`, com counters e historico por lead.
+- A geracao IA produz rascunhos por item usando lead, evidencia, template e seller settings, mas nao
+  cria delivery requests nem envia antes da aprovacao humana.
+- O operador revisa, edita contato/conteudo e pula itens antes de aprovar o envio.
+- Email real passa por adapter Resend em `apps/web/lib/providers`, com env vars
+  `FREELANCE_EMAIL_PROVIDER`, `FREELANCE_EMAIL_DAILY_LIMIT`, `FREELANCE_EMAIL_FROM` e
+  `RESEND_API_KEY`.
+- WhatsApp real passa por adapter Twilio WhatsApp em `apps/web/lib/providers`, com env vars
+  `FREELANCE_WHATSAPP_PROVIDER`, `FREELANCE_WHATSAPP_DAILY_LIMIT`, `TWILIO_ACCOUNT_SID`,
+  `TWILIO_AUTH_TOKEN` e `TWILIO_WHATSAPP_FROM`.
+- Readiness de canal aparece em Settings com env vars faltantes por nome, limite/restante,
+  timestamp de checagem e diagnostico seguro, sem expor secrets.
+- A aprovacao bloqueia duplicidade first-contact por lead/campanha/canal/stage e registra eventos
+  `queued_send`, `sent`, `failed_send` ou bloqueios por item.
 
 Os nichos iniciais nao devem ser inventados durante a implementacao. Use a lista ja registrada em
 `references/opportunity-desk-pro/src/lib/mockData.ts` (`NICHE_OPTIONS`) e refletida em

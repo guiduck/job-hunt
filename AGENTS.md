@@ -46,9 +46,9 @@ For general prompt refinement or change-risk review, consider:
 - `.codex/skills/prompt-structuring/SKILL.md`
 - `.codex/skills/change-impact-review/SKILL.md`
 
-The active Spec Kit task list is:
+The active Spec Kit implementation task list is:
 
-- `specs/015-freelance-niche-catalog/tasks.md` for Freelance niche catalog governance
+- `specs/016-freelance-bulk-outreach/tasks.md` for Freelance bulk outreach and channel settings
 
 ## Conflict Handling
 

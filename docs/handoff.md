@@ -14,10 +14,11 @@
 
 ## Status Atual
 
-- `fase_atual_roadmap`: Fase 4 `Freelance`, com fine tuning pontual restante no produto `Full-time`
-- `etapa_atual_action_plan`: clarificar e planejar o app web `Freelance` separado, mantendo a extensao `Full-time`
-  como produto dedicado ja satisfatorio para candidaturas
-- `plano_ativo_spec_kit`: `specs/015-freelance-niche-catalog/tasks.md`
+- `fase_atual_roadmap`: Fase 4.5 `Outreach Freelance Em Massa`, com fine tuning pontual restante no produto `Full-time`
+- `etapa_atual_action_plan`: `specs/016-freelance-bulk-outreach/tasks.md` concluido em T001-T077;
+  proximo passo recomendado e analise nao destrutiva/consistencia e follow-up de hardening se
+  necessario
+- `tasks_ativo_spec_kit`: `specs/016-freelance-bulk-outreach/tasks.md`
 - `hotfix_local_freelance_db`: em 2026-06-09, `apps/web/scripts/bootstrap-db.ts` passou a aplicar a
   migration `20260609000100_niche_catalog_governance` quando um banco local antigo ja tem as tabelas
   freelance iniciais mas ainda nao possui `freelance_niches.display_name`. O bootstrap tambem atualiza
@@ -59,6 +60,16 @@
   de perfil social (`social_url`). A pagina de detalhe nao mostra mais score mockado como auditoria
   real de website; o analyzer atual registra apenas status/evidencia ate existir crawl real. A tela
   sempre oferece um link de verificacao no Google Maps para conferir a fonte.
+- `freelance_bulk_outreach_scope`: em 2026-06-24, o escopo do app web `Freelance` foi ampliado para
+  incluir selecao em massa na tabela de leads e envio controlado de mensagens comerciais. O padrao de
+  referencia e o fluxo ja existente na extensao `Full-time`: checkbox mestre/por linha, painel de
+  bulk review, IA gerando assunto/corpo por item com template como referencia, contadores de
+  elegibilidade/falha, edicao/skip por lead e aprovacao explicita antes de envio real. Em `Freelance`,
+  o contexto deve vir de lead/nicho/site/status, settings do vendedor/prestador, site/portfolio,
+  oferta, campo livre de contexto para IA e templates comerciais. Email real deve entrar com provider
+  configuravel e eventos por lead; WhatsApp real deve ser avaliado via Twilio/WhatsApp Business API ou
+  equivalente, sem link com query pronta, respeitando opt-in, templates aprovados, rate limit e secrets
+  por ambiente.
 - `full_time_jobs_hot_state_external_filters`: em 2026-06-11, a extensao passou a cachear localmente a
   pagina de Jobs por filtros/lane por 30s, evitando recarregar a lista ao alternar entre `With email`
   e `External applications` ou reabrir o popup apos abrir um link externo. As externas agora tambem
@@ -557,13 +568,98 @@ Validacao US3/polish feita em 2026-06-09:
 - guardas `rg` sem matches para CSV, labels Full-time/resume/candidature na area de nichos e imports
   de lead/job/outreach em `niche-candidate-service`/rotas de candidatos
 
+## Status Atual - 016 Freelance Bulk Outreach
+
+`/speckit-specify` criou `specs/016-freelance-bulk-outreach/spec.md` e checklist de qualidade em
+`specs/016-freelance-bulk-outreach/checklists/requirements.md`. `.specify/feature.json` agora aponta
+para esse recorte.
+
+A spec cobre selecao por checkbox na tabela de Leads, checkbox mestre para visiveis/filtrados,
+criacao duravel de batch/itens, geracao IA individualizada com template comercial como referencia,
+contexto de lead/nicho/site/social/source evidence/settings/oferta, revisao item a item, edicao de
+recipient/channel/assunto/corpo/mensagem, skip/unskip, contadores por elegibilidade/contato/duplicado/
+invalido/gerado/falhou/pulado/enviado, aprovacao explicita antes de qualquer delivery real, email
+como primeiro canal real, e WhatsApp como canal provider-backed end-to-end quando configurado, sem
+shortcut `wa.me` como implementacao final.
+
+Decisoes assumidas na spec:
+
+- primeiro recorte e focado em primeiro contato; follow-up vira fluxo explicito posterior
+- email do `Freelance` deve ser implementado dentro do `apps/web` por adapter proprio, sem depender
+  do servico/API `Full-time` rodando
+- provider exato de email/WhatsApp deve ser decidido no plano, mantendo secrets server-side
+- WhatsApp entra no escopo end-to-end quando configurado, com diagnosticos claros no app para env vars,
+  credenciais, conta/provider, templates, opt-in, rate limit e falhas de delivery
+- contatos de email/WhatsApp podem vir do provider, edicao manual ou enriquecimento futuro, desde que
+  o operador revise/edite o contato e a mensagem antes de aprovar
+- limites por canal nao devem ser caps pequenos hardcoded; usar limites altos configuraveis por env ou
+  capacidade reportada pelo provider, mostrando capacidade restante/erro no app
+- apos selecionar leads, a UI deve oferecer botoes separados de bulk Email e bulk WhatsApp; a escolha
+  define o canal antes da geracao, e aprovacao de envio tambem e separada por canal
+- provider-real Google Maps/SerpApi/Apify continua separado; bulk outreach usa somente leads reais ja
+  salvos por fluxos de operador/provider, nunca candidatos de nicho ou referencias/imagens
+- a UI deve continuar usando linguagem `Freelance`, sem termos de vaga/curriculo/candidatura
+
+`/speckit-plan` gerou `plan.md`, `research.md`, `data-model.md`, `quickstart.md` e contratos
+`contracts/api.md`, `contracts/web-ui.md` e `contracts/provider-diagnostics.md`. O setup oficial
+`.specify/scripts/bash/setup-plan.sh --json` continua bloqueado neste Windows sem distribuicao WSL, entao
+o plano foi criado manualmente a partir de `.specify/feature.json` como nas specs anteriores.
+
+Decisoes de plano:
+
+- `BulkOutreachBatch`, `BulkOutreachItem`, `OutreachChannelSetting` e `OutreachEvent` entram como
+  modelos owner-scoped no Prisma do `apps/web`
+- batches sao de canal unico (`email` ou `whatsapp`) desde a criacao
+- revisao de Email valida recipient/subject/body; revisao de WhatsApp valida numero/mensagem
+- adapters de provider ficam em `apps/web/lib/providers`, com diagnostics normalizados e sem expor
+  secrets
+- readiness de canal mostra env vars faltantes por nome, limite configurado/restante, provider status
+  e motivos de bloqueio
+- aprovacao deve ser idempotente e bloquear duplicidade first-contact por lead/campanha/canal/stage
+
+`/speckit-tasks` gerou `specs/016-freelance-bulk-outreach/tasks.md` com 77 tarefas organizadas por
+setup, fundacao, US1 selecao de leads e batch duravel, US2 geracao IA individualizada, US3 review/
+edicao/skip persistente, US4 envio real por Email via adapter do `apps/web`, US5 settings/readiness e
+WhatsApp provider-backed, alem de polish/guardas/docs/validacao. O script oficial
+`.specify/scripts/bash/check-prerequisites.sh --json` continua bloqueado neste Windows sem
+distribuicao WSL; a feature ativa foi resolvida manualmente por `.specify/feature.json`.
+
+`/speckit-implement` concluiu T001-T077. Entregue em `apps/web`: env/config de outreach, constantes e
+diagnostics, schema Prisma/migration/bootstrap para `BulkOutreachBatch`, `BulkOutreachItem`,
+`OutreachChannelSetting` e `OutreachEvent`, schemas Zod, fixtures/testes, repositorios/counters,
+duplicate guard, selecao por checkbox na tabela de Leads, botoes separados `Generate Email` e
+`Generate WhatsApp`, criacao de batch channel-specific, geracao de drafts por template/settings/lead
+evidence, review list com editor por item, skip/unskip e persistencia de counters. US4 adicionou
+aprovacao real de Email dentro do `apps/web`, adapters `email-provider` e `resend-email-provider`,
+rota `POST /api/freelance/bulk-outreach/[batchId]/approve`, historico
+`GET /api/freelance/leads/[leadId]/outreach-events`, idempotencia por item ja enviado, duplicate
+blocking e eventos de delivery. US5 adicionou readiness/settings por canal, rota
+`GET/PATCH /api/freelance/channel-settings`, adapter WhatsApp/Twilio provider-backed, cards de
+diagnostico em Settings e aprovacao WhatsApp quando configurado. Polish adicionou guardas de copy,
+segredo e acessibilidade, quickstart/docs e proximo prompt.
+
+Validação final T001-T077:
+
+- `cd apps/web && $env:DATABASE_URL='postgresql://scrapper:scrapper@localhost:5433/freelance_app'; npx.cmd prisma validate --schema prisma/schema.prisma`
+- `cd apps/web && $env:DATABASE_URL='postgresql://scrapper:scrapper@localhost:5433/freelance_app'; npx.cmd prisma generate --schema prisma/schema.prisma`
+- `cd apps/web && npm.cmd run typecheck`
+- `cd apps/web && npm.cmd run test:unit -- tests/unit/email-provider.test.ts tests/unit/whatsapp-provider.test.ts tests/unit/bulk-outreach-duplicates.test.ts tests/unit/freelance-copy-guard.test.ts tests/unit/server-secret-guard.test.ts`
+- `cd apps/web && npm.cmd run test:contract -- tests/contract/bulk-outreach-contract.test.ts tests/contract/channel-settings-contract.test.ts`
+- `cd apps/web && npm.cmd run test:integration -- tests/integration/bulk-outreach-selection-ui.test.tsx tests/integration/bulk-outreach-review-flow.test.tsx tests/integration/bulk-outreach-delivery-flow.test.tsx tests/integration/bulk-outreach-whatsapp-flow.test.tsx tests/integration/bulk-outreach-accessibility.test.tsx tests/integration/seller-settings-generation.test.tsx`
+- `cd apps/web && npm.cmd run build`
+
 ## Proximo Passo Spec Kit Recomendado
 
-Executar `/speckit-analyze` para revisar a consistencia final de `specs/015-freelance-niche-catalog`
-apos implementacao completa, ou iniciar uma nova `/speckit-specify` para provider real de Google
-Maps/SerpApi/Apify consumindo apenas nichos enabled+approved. Nao confundir candidatos de nicho com
-leads/oportunidades: nenhum candidato vindo de imagem/referencia deve criar negocio real ou contato;
-isso segue no fluxo scraper/API.
+Rodar `/speckit-analyze` para `specs/016-freelance-bulk-outreach` como revisao nao destrutiva de
+consistencia pos-implementacao. Possiveis follow-ups: webhooks/status reconciliation de providers,
+gestao avancada de templates/opt-in WhatsApp, contabilizacao diaria mais rica por provider e
+enriquecimento futuro de email para leads que chegam apenas com telefone/site.
+
+O `/speckit-analyze` final de `specs/015-freelance-niche-catalog` ainda e util como revisao
+nao destrutiva, e provider real Google Maps/SerpApi/Apify continua sendo uma spec importante para
+qualidade dos leads. Ainda assim, a proxima spec de produto deve explicitar que candidatos de nicho
+continuam fora de leads/oportunidades/outreach e que nenhum envio acontece sem lead real vindo do
+scraper/API/provider e aprovacao do operador.
 
 Pendencia de fine tuning do `Full-time`: executar o smoke manual T112 de
 `specs/013-serpapi-career-search/tasks.md` com provider real e vagas mistas email + external

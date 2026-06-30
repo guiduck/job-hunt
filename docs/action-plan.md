@@ -214,6 +214,17 @@ Depois que o fluxo de empregos estiver util, iniciar um produto separado para pr
 - salvar leads freelance
 - gerar demo ou prompt `Lovable`
 - usar templates de prospeccao
+- adicionar selecao em massa na tabela de leads para preparar outreach revisavel: implementado em
+  `016-freelance-bulk-outreach`
+- gerar mensagens comerciais por IA usando lead, nicho, website/status, settings do vendedor/prestador,
+  site/portfolio e templates como referencia: implementado como rascunho revisavel por item
+- configurar contexto comercial em Settings, incluindo site da empresa/prestador, oferta, texto livre
+  para a IA considerar e canais disponiveis: implementado com cards de readiness por canal
+- implementar envio real por email em recorte proprio, com provider configurado, revisao humana,
+  bloqueio de duplicidade e eventos por lead: implementado via adapter Resend em `apps/web`
+- avaliar envio real por WhatsApp com Twilio/WhatsApp Business API, sem depender de link com mensagem
+  pronta, respeitando opt-in, templates aprovados, rate limit e secrets por ambiente: implementado via
+  adapter Twilio WhatsApp com diagnosticos seguros
 
 ### 8. Camada de IA
 
@@ -222,6 +233,7 @@ Por ultimo nesta fase:
 - gerar prompt estruturado para proposta
 - gerar material reutilizando dados da oportunidade
 - apoiar benchmark, personalizacao e prompt para ferramentas externas
+- acelerar outreach freelance em massa com rascunhos IA revisaveis antes de qualquer envio real
 
 ## Sequencia de maior retorno
 
@@ -236,6 +248,10 @@ Se a meta for validar valor rapido, a melhor sequencia continua sendo:
 7. smoke final de candidaturas externas do `Full-time` e registro de ajustes
 8. app web freelance com stack Next/shadcn/Zod/Zustand/Prisma/Postgres, Google Maps/local search,
    analise de site e prompts Lovable
+9. bulk outreach freelance implementado em `specs/016-freelance-bulk-outreach/tasks.md`, com
+   checkboxes na lista de leads, geracao IA por template/contexto, revisao item a item, envio real por
+   email e envio real por WhatsApp provider-backed quando configurado, com diagnosticos de
+   configuracao/erro
 
 Esse e o primeiro ponto em que o sistema deixa de ser apenas um scraper e vira uma ferramenta de
 operacao.
