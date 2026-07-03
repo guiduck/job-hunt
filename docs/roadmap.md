@@ -146,6 +146,9 @@ Estado atual:
   salvar respostas manuais ja digitadas no campo
 - a janela da varinha permite editar a pergunta/instrucao detectada antes de gerar ou salvar resposta,
   e inputs de busca (`type=search`) ficam fora do assistente para evitar icones em caixas de navegacao
+- em 2026-07-03, o limite de contexto de pergunta/instrucao do AI Field Assistant foi aumentado para
+  500.000 caracteres em `label_text`, `existing_value` e `template_hint`, permitindo colar descricoes
+  longas de empresa/vaga antes de gerar resposta
 - o popup `Full-time` foi simplificado para operacao diaria: dashboard com total/nao enviados, status
   visual `unsent/sent/interview`, marcacao rapida de entrevista, header alinhado com email/log out e
   acoes do assistente, e sender profile com WhatsApp/informacoes extras para contexto de emails IA
@@ -415,6 +418,19 @@ readiness/settings por canal, WhatsApp provider-backed via Twilio quando configu
 historico por lead, bloqueio de duplicidade, guardas de copy/segredo/acessibilidade, docs e validacao
 final. O fluxo `Freelance` agora pode gerar, revisar e aprovar Email/WhatsApp dentro de `apps/web`,
 mostrando env/config/rate-limit/provider diagnostics sem expor secrets.
+
+Nota Full-time em 2026-07-03: a busca `career_page` ja encontra oportunidades quando o provider
+retorna resultados, mas precisa continuar evoluindo em observabilidade e previsibilidade. Foi aplicado
+um hotfix para persistir as fontes/limites escolhidos na extensao, fazer polling do latest run ate o
+estado terminal e logar diagnosticos finais por fonte no worker. Um recorte futuro deve expor esses
+diagnosticos na UI e diferenciar claramente fonte vazia, falha parcial de provider, duplicata e run
+sem aceite. No mesmo ajuste, filtros de IA de modo de trabalho/regiao passaram a ser aplicados antes
+de criar oportunidades de career-page, e a query do provider passou a incluir preferencias basicas de
+remoto/regioes aceitas/excluidas. A proxima evolucao deve tornar esses controles explicitos para vagas
+externas e mostrar quando uma vaga foi rejeitada por `remote_only`, hibrido/on-site ou regiao excluida.
+Um segundo hotfix operacional recupera runs `career_page` presos em `running`: o worker marca stale
+no startup, aplica `running_timeout` configuravel nas voltas normais e registra a fonte atual como
+`fetching` antes de consultar o provider, reduzindo bloqueios invisiveis na extensao.
 
 Escopo planejado:
 

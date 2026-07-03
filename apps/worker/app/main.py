@@ -16,7 +16,10 @@ def main() -> None:
             settings=settings.model_copy(update={"worker_mark_stale_running_on_startup": mark_stale_running}),
             run_once=True,
         )
-        process_pending_career_page_runs(settings=settings, run_once=True)
+        process_pending_career_page_runs(
+            settings=settings.model_copy(update={"worker_mark_stale_running_on_startup": mark_stale_running}),
+            run_once=True,
+        )
         if settings.worker_run_once:
             return
         mark_stale_running = False

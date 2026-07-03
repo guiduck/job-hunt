@@ -240,6 +240,9 @@ type PersistedPopupState = {
   selectedJobIds?: string[]
   showBulkEmail?: boolean
   selectedOpportunityId?: string | null
+  selectedCareerSourceKeys?: string[]
+  careerPageAcceptedLimit?: number
+  careerPageInspectedCap?: number
   filters?: OpportunityFilters
   captureProgress?: CaptureProgress
 }
@@ -248,6 +251,8 @@ const POPUP_STATE_STORAGE_KEY = "opportunity-desk-popup-state"
 const OPPORTUNITY_PAGE_CACHE_STORAGE_KEY = "opportunity-desk-opportunity-page-cache"
 const OPPORTUNITY_PAGE_CACHE_TTL_MS = 30_000
 const OPPORTUNITY_PAGE_CACHE_MAX_ENTRIES = 12
+const CAREER_PAGE_POLL_INTERVAL_MS = 3000
+const CAREER_PAGE_MAX_POLL_ATTEMPTS = 80
 
 type CachedOpportunityPage = {
   cachedAt: number
@@ -329,6 +334,47 @@ function clearOpportunityPageCache() {
   } catch {
     // Best-effort hot state only.
   }
+}
+
+function isCareerPageRunBusy(run: JobSearchRun | null) {
+  return Boolean(run && CAREER_PAGE_BUSY_STATUSES.has(run.status))
+}
+
+function splitFilterTerms(value: string) {
+  return value
+    .split(",")
+    .map((term) => term.trim())
+    .filter(Boolean)
+}
+
+function appendMissingSearchTerm(terms: string[], term: string) {
+  const normalizedTerm = term.toLowerCase()
+  if (!terms.some((value) => value.toLowerCase() === normalizedTerm)) {
+    terms.push(term)
+  }
+}
+
+function buildCareerPageSearchQuery(
+  searchText: string,
+  {
+    remoteOnly,
+    excludeOnsite,
+    acceptedRegions,
+    excludedRegions
+  }: { remoteOnly: boolean; excludeOnsite: boolean; acceptedRegions: string; excludedRegions: string }
+) {
+  const terms = searchText.trim().split(/\s+/).filter(Boolean)
+  if (remoteOnly) {
+    appendMissingSearchTerm(terms, "remote")
+  }
+  for (const region of splitFilterTerms(acceptedRegions)) {
+    appendMissingSearchTerm(terms, region)
+  }
+  const negativeTerms = splitFilterTerms(excludedRegions).map((region) => `-${region.replace(/\s+/g, " ")}`)
+  if (remoteOnly || excludeOnsite) {
+    negativeTerms.push("-onsite", "-on-site", "-hybrid", "-presencial")
+  }
+  return [...terms, ...negativeTerms].join(" ")
 }
 
 function sendCaptureRequest(payload: CaptureRequest) {
@@ -445,8 +491,16 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   curatedCareerSources: [],
   selectedCareerSourceKeys: [],
   latestCareerPageRun: null,
-  careerPageAcceptedLimit: CAREER_PAGE_DEFAULT_ACCEPTED_LIMIT,
-  careerPageInspectedCap: CAREER_PAGE_DEFAULT_INSPECTED_CAP,
+  careerPageAcceptedLimit: clampNumber(
+    persistedPopupState.careerPageAcceptedLimit ?? CAREER_PAGE_DEFAULT_ACCEPTED_LIMIT,
+    1,
+    250
+  ),
+  careerPageInspectedCap: clampNumber(
+    persistedPopupState.careerPageInspectedCap ?? CAREER_PAGE_DEFAULT_INSPECTED_CAP,
+    1,
+    1000
+  ),
   careerPagePolling: false,
   jobsLane: persistedJobsLane,
   selectedOpportunity: null,
@@ -503,11 +557,22 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   setPastMonthOnly: (pastMonthOnly) => set({ pastMonthOnly }),
   setMaxPosts: (maxPosts) => set({ maxPosts: clampNumber(maxPosts, 1, CAPTURE_MAX_POSTS) }),
   setMaxScrolls: (maxScrolls) => set({ maxScrolls: clampNumber(maxScrolls, 0, CAPTURE_MAX_SCROLLS) }),
-  setSelectedCareerSourceKeys: (selectedCareerSourceKeys) => set({ selectedCareerSourceKeys }),
+  setSelectedCareerSourceKeys: (selectedCareerSourceKeys) => {
+    persistPopupState({ selectedCareerSourceKeys })
+    set({ selectedCareerSourceKeys })
+  },
   setCareerPageAcceptedLimit: (careerPageAcceptedLimit) =>
-    set({ careerPageAcceptedLimit: clampNumber(careerPageAcceptedLimit, 1, 250) }),
+    set(() => {
+      const value = clampNumber(careerPageAcceptedLimit, 1, 250)
+      persistPopupState({ careerPageAcceptedLimit: value })
+      return { careerPageAcceptedLimit: value }
+    }),
   setCareerPageInspectedCap: (careerPageInspectedCap) =>
-    set({ careerPageInspectedCap: clampNumber(careerPageInspectedCap, 1, 1000) }),
+    set(() => {
+      const value = clampNumber(careerPageInspectedCap, 1, 1000)
+      persistPopupState({ careerPageInspectedCap: value })
+      return { careerPageInspectedCap: value }
+    }),
   setJobsLane: async (jobsLane) => {
     const laneFilters = opportunityFiltersForLane(jobsLane, { ...get().filters, page: 1 })
     persistPopupState({ filters: laneFilters, selectedJobIds: [], showBulkEmail: false })
@@ -1042,12 +1107,16 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         listCuratedCareerSources(),
         getLatestCareerPageRun()
       ])
-      const currentSelectedCareerSourceKeys = get().selectedCareerSourceKeys
+      const currentSelectedCareerSourceKeys =
+        get().selectedCareerSourceKeys.length > 0
+          ? get().selectedCareerSourceKeys
+          : persistedPopupState.selectedCareerSourceKeys || []
       const shouldDefaultCareerSources = currentSelectedCareerSourceKeys.length === 0 && get().curatedCareerSources.length === 0
       const activeCareerSourceKeys = new Set(curatedCareerSources.filter((source) => source.active).map((source) => source.key))
       const selectedCareerSourceKeys = shouldDefaultCareerSources
         ? Array.from(activeCareerSourceKeys)
         : currentSelectedCareerSourceKeys.filter((key) => activeCareerSourceKeys.has(key))
+      persistPopupState({ selectedCareerSourceKeys })
       set({ curatedCareerSources, selectedCareerSourceKeys, latestCareerPageRun })
     } catch (error) {
       set({ error: errorMessage(error, "Could not load career-page search state.") })
@@ -1079,8 +1148,15 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       if (searchText) {
         await updateJobSearchPreference({ search_text: searchText }).catch(() => undefined)
       }
+      const acceptedRegionTerms = splitFilterTerms(acceptedRegions)
+      const excludedRegionTerms = splitFilterTerms(excludedRegions)
       const run = await createCareerPageRun({
-        search_query: searchText || keywords,
+        search_query: buildCareerPageSearchQuery(searchText || keywords, {
+          remoteOnly,
+          excludeOnsite,
+          acceptedRegions,
+          excludedRegions
+        }),
         selected_source_keys: selectedCareerSourceKeys,
         accepted_limit: careerPageAcceptedLimit,
         inspected_cap: careerPageInspectedCap,
@@ -1088,12 +1164,27 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         ai_filter_settings: {
           remote_only: remoteOnly,
           exclude_onsite: excludeOnsite,
-          accepted_regions: acceptedRegions.split(",").map((value) => value.trim()).filter(Boolean),
-          excluded_regions: excludedRegions.split(",").map((value) => value.trim()).filter(Boolean)
+          accepted_regions: acceptedRegionTerms,
+          excluded_regions: excludedRegionTerms
         }
       })
       set({ latestCareerPageRun: run, careerPagePolling: true })
-      window.setTimeout(() => void get().refreshData(), 4000)
+      clearOpportunityPageCache()
+
+      const pollCareerPageRun = async (attempt: number) => {
+        await get().refreshCareerPageSearch()
+        const latestRun = get().latestCareerPageRun
+        const isSameRun = latestRun?.id === run.id
+        if (isSameRun && isCareerPageRunBusy(latestRun) && attempt < CAREER_PAGE_MAX_POLL_ATTEMPTS) {
+          window.setTimeout(() => void pollCareerPageRun(attempt + 1), CAREER_PAGE_POLL_INTERVAL_MS)
+          return
+        }
+        clearOpportunityPageCache()
+        await get().refreshData()
+        set({ careerPagePolling: false })
+      }
+
+      window.setTimeout(() => void pollCareerPageRun(1), CAREER_PAGE_POLL_INTERVAL_MS)
     } catch (error) {
       set({ error: errorMessage(error, "Could not start career-page search.") })
     } finally {

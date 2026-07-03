@@ -47,3 +47,40 @@ def test_generate_field_answer_rejects_unsafe_context(client: TestClient, auth_h
     )
 
     assert response.status_code == 400
+
+
+def test_generate_field_answer_accepts_large_question_context(
+    monkeypatch,
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    large_company_context = "Company product and application context. " * 250
+    captured: dict[str, object] = {}
+
+    def fake_generate(context: dict[str, object]) -> dict[str, object]:
+        captured.update(context)
+        return {"answer_text": "I can tailor my answer to the company context.", "missing_context": []}
+
+    monkeypatch.setattr(field_assistant_service, "generate_field_answer", fake_generate)
+
+    response = client.post(
+        "/field-assistant/generate",
+        headers=auth_headers,
+        json={
+            "keyword": "company_context",
+            "field_context": {
+                "label_text": large_company_context,
+                "placeholder": "Use the company information above.",
+                "field_type": "textarea",
+                "existing_value": large_company_context,
+                "confidence": 0.9,
+            },
+            "page_context": {"origin": "https://jobs.example.com"},
+            "template_hint": large_company_context,
+        },
+    )
+
+    assert response.status_code == 200
+    assert captured["field"]["label_text"] == large_company_context
+    assert captured["field"]["existing_value"] == large_company_context
+    assert captured["template_hint"] == large_company_context

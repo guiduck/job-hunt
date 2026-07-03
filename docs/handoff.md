@@ -648,6 +648,77 @@ Validação final T001-T077:
 - `cd apps/web && npm.cmd run test:integration -- tests/integration/bulk-outreach-selection-ui.test.tsx tests/integration/bulk-outreach-review-flow.test.tsx tests/integration/bulk-outreach-delivery-flow.test.tsx tests/integration/bulk-outreach-whatsapp-flow.test.tsx tests/integration/bulk-outreach-accessibility.test.tsx tests/integration/seller-settings-generation.test.tsx`
 - `cd apps/web && npm.cmd run build`
 
+## Hotfix Full-time Career-Page Search
+
+Em 2026-07-03, foi investigada variabilidade na busca externa da extensao Full-time: alguns runs de
+career pages retornavam `completed_no_results`, enquanto outros aceitavam vagas normalmente. Os logs
+mostraram que um run recente aceitou resultados de InHire/Ashby/SmartRecruiters, mas a UI podia ficar
+confusa porque o popup nao persistia fontes/limites escolhidos e o refresh pos-disparo podia usar o
+cache de oportunidades por ate 30s antes de buscar o latest run atualizado.
+
+Mudancas aplicadas:
+
+- a extensao agora persiste `selectedCareerSourceKeys`, `careerPageAcceptedLimit` e
+  `careerPageInspectedCap` no estado local do popup
+- `startCareerPageSearch` limpa cache e faz polling do latest career-page run ate sair de
+  `pending/running`, atualizando oportunidades no terminal
+- o worker agora inclui `inspected_count`, `accepted_count` e `source_diagnostics` no log
+  `career_page_run_terminal`, para diferenciar fonte vazia, falha parcial e aceite real
+
+Validacao local: `apps/extension npm.cmd run typecheck` passou; `compileall` do worker passou usando o
+Python empacotado do Codex. `python`/`py` nao existem no PATH do Windows local.
+
+Complemento em 2026-07-03: o fluxo career-page tambem foi ajustado para respeitar filtros de IA de
+modo de trabalho/regiao antes de criar oportunidades. Antes, `ai_filters_enabled` era salvo no run
+externo, mas o worker career-page usava IA apenas para review/score, nao para rejeitar candidatos. A
+extensao agora enriquece a query enviada ao provider com `remote`, regioes aceitas e termos negativos
+como regioes excluidas/onsite/hybrid quando esses filtros estao ativos; o worker aplica
+`job_ai_filter` antes de `insert_opportunity`, persistindo candidatos rejeitados como
+`rejected_ai_filter` com diagnosticos. O campo `Extra AI context` de Settings continua voltado a
+contexto de geracao de emails/respostas e nao deve ser usado como controle principal de busca externa.
+
+Validacao adicional: `apps/extension npm.cmd run typecheck` passou; `compileall` do worker passou com
+o Python empacotado. O teste focado `apps/worker/tests/integration/test_career_page_search_pipeline.py`
+foi atualizado, mas nao rodou localmente porque nem o Python empacotado nem o container `worker`
+tinham `pytest` instalado; a tentativa via Docker subiu `api`/`postgres` temporariamente e eles foram
+parados depois com `docker compose stop api postgres`.
+
+## Hotfix AI Field Assistant Large Questions
+
+Em 2026-07-03, o AI Field Assistant foi ajustado para aceitar perguntas/instrucoes muito maiores no
+menu de autocomplete da extensao. O bloqueio vinha da API: `FieldContext.label_text` aceitava apenas
+2.000 caracteres, `existing_value` 4.000 e `template_hint` 1.000, o que impedia perguntas compostas
+com textos longos sobre empresa/vaga antes de chegar na OpenAI. Esses tres campos agora usam o teto
+compartilhado `FIELD_ASSISTANT_LARGE_TEXT_MAX_LENGTH = 500_000` em
+`apps/api/app/schemas/field_assistant.py`. O banco ja usa `Text` para o historico de geracoes e nao
+precisou de migration.
+
+Validacao local: `compileall apps/api/app` passou com o Python empacotado; `apps/extension
+npm.cmd run typecheck` passou. O teste de integracao `test_field_answer_generation.py` recebeu caso
+cobrindo contexto maior que o limite antigo, mas nao rodou neste ambiente porque o Python empacotado
+nao tem `pytest`.
+
+## Hotfix Career-Page Running Timeout
+
+Em 2026-07-03, um run real de `career_page` ficou preso depois de concluir InHire e Ashby; o ultimo
+log registrado foi `career_page_candidate_inspected` em Ashby com 14 inspecionados, sem
+`career_page_source_progress` para SmartRecruiters e sem `career_page_run_terminal`. A causa provavel
+e o worker ficar travado/morrer entre fontes externas, deixando o run em `running` ou `pending` ativo
+e bloqueando novas buscas na extensao.
+
+O worker de career-page agora tem recuperacao de runs `running` antigas equivalente ao fluxo
+LinkedIn, filtrada por `search_kind = 'career_page'`: no startup marca runs antigas como
+`failed/stale_running`, e em loops normais marca runs acima de
+`WORKER_RUNNING_RUN_TIMEOUT_MINUTES` como `failed/running_timeout`. O `apps/worker/app/main.py`
+tambem passou a propagar corretamente `worker_mark_stale_running_on_startup` para career-page, para
+evitar que uma busca ativa seja marcada como stale em toda volta do loop. Antes de chamar cada fonte,
+o worker persiste `source_diagnostics[source_key].status = "fetching"` e atualiza `updated_at`, dando
+um rastro melhor quando a execucao para entre fontes.
+
+Validacao local: `compileall apps/worker/app` passou com o Python empacotado; `apps/extension
+npm.cmd run typecheck` passou. Foi adicionado teste unitario para stale/timeout de career-page, mas
+ele nao rodou localmente porque o Python empacotado nao tem `pytest`.
+
 ## Proximo Passo Spec Kit Recomendado
 
 Rodar `/speckit-analyze` para `specs/016-freelance-bulk-outreach` como revisao nao destrutiva de

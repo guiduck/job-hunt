@@ -9,7 +9,14 @@ from app.jobs import career_page_job_search
 from app.services.career_page_search_provider import CareerPageProviderResult
 
 
-def insert_run(db_session: Session, *, accepted_limit: int = 1, inspected_cap: int = 3) -> None:
+def insert_run(
+    db_session: Session,
+    *,
+    accepted_limit: int = 1,
+    inspected_cap: int = 3,
+    ai_filters_enabled: bool = False,
+    ai_filter_settings: dict[str, object] | None = None,
+) -> None:
     now = datetime.now(UTC)
     db_session.execute(
         text(
@@ -24,7 +31,7 @@ def insert_run(db_session: Session, *, accepted_limit: int = 1, inspected_cap: i
             VALUES (
                 'career-run-1', 'user-1', 'career_page', 'pending', :keywords, 'react remoto', 'recent',
                 '[]', '[]', :sources, '{}', 0, 'Career pages', :inspected_cap, :accepted_limit, :inspected_cap,
-                0, 0, 0, 0, false, 'not_started', '{}', false, '{}', :now, :now
+                0, 0, 0, 0, false, 'not_started', '{}', :ai_filters_enabled, :ai_filter_settings, :now, :now
             )
             """
         ),
@@ -33,6 +40,8 @@ def insert_run(db_session: Session, *, accepted_limit: int = 1, inspected_cap: i
             "sources": json.dumps(["ashby"]),
             "accepted_limit": accepted_limit,
             "inspected_cap": inspected_cap,
+            "ai_filters_enabled": ai_filters_enabled,
+            "ai_filter_settings": json.dumps(ai_filter_settings or {}),
             "now": now,
         },
     )
@@ -143,4 +152,71 @@ def test_career_page_pipeline_rejects_old_dated_results(monkeypatch, db_session:
     assert run["rejected_count"] == 1
     assert candidate["outcome"] == "rejected_weak_match"
     assert candidate["rejection_reason"] == "Result is older than 31 days"
+    assert opportunity_count == 0
+
+
+def test_career_page_pipeline_applies_ai_filters_before_creating_opportunity(monkeypatch, db_session: Session) -> None:
+    insert_run(
+        db_session,
+        accepted_limit=3,
+        inspected_cap=3,
+        ai_filters_enabled=True,
+        ai_filter_settings={"remote_only": True, "excluded_regions": ["India"]},
+    )
+
+    def fake_fetch_serpapi_results(**kwargs):
+        return [
+            CareerPageProviderResult(
+                title="React Engineer - Bangalore Hybrid",
+                link="https://jobs.ashbyhq.com/acme/react-india",
+                snippet="Hybrid role in Bangalore, India. Apply through this page.",
+                source_key="ashby",
+                source_name="Ashby",
+                source_query="site:jobs.ashbyhq.com react remote -India",
+                position=1,
+            )
+        ]
+
+    monkeypatch.setattr(career_page_job_search, "fetch_serpapi_results", fake_fetch_serpapi_results)
+
+    def fake_ai_filter_provider(_: dict[str, object]) -> dict[str, object]:
+        return {
+            "passes": False,
+            "reason": "Hybrid role in India does not satisfy remote-only and excluded-region filters.",
+            "confidence": 0.95,
+            "signals": {
+                "detected_work_mode": "hybrid",
+                "rejected_regions": ["India"],
+                "has_real_job_opening": True,
+            },
+        }
+
+    monkeypatch.setattr(
+        career_page_job_search,
+        "openai_ai_filter_provider",
+        lambda _api_key, _model_name: fake_ai_filter_provider,
+    )
+
+    career_page_job_search.process_pending_runs(
+        db_session,
+        settings=WorkerSettings(
+            serpapi_api_key="test-key",
+            openai_api_key="test-openai-key",
+            job_ai_filters_enabled=True,
+            job_ai_filter_model_name="test-model",
+            worker_max_runs_per_loop=1,
+        ),
+        run_once=True,
+    )
+
+    run = db_session.execute(text("SELECT * FROM job_search_runs WHERE id = 'career-run-1'")).mappings().one()
+    candidate = db_session.execute(text("SELECT * FROM job_search_candidates WHERE run_id = 'career-run-1'")).mappings().one()
+    opportunity_count = db_session.execute(text("SELECT COUNT(*) FROM opportunities")).scalar_one()
+    assert run["status"] == "completed_no_results"
+    assert run["accepted_count"] == 0
+    assert run["rejected_count"] == 1
+    assert run["ai_filter_rejected_count"] == 1
+    assert candidate["outcome"] == "rejected_ai_filter"
+    assert candidate["ai_filter_status"] == "rejected"
+    assert json.loads(candidate["ai_filter_signals"])["rejected_regions"] == ["India"]
     assert opportunity_count == 0

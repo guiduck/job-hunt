@@ -8,6 +8,8 @@ ScopeType = Literal["base_domain", "exact_page"]
 FieldType = Literal["textarea", "long_text_input", "contenteditable"]
 SuggestionSource = Literal["generated", "edited", "manual"]
 
+FIELD_ASSISTANT_LARGE_TEXT_MAX_LENGTH = 500_000
+
 
 class FieldAssistantActivationCreate(BaseModel):
     scope_type: ScopeType
@@ -38,10 +40,10 @@ class FieldAssistantActivationList(BaseModel):
 
 
 class FieldContext(BaseModel):
-    label_text: str = Field(min_length=1, max_length=2000)
+    label_text: str = Field(min_length=1, max_length=FIELD_ASSISTANT_LARGE_TEXT_MAX_LENGTH)
     placeholder: str | None = Field(default=None, max_length=500)
     field_type: FieldType = "textarea"
-    existing_value: str | None = Field(default=None, max_length=4000)
+    existing_value: str | None = Field(default=None, max_length=FIELD_ASSISTANT_LARGE_TEXT_MAX_LENGTH)
     confidence: float = Field(default=0, ge=0, le=1)
 
 
@@ -55,7 +57,7 @@ class FieldAnswerGenerateRequest(BaseModel):
     keyword: str = Field(min_length=1, max_length=120)
     field_context: FieldContext
     page_context: PageContext
-    template_hint: str | None = Field(default=None, max_length=1000)
+    template_hint: str | None = Field(default=None, max_length=FIELD_ASSISTANT_LARGE_TEXT_MAX_LENGTH)
 
 
 class FieldAnswerGenerateResponse(BaseModel):
