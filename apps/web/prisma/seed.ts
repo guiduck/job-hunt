@@ -99,22 +99,22 @@ async function main() {
   }
 
   for (const template of seedCommercialTemplates) {
-    await prisma.commercialTemplate.upsert({
+    const existing = await prisma.commercialTemplate.findUnique({
       where: {
         id: `system-${template.stage}-${template.category}`
-      },
-      update: {
-        ...template,
-        isDefault: true,
-        isActive: true
-      },
-      create: {
-        id: `system-${template.stage}-${template.category}`,
-        ...template,
-        isDefault: true,
-        isActive: true
       }
     });
+
+    if (!existing) {
+      await prisma.commercialTemplate.create({
+        data: {
+          id: `system-${template.stage}-${template.category}`,
+          ...template,
+          isDefault: true,
+          isActive: true
+        }
+      });
+    }
   }
 }
 
@@ -127,3 +127,7 @@ main()
     await prisma.$disconnect();
     process.exit(1);
   });
+
+
+
+

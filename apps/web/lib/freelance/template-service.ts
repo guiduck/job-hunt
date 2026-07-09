@@ -33,7 +33,7 @@ export async function updateCommercialTemplate(
 ) {
   const input = commercialTemplateSchema.partial().parse(payload);
   const existing = await freelanceRepositories.templates.findFirst({
-    where: { id: templateId, userId: scope.userId }
+    where: { id: templateId, OR: [{ userId: scope.userId }, { userId: null }] }
   });
   if (!existing) {
     return null;
@@ -46,7 +46,7 @@ export async function updateCommercialTemplate(
 
 export async function deleteCommercialTemplate(scope: OwnerScope, templateId: string) {
   const existing = await freelanceRepositories.templates.findFirst({
-    where: { id: templateId, userId: scope.userId }
+    where: { id: templateId, OR: [{ userId: scope.userId }, { userId: null }] }
   });
   if (!existing) {
     return null;
@@ -56,3 +56,4 @@ export async function deleteCommercialTemplate(scope: OwnerScope, templateId: st
     data: { isActive: false }
   });
 }
+

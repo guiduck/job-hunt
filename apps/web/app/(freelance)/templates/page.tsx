@@ -1,5 +1,5 @@
 import { TemplateEditorDialog } from "@/components/templates/template-editor-dialog";
-import { TemplateList } from "@/components/templates/template-list";
+import { TemplateList, type TemplateListItem } from "@/components/templates/template-list";
 import { getCurrentUserScope } from "@/lib/freelance/current-user";
 import { listCommercialTemplates } from "@/lib/freelance/template-service";
 
@@ -7,6 +7,16 @@ export const dynamic = "force-dynamic";
 
 export default async function TemplatesPage() {
   const templates = await listCommercialTemplates(await getCurrentUserScope());
+  const templateItems: TemplateListItem[] = templates.map((template) => ({
+    id: template.id,
+    name: template.name,
+    stage: template.stage,
+    category: template.category,
+    channel: template.channel as TemplateListItem["channel"],
+    bodyTemplate: template.bodyTemplate,
+    isDefault: template.isDefault,
+    isActive: template.isActive
+  }));
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
@@ -18,7 +28,8 @@ export default async function TemplatesPage() {
         </p>
       </div>
       <TemplateEditorDialog />
-      <TemplateList templates={templates} />
+      <TemplateList templates={templateItems} />
     </div>
   );
 }
+

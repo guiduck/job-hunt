@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { buildCommercialMessage } from "@/lib/generation/commercial-message-builder";
+import { buildCommercialMessage, detectLeadMessageLanguage } from "@/lib/generation/commercial-message-builder";
 import { buildLovablePrompt } from "@/lib/generation/lovable-prompt-builder";
 import { freelanceRepositories, requireOwnerScope, type OwnerScope } from "./repositories";
 import {
@@ -103,6 +103,7 @@ export async function generateCommercialMessage(scope: OwnerScope, payload: unkn
   if (!lead) throw new Error("Lead not found.");
   if (!template) throw new Error("Template not found.");
 
+  const targetLanguage = detectLeadMessageLanguage(lead);
   const text = buildCommercialMessage({ lead, template, settings });
 
   return saveLatestGeneratedText({
@@ -113,6 +114,8 @@ export async function generateCommercialMessage(scope: OwnerScope, payload: unkn
     stage: input.stage,
     templateId: template.id,
     text,
-    inputContext: { leadId: lead.id, stage: input.stage, templateId: template.id }
+    inputContext: { leadId: lead.id, stage: input.stage, templateId: template.id, targetLanguage }
   });
 }
+
+
