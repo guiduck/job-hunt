@@ -70,7 +70,8 @@ const TRACKING_PARAMS = new Set([
   "utm_term"
 ])
 
-const SENSITIVE_FIELD_RE = /(password|passcode|secret|token|otp|2fa|cvv|card|credit|ssn|cpf|cnpj)/i
+const SENSITIVE_FIELD_RE =
+  /(password|passcode|secret|token|otp|2fa|cvv|credit\s*card|card\s*(number|holder|expiry|expiration|security|cvv|cvc)|ssn|cpf|cnpj)/i
 const SEARCH_FIELD_RE = /(^|\b)(search|pesquisa|pesquisar|buscar|busca)(\b|$)/i
 
 export function isSupportedPageUrl(rawUrl: string) {
@@ -155,7 +156,7 @@ export function isEligibleField(element: Element): element is EditableField {
   if (!(element instanceof HTMLInputElement) && !(element instanceof HTMLTextAreaElement) && !(element instanceof HTMLElement && element.isContentEditable)) {
     return false
   }
-  if (element.offsetParent === null) {
+  if (!isVisibleEditableElement(element)) {
     return false
   }
   if ((element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) && (element.disabled || element.readOnly)) {
@@ -173,6 +174,18 @@ export function isEligibleField(element: Element): element is EditableField {
   }
   const rect = element.getBoundingClientRect()
   return rect.width >= 120 && rect.height >= 24
+}
+
+function isVisibleEditableElement(element: Element) {
+  const rect = element.getBoundingClientRect()
+  if (rect.width <= 0 || rect.height <= 0) {
+    return false
+  }
+  const style = window.getComputedStyle(element)
+  if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) {
+    return false
+  }
+  return !element.closest("[hidden], [aria-hidden='true']")
 }
 
 export function describeField(element: EditableField): FieldDescriptor {

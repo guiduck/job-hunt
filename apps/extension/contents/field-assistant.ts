@@ -127,7 +127,7 @@ function scheduleScan(delay = 80) {
 
 function scanFields() {
   if (!enabled) return
-  document.querySelectorAll("textarea, input, [contenteditable='true']").forEach((element) => {
+  document.querySelectorAll("textarea, input, [contenteditable]").forEach((element) => {
     if (isEligibleField(element)) {
       ensureButton(element)
     }
@@ -153,7 +153,7 @@ function ensureButton(field: EditableField) {
 
 function positionButtons() {
   document.querySelectorAll<HTMLButtonElement>(".od-field-button").forEach((button) => {
-    const field = [...document.querySelectorAll<EditableField>("textarea, input, [contenteditable='true']")].find(
+    const field = [...document.querySelectorAll<EditableField>("textarea, input, [contenteditable]")].find(
       (candidate) => buttons.get(candidate) === button
     )
     if (!field || !isEligibleField(field)) {
@@ -413,7 +413,7 @@ function handleShellClick(event: MouseEvent) {
 async function autofillVisibleFields(options: { useAiForMissing: boolean }) {
   if (!shell) return
   const status = shell.querySelector<HTMLElement>("[data-role='shell-status']")
-  const fields = [...document.querySelectorAll<EditableField>("textarea, input, [contenteditable='true']")]
+  const fields = [...document.querySelectorAll<EditableField>("textarea, input, [contenteditable]")]
     .filter((field) => isEligibleField(field))
     .filter((field) => !getFieldValue(field).trim())
   if (!fields.length) {

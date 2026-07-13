@@ -14,6 +14,7 @@ Plan the Full-time extension Search History feature: persist and display LinkedI
 - The feature is extension-only for the `Full-time` lane. Do not change `apps/web` Freelance leads, templates, outreach batches, Email settings, WhatsApp settings, or provider configuration.
 - Existing `job_search_runs` already has `search_kind`, `requested_keywords`, `search_query`, `search_sort_order`, `inspected_count`, `accepted_count`, `rejected_count`, `duplicate_count`, AI filter counters, timestamps, status, and diagnostics.
 - The extension Search UI already tracks `postsFound` during capture feedback, saves recent keyword badges, supports sort and optional `Past month`, and can link to run/candidates/opportunities diagnostics.
+- A 2026-07-13 extension hotfix made AI Field Assistant textareas on Lever/Osmind eligible again by avoiding false sensitive-field matches on `cards[...]`; preserve that behavior while planning Search History.
 - Planning must decide the smallest compatible way to persist/expose the raw LinkedIn result count discovered by the extension before dedupe/filtering, without treating missing historical values as zero.
 
 ## Requirements To Preserve

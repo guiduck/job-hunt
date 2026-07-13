@@ -31,5 +31,7 @@ assert(
   "base-domain activation should match subpaths"
 )
 assert(isSensitiveFieldMeta({ fieldName: "password" }), "password fields should be sensitive")
+assert(isSensitiveFieldMeta({ fieldName: "credit_card_number" }), "credit card number fields should be sensitive")
+assert(!isSensitiveFieldMeta({ fieldName: "cards[abc][field]" }), "Lever application card field names should not be treated as payment fields")
 assert(inferKeyword("Why do you want to work here?") === "motivation", "motivation keyword should be inferred")
 assert(inferKeyword("Describe your React and TypeScript stack") === "stack", "stack keyword should be inferred")

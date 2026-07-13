@@ -154,6 +154,9 @@ Estado atual:
 - em 2026-07-03, o limite de contexto de pergunta/instrucao do AI Field Assistant foi aumentado para
   500.000 caracteres em `label_text`, `existing_value` e `template_hint`, permitindo colar descricoes
   longas de empresa/vaga antes de gerar resposta
+- em 2026-07-13, o AI Field Assistant foi ajustado para nao tratar `cards[...]` de formularios Lever
+  como campo sensivel de cartao, voltando a detectar textareas de perguntas em aplicacoes e mantendo
+  o bloqueio para campos reais de cartao de credito/CVV
 - o popup `Full-time` foi simplificado para operacao diaria: dashboard com total/nao enviados, status
   visual `unsent/sent/interview`, marcacao rapida de entrevista, header alinhado com email/log out e
   acoes do assistente, e sender profile com WhatsApp/informacoes extras para contexto de emails IA
