@@ -48,7 +48,7 @@ For general prompt refinement or change-risk review, consider:
 
 The active Spec Kit implementation task list is:
 
-- `specs/016-freelance-bulk-outreach/tasks.md` for Freelance bulk outreach and channel settings
+- `specs/017-extension-search-history/tasks.md` for Full-time extension Search History
 
 ## Conflict Handling
 

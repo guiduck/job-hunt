@@ -43,6 +43,7 @@ import type {
   ResumeCreate,
   SendingProviderAccount,
   SendRequest,
+  SearchHistoryResponse,
   TemplateKind,
   UserSettings,
   UserSettingsUpdate
@@ -256,6 +257,10 @@ export function bulkDeleteOpportunities(payload: OpportunityBulkDeleteRequest, o
 
 export function listJobSearchRuns(options?: RequestOptions) {
   return request<JobSearchRun[]>("/job-search-runs?limit=20", {}, options)
+}
+
+export function listLinkedInSearchHistory(options?: RequestOptions) {
+  return request<SearchHistoryResponse>("/job-search-runs/linkedin/history?limit=20", {}, options)
 }
 
 export function listCuratedCareerSources(options?: RequestOptions) {

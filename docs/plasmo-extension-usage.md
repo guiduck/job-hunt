@@ -101,7 +101,7 @@ persistente no popup: depois que o dominio ou pagina esta autorizado, o content 
 controles de varinha magica nos campos elegiveis da pagina ativa.
 
 Enquanto o usuario nao estiver autenticado, a extensao deve mostrar apenas a experiencia de login. O
-titulo, abas (`dashboard`, `search`, `jobs`, `templates`, `settings`) e acoes operacionais devem ficar
+titulo, abas (`dashboard`, `search`, `history`, `jobs`, `templates`, `settings`) e acoes operacionais devem ficar
 ocultos ate existir sessao valida.
 
 ## Subir Backend Local
@@ -152,6 +152,12 @@ apps/extension/build/chrome-mv3-prod
    minutos; se estourar esse tempo, a captura vira um timeout terminal na UI e libera uma nova busca.
 12. Volte para a aba `jobs` e clique em `Refresh`.
 
+
+## Aba History
+
+A aba `history` mostra as 20 buscas LinkedIn mais recentes iniciadas pela Search UI da extensao. Cada linha exibe query, data, status, resultado bruto capturado no LinkedIn, candidatos inspecionados, aceitos e duplicados. O resultado bruto vem da contagem de posts capturados pelo content script antes de dedupe, rejeicao, filtro de IA ou criacao de opportunity.
+
+Abaixo da lista recente, a extensao mostra rankings de `Best Keywords` e `Best Search Queries`. Esses rankings sao independentes de data por padrao; datas aparecem apenas como contexto diagnostico. Runs historicas sem `raw_linkedin_result_count` aparecem como `Unknown`, nao como zero. Duplicatas ficam separadas em seus proprios contadores e nao reduzem o total bruto usado para comparar keywords.
 ## Lista De Jobs
 
 A aba `jobs` tem duas lanes: `With email` para vagas com contato de email e `External applications`

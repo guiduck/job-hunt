@@ -1,7 +1,7 @@
 import type { PopupTab } from "../../store/popupStore"
 import { usePopupStore } from "../../store/popupStore"
 
-const TABS: PopupTab[] = ["dashboard", "search", "jobs", "templates", "settings"]
+const TABS: PopupTab[] = ["dashboard", "search", "history", "jobs", "templates", "settings"]
 
 export function TabNav() {
   const activeTab = usePopupStore((state) => state.activeTab)

@@ -90,6 +90,8 @@ class JobSearchRun(Base):
     inspected_cap: Mapped[int | None] = mapped_column(Integer)
     stop_reason: Mapped[str | None] = mapped_column(String(100))
     provider_metadata: Mapped[dict[str, object]] = mapped_column(JSON, default=dict, nullable=False)
+    raw_linkedin_result_count: Mapped[int | None] = mapped_column(Integer)
+    raw_linkedin_result_count_source: Mapped[str | None] = mapped_column(String(100))
     inspected_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     accepted_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     rejected_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

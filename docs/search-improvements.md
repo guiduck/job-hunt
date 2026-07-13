@@ -148,13 +148,13 @@ momento do start, sem misturar automaticamente todos os badges salvos.
 - duplicidade de oportunidade ja conhecida
 - resposta real indicando que email nao e um canal util de candidatura
 
-## Historico De Buscas LinkedIn Planejado
+## Historico De Buscas LinkedIn Implementado
 
-`017-extension-search-history` registra o proximo recorte do fluxo `Full-time`: uma aba de historico na extensao para comparar buscas feitas em `/search`. O objetivo e mostrar tanto a lista de runs LinkedIn recentes quanto agregados por query exata e por keyword/tag.
+`017-extension-search-history` adicionou uma aba `history` na extensao `Full-time` para comparar buscas feitas em `/search`. Ela mostra as 20 runs LinkedIn mais recentes e rankings independentes de data por query exata e por keyword/token.
 
 Regra central: o contador de resultado bruto do LinkedIn deve representar o que foi encontrado/capturado na busca antes de dedupe, rejeicao, filtro de IA ou criacao de opportunity. Duplicatas continuam importantes, mas aparecem como diagnostico separado; elas nao podem ser subtraidas do total bruto usado para comparar keywords, porque buscas repetidas naturalmente reencontram vagas ja conhecidas.
 
-O escopo inicial nao altera o app web `Freelance`, leads, templates, Email/WhatsApp ou outreach. Tambem nao mistura career-page/ATS no primeiro corte; a historia e focada nas capturas LinkedIn iniciadas pela Search UI da extensao.
+O escopo implementado nao altera o app web `Freelance`, leads, templates, Email/WhatsApp ou outreach. Tambem nao mistura career-page/ATS no primeiro corte; a historia e focada nas capturas LinkedIn iniciadas pela Search UI da extensao.
 
 ## Evidencia E Rastreabilidade
 

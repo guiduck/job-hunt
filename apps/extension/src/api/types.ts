@@ -206,6 +206,8 @@ export type JobSearchRunCreate = {
   collection_source_types: LinkedInCollectionSourceType[]
   collection_inputs: LinkedInCollectionInput[]
   candidate_limit?: number | null
+  raw_linkedin_result_count?: number | null
+  raw_linkedin_result_count_source?: string | null
   ai_filters_enabled?: boolean
   ai_filter_settings?: AIFilterSettings
 }
@@ -248,6 +250,8 @@ export type JobSearchRun = {
   accepted_limit: number | null
   inspected_cap: number | null
   stop_reason: string | null
+  raw_linkedin_result_count: number | null
+  raw_linkedin_result_count_source: string | null
   ai_filters_enabled: boolean
   ai_filter_settings: AIFilterSettings
   ai_filter_status: AIFilterStatus
@@ -266,6 +270,48 @@ export type JobSearchRun = {
   error_message: string | null
 }
 
+
+export type SearchHistoryRun = {
+  id: string
+  status: JobSearchRunStatus
+  search_query: string | null
+  requested_keywords: string[]
+  search_sort_order: SearchSortOrder
+  raw_linkedin_result_count: number | null
+  raw_linkedin_result_count_source: string | null
+  inspected_count: number
+  accepted_count: number
+  rejected_count: number
+  duplicate_count: number
+  ai_filter_inspected_count: number
+  ai_filter_passed_count: number
+  ai_filter_rejected_count: number
+  ai_filter_fallback_count: number
+  ai_filter_failed_count: number
+  ai_filter_skipped_count: number
+  provider_status: string
+  diagnostic_message: string | null
+  started_at: string | null
+  completed_at: string | null
+  created_at: string
+}
+
+export type SearchAggregate = {
+  value: string
+  run_count: number
+  total_raw_linkedin_results: number | null
+  average_raw_linkedin_results: number | null
+  latest_run_at: string | null
+  accepted_count: number
+  rejected_count: number
+  duplicate_count: number
+}
+
+export type SearchHistoryResponse = {
+  runs: SearchHistoryRun[]
+  query_aggregates: SearchAggregate[]
+  keyword_aggregates: SearchAggregate[]
+}
 export type JobSearchCandidate = {
   id: string
   run_id: string

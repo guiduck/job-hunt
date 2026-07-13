@@ -25,6 +25,7 @@ import {
   listEmailTemplates,
   listCuratedCareerSources,
   listJobSearchRuns,
+  listLinkedInSearchHistory,
   listOpportunityPage,
   listResumes,
   previewBulkEmail,
@@ -65,6 +66,7 @@ import type {
   OpportunityPage,
   OutreachEvent,
   ResumeAttachment,
+  SearchHistoryResponse,
   SendingProviderAccount,
   UserSettings,
   UserSettingsUpdate
@@ -74,7 +76,7 @@ import { appendKeywordToSearchText } from "../capture/linkedin"
 import { FIELD_ASSISTANT_MESSAGE_TYPES, normalizeActivationScope } from "../utils/fieldAssistant"
 import { clearStoredAuthSession, loadStoredAuthSession, saveStoredAuthSession } from "./authSession"
 
-export type PopupTab = "dashboard" | "search" | "jobs" | "templates" | "settings"
+export type PopupTab = "dashboard" | "search" | "history" | "jobs" | "templates" | "settings"
 
 type CaptureResponse =
   | { ok: true; result: CaptureResult }
@@ -116,6 +118,7 @@ type PopupState = {
   opportunityHasNext: boolean
   opportunityHasPrevious: boolean
   runsCount: number
+  searchHistory: SearchHistoryResponse | null
   curatedCareerSources: CuratedCareerSource[]
   selectedCareerSourceKeys: string[]
   latestCareerPageRun: JobSearchRun | null
@@ -183,6 +186,7 @@ type PopupState = {
   requestPasswordReset: (email: string) => Promise<void>
   confirmPasswordReset: (token: string, password: string) => Promise<void>
   refreshData: (nextFilters?: OpportunityFilters) => Promise<void>
+  refreshSearchHistory: () => Promise<void>
   updateFilters: (nextFilters: OpportunityFilters) => Promise<void>
   startCapture: () => Promise<void>
   startCareerPageSearch: () => Promise<void>
@@ -488,6 +492,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   opportunityHasNext: false,
   opportunityHasPrevious: false,
   runsCount: 0,
+  searchHistory: null,
   curatedCareerSources: [],
   selectedCareerSourceKeys: [],
   latestCareerPageRun: null,
@@ -740,6 +745,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         currentUser: null,
         opportunities: [],
         runsCount: 0,
+        searchHistory: null,
         selectedOpportunity: null,
         selectedJobIds: [],
         showBulkEmail: false,
@@ -809,10 +815,11 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         }
       }
       set({ loading: !cachedPage, error: null })
-      const [opportunityPage, runs, dashboardMetrics, curatedCareerSources, latestCareerPageRun] = await Promise.all([
+      const [opportunityPage, runs, dashboardMetrics, searchHistory, curatedCareerSources, latestCareerPageRun] = await Promise.all([
         listOpportunityPage(pageFilters),
         listJobSearchRuns(),
         getOpportunityMetrics(),
+        listLinkedInSearchHistory().catch(() => get().searchHistory),
         listCuratedCareerSources().catch(() => get().curatedCareerSources),
         getLatestCareerPageRun().catch(() => get().latestCareerPageRun)
       ])
@@ -845,6 +852,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         selectedJobIds,
         curatedCareerSources,
         selectedCareerSourceKeys,
+        searchHistory,
         latestCareerPageRun,
         careerPagePolling: Boolean(latestCareerPageRun && CAREER_PAGE_BUSY_STATUSES.has(latestCareerPageRun.status)),
         filters: { ...pageFilters, page: opportunityPage.page, page_size: opportunityPage.page_size },
@@ -1029,6 +1037,22 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     }
   },
 
+
+  refreshSearchHistory: async () => {
+    set({ loading: true, error: null })
+    try {
+      set({ searchHistory: await listLinkedInSearchHistory() })
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        setApiAccessToken(null)
+        await clearStoredAuthSession()
+        set({ currentUser: null })
+      }
+      set({ error: errorMessage(error, "Could not load search history.") })
+    } finally {
+      set({ loading: false })
+    }
+  },
   updateFilters: async (nextFilters) => {
     const currentFilters = get().filters
     const laneFilters = opportunityFiltersForLane(get().jobsLane, nextFilters)
@@ -1096,6 +1120,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
 
     clearOpportunityPageCache()
     await get().refreshData()
+    await get().refreshSearchHistory()
     if (preferenceWarning) {
       set({ error: preferenceWarning })
     }

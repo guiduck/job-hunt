@@ -207,6 +207,8 @@ class JobSearchRunCreate(BaseModel):
     )
     collection_inputs: list[LinkedInCollectionInput] = Field(default_factory=list)
     candidate_limit: int | None = Field(default=None, ge=1)
+    raw_linkedin_result_count: int | None = Field(default=None, ge=0)
+    raw_linkedin_result_count_source: str | None = None
     ai_filters_enabled: bool = False
     ai_filter_settings: AIFilterSettings = Field(default_factory=AIFilterSettings)
 
@@ -252,6 +254,8 @@ class JobSearchRun(BaseModel):
     inspected_cap: int | None = None
     stop_reason: str | None = None
     provider_metadata: dict[str, object] = Field(default_factory=dict)
+    raw_linkedin_result_count: int | None = None
+    raw_linkedin_result_count_source: str | None = None
     inspected_count: int
     accepted_count: int
     rejected_count: int
@@ -286,6 +290,48 @@ class JobSearchRun(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
+
+class SearchHistoryRun(BaseModel):
+    id: str
+    status: JobSearchRunStatus
+    search_query: str | None = None
+    requested_keywords: list[str] = Field(default_factory=list)
+    search_sort_order: SearchSortOrder = SearchSortOrder.RECENT
+    raw_linkedin_result_count: int | None = None
+    raw_linkedin_result_count_source: str | None = None
+    inspected_count: int = 0
+    accepted_count: int = 0
+    rejected_count: int = 0
+    duplicate_count: int = 0
+    ai_filter_inspected_count: int = 0
+    ai_filter_passed_count: int = 0
+    ai_filter_rejected_count: int = 0
+    ai_filter_fallback_count: int = 0
+    ai_filter_failed_count: int = 0
+    ai_filter_skipped_count: int = 0
+    provider_status: ProviderStatus = ProviderStatus.NOT_STARTED
+    diagnostic_message: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    created_at: datetime
+
+
+class SearchAggregate(BaseModel):
+    value: str
+    run_count: int
+    total_raw_linkedin_results: int | None = None
+    average_raw_linkedin_results: float | None = None
+    latest_run_at: datetime | None = None
+    accepted_count: int = 0
+    rejected_count: int = 0
+    duplicate_count: int = 0
+
+
+class SearchHistoryResponse(BaseModel):
+    runs: list[SearchHistoryRun]
+    query_aggregates: list[SearchAggregate]
+    keyword_aggregates: list[SearchAggregate]
 
 class JobSearchCandidate(BaseModel):
     model_config = ConfigDict(from_attributes=True)

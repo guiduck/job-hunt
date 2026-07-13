@@ -5,6 +5,7 @@ import { usePopupStore } from "../../store/popupStore"
 import { AuthView } from "./AuthView"
 import { DashboardView } from "./DashboardView"
 import { JobsView } from "./JobsView"
+import { SearchHistoryView } from "./SearchHistoryView"
 import { SearchView } from "./SearchView"
 import { SettingsView } from "./SettingsView"
 import { TemplatesView } from "./TemplatesView"
@@ -37,12 +38,14 @@ export function PopupContent() {
   )
 }
 
-function ActiveView({ activeTab }: { activeTab: "dashboard" | "search" | "jobs" | "templates" | "settings" }) {
+function ActiveView({ activeTab }: { activeTab: "dashboard" | "search" | "history" | "jobs" | "templates" | "settings" }) {
   switch (activeTab) {
     case "dashboard":
       return <DashboardView />
     case "search":
       return <SearchView />
+    case "history":
+      return <SearchHistoryView />
     case "jobs":
       return <JobsView />
     case "templates":
