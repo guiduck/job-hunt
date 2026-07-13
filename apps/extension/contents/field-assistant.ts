@@ -127,12 +127,22 @@ function scheduleScan(delay = 80) {
 
 function scanFields() {
   if (!enabled) return
-  document.querySelectorAll("textarea, input, [contenteditable]").forEach((element) => {
+  for (const element of getEditableFields()) {
     if (isEligibleField(element)) {
       ensureButton(element)
     }
-  })
+  }
   positionButtons()
+}
+
+function getEditableFields(root: ParentNode = document): EditableField[] {
+  const fields = [...root.querySelectorAll<EditableField>("textarea, input, [contenteditable]")]
+  root.querySelectorAll("*").forEach((element) => {
+    if (element.shadowRoot) {
+      fields.push(...getEditableFields(element.shadowRoot))
+    }
+  })
+  return fields
 }
 
 function ensureButton(field: EditableField) {
@@ -141,7 +151,7 @@ function ensureButton(field: EditableField) {
   button.className = "od-field-button"
   button.type = "button"
   button.title = "Generate answer with Opportunity Desk"
-  button.textContent = "✦"
+  button.textContent = "*"
   button.addEventListener("click", (event) => {
     event.preventDefault()
     event.stopPropagation()
@@ -153,9 +163,7 @@ function ensureButton(field: EditableField) {
 
 function positionButtons() {
   document.querySelectorAll<HTMLButtonElement>(".od-field-button").forEach((button) => {
-    const field = [...document.querySelectorAll<EditableField>("textarea, input, [contenteditable]")].find(
-      (candidate) => buttons.get(candidate) === button
-    )
+    const field = getEditableFields().find((candidate) => buttons.get(candidate) === button)
     if (!field || !isEligibleField(field)) {
       button.remove()
       return
@@ -413,7 +421,7 @@ function handleShellClick(event: MouseEvent) {
 async function autofillVisibleFields(options: { useAiForMissing: boolean }) {
   if (!shell) return
   const status = shell.querySelector<HTMLElement>("[data-role='shell-status']")
-  const fields = [...document.querySelectorAll<EditableField>("textarea, input, [contenteditable]")]
+  const fields = getEditableFields()
     .filter((field) => isEligibleField(field))
     .filter((field) => !getFieldValue(field).trim())
   if (!fields.length) {
