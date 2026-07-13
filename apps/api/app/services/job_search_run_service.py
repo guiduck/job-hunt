@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime
 import re
 
@@ -13,10 +14,11 @@ from app.models.job_search_run import (
     JobSearchRunStatus,
     LinkedInCollectionInput,
     ProviderStatus,
+    SearchSortOrder,
 )
 from app.models.opportunity import ContactChannelType
 from app.models.user import User
-from app.schemas.job_search_run import CareerPageSearchRunCreate, JobSearchRunCreate
+from app.schemas.job_search_run import CareerPageSearchRunCreate, JobSearchRunCreate, SearchAggregate, SearchHistoryResponse, SearchHistoryRun
 from app.schemas.opportunity import JobDetailCreate, OpportunityCreate
 from app.core.config import get_settings
 from app.services.auth_service import ensure_default_local_user
@@ -96,6 +98,8 @@ def create_job_search_run(db: Session, payload: JobSearchRunCreate, user: User |
         provided_source_count=len(payload.collection_inputs),
         candidate_limit=payload.candidate_limit,
         provider_status=ProviderStatus.NOT_STARTED.value,
+        raw_linkedin_result_count=payload.raw_linkedin_result_count,
+        raw_linkedin_result_count_source=payload.raw_linkedin_result_count_source,
         ai_filters_enabled=payload.ai_filters_enabled,
         ai_filter_settings=payload.ai_filter_settings.model_dump() if payload.ai_filters_enabled else {},
         ai_filter_status=AIFilterStatus.SKIPPED.value,
@@ -219,6 +223,159 @@ def get_latest_job_search_run(
         statement = statement.where(JobSearchRun.user_id == user.id)
     return db.scalar(statement)
 
+
+
+@dataclass
+class _AggregateBucket:
+    value: str
+    run_count: int = 0
+    total_raw: int = 0
+    known_raw_count: int = 0
+    accepted_count: int = 0
+    rejected_count: int = 0
+    duplicate_count: int = 0
+    latest_run_at: datetime | None = None
+
+    def add_run(self, run: JobSearchRun) -> None:
+        self.run_count += 1
+        if run.raw_linkedin_result_count is not None:
+            self.total_raw += run.raw_linkedin_result_count
+            self.known_raw_count += 1
+        self.accepted_count += run.accepted_count
+        self.rejected_count += run.rejected_count
+        self.duplicate_count += run.duplicate_count
+        run_at = run.completed_at or run.started_at or run.created_at
+        if self.latest_run_at is None or run_at > self.latest_run_at:
+            self.latest_run_at = run_at
+
+    def to_schema(self) -> SearchAggregate:
+        total_raw = self.total_raw if self.known_raw_count > 0 else None
+        average_raw = round(self.total_raw / self.known_raw_count, 2) if self.known_raw_count > 0 else None
+        return SearchAggregate(
+            value=self.value,
+            run_count=self.run_count,
+            total_raw_linkedin_results=total_raw,
+            average_raw_linkedin_results=average_raw,
+            latest_run_at=self.latest_run_at,
+            accepted_count=self.accepted_count,
+            rejected_count=self.rejected_count,
+            duplicate_count=self.duplicate_count,
+        )
+
+
+def _safe_diagnostic_message(run: JobSearchRun) -> str | None:
+    message = run.error_message or run.provider_error_message or run.provider_error_code or run.stop_reason
+    if not message:
+        return None
+    return str(message)[:500]
+
+
+def _query_label(run: JobSearchRun) -> str:
+    query = (run.search_query or "").strip()
+    if query:
+        return query.lower()
+    return " ".join(run.requested_keywords or []).strip().lower()
+
+
+def _keyword_tokens(run: JobSearchRun) -> list[str]:
+    raw_terms = list(run.requested_keywords or [])
+    if not raw_terms and run.search_query:
+        raw_terms = re.split(r"[\s,;]+", run.search_query)
+    seen: set[str] = set()
+    tokens: list[str] = []
+    for term in raw_terms:
+        token = re.sub(r"^[^\w+#.-]+|[^\w+#.-]+$", "", str(term).strip().lower())
+        if token and token not in seen:
+            seen.add(token)
+            tokens.append(token)
+    return tokens
+
+
+def _rank_aggregates(buckets: dict[str, _AggregateBucket], limit: int) -> list[SearchAggregate]:
+    ranked = sorted(
+        buckets.values(),
+        key=lambda bucket: (
+            bucket.total_raw if bucket.known_raw_count > 0 else -1,
+            bucket.run_count,
+            bucket.accepted_count,
+            bucket.latest_run_at or datetime.min.replace(tzinfo=UTC),
+            bucket.value,
+        ),
+        reverse=True,
+    )
+    return [bucket.to_schema() for bucket in ranked[:limit]]
+
+
+def get_linkedin_search_history(
+    db: Session,
+    *,
+    limit: int = 20,
+    aggregate_limit: int = 20,
+    status: str | None = None,
+    q: str | None = None,
+    user: User | None = None,
+) -> SearchHistoryResponse:
+    user = user or ensure_default_local_user(db)
+    statement = (
+        select(JobSearchRun)
+        .where(JobSearchRun.user_id == user.id, JobSearchRun.search_kind == JobSearchKind.LINKEDIN.value)
+        .order_by(JobSearchRun.created_at.desc())
+    )
+    if status:
+        statement = statement.where(JobSearchRun.status == status)
+
+    all_runs = list(db.scalars(statement))
+    query_filter = q.strip().lower() if q else ""
+    visible_runs = [
+        run
+        for run in all_runs
+        if not query_filter
+        or query_filter in (run.search_query or "").lower()
+        or any(query_filter in keyword.lower() for keyword in (run.requested_keywords or []))
+    ]
+
+    history_runs = [
+        SearchHistoryRun(
+            id=run.id,
+            status=JobSearchRunStatus(run.status),
+            search_query=run.search_query,
+            requested_keywords=run.requested_keywords or [],
+            search_sort_order=SearchSortOrder(run.search_sort_order),
+            raw_linkedin_result_count=run.raw_linkedin_result_count,
+            raw_linkedin_result_count_source=run.raw_linkedin_result_count_source,
+            inspected_count=run.inspected_count,
+            accepted_count=run.accepted_count,
+            rejected_count=run.rejected_count,
+            duplicate_count=run.duplicate_count,
+            ai_filter_inspected_count=run.ai_filter_inspected_count,
+            ai_filter_passed_count=run.ai_filter_passed_count,
+            ai_filter_rejected_count=run.ai_filter_rejected_count,
+            ai_filter_fallback_count=run.ai_filter_fallback_count,
+            ai_filter_failed_count=run.ai_filter_failed_count,
+            ai_filter_skipped_count=run.ai_filter_skipped_count,
+            provider_status=ProviderStatus(run.provider_status),
+            diagnostic_message=_safe_diagnostic_message(run),
+            started_at=run.started_at,
+            completed_at=run.completed_at,
+            created_at=run.created_at,
+        )
+        for run in visible_runs[:limit]
+    ]
+
+    query_buckets: dict[str, _AggregateBucket] = {}
+    keyword_buckets: dict[str, _AggregateBucket] = {}
+    for run in all_runs:
+        query_label = _query_label(run)
+        if query_label:
+            query_buckets.setdefault(query_label, _AggregateBucket(query_label)).add_run(run)
+        for token in _keyword_tokens(run):
+            keyword_buckets.setdefault(token, _AggregateBucket(token)).add_run(run)
+
+    return SearchHistoryResponse(
+        runs=history_runs,
+        query_aggregates=_rank_aggregates(query_buckets, aggregate_limit),
+        keyword_aggregates=_rank_aggregates(keyword_buckets, aggregate_limit),
+    )
 
 def list_candidates(
     db: Session,

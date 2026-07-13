@@ -91,3 +91,10 @@ const externalMetric: number = metricContract.external_unapplied_count
 
 void emailMetric
 void externalMetric
+
+const searchHistoryStateContract: Pick<
+  PopupStoreState,
+  "searchHistory" | "refreshSearchHistory"
+> = {} as PopupStoreState
+
+void searchHistoryStateContract

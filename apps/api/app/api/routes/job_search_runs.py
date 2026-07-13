@@ -5,7 +5,7 @@ from app.api.dependencies.auth import current_user
 from app.api.errors import bad_request, conflict, not_found
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.job_search_run import CareerPageSearchRunCreate, CuratedCareerSource, JobSearchCandidate, JobSearchKind, JobSearchRun, JobSearchRunCreate
+from app.schemas.job_search_run import CareerPageSearchRunCreate, CuratedCareerSource, JobSearchCandidate, JobSearchKind, JobSearchRun, JobSearchRunCreate, SearchHistoryResponse
 from app.schemas.opportunity import Opportunity
 from app.services.career_page_sources import list_curated_career_sources
 from app.services.job_search_run_service import (
@@ -13,6 +13,7 @@ from app.services.job_search_run_service import (
     create_job_search_run,
     get_latest_job_search_run,
     get_job_search_run,
+    get_linkedin_search_history,
     list_candidates,
     list_job_search_runs,
 )
@@ -68,6 +69,18 @@ def list_runs(
 ) -> list[JobSearchRun]:
     return list_job_search_runs(db, status, limit, provider_status, analysis_status, ai_filter_status, user=user)
 
+
+
+@router.get("/linkedin/history", response_model=SearchHistoryResponse)
+def get_linkedin_history(
+    status: str | None = Query(default=None),
+    q: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=20),
+    aggregate_limit: int = Query(default=20, ge=1, le=50),
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> SearchHistoryResponse:
+    return get_linkedin_search_history(db, limit=limit, aggregate_limit=aggregate_limit, status=status, q=q, user=user)
 
 @router.get("/{run_id}", response_model=JobSearchRun)
 def get_run(run_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)) -> JobSearchRun:

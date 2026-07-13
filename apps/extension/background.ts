@@ -291,6 +291,8 @@ async function startCapture(payload: CaptureRequest): Promise<CaptureResult> {
     collection_source_types: ["authenticated_browser_search"],
     collection_inputs: toCollectionInputs(posts),
     candidate_limit: null,
+    raw_linkedin_result_count: posts.length,
+    raw_linkedin_result_count_source: "extension_content_script",
     ...aiFilterPayload
   })
   console.info("[Opportunity Desk] API run created", {

@@ -14,9 +14,9 @@
 
 ## Status Atual
 
-- `fase_atual_roadmap`: Fase 4.5 `Outreach Freelance Em Massa` concluida, com novo recorte ativo de fine tuning no produto `Full-time`
-- `etapa_atual_action_plan`: `specs/017-extension-search-history/spec.md` criada para historico de buscas LinkedIn na extensao; proximo passo recomendado e `/speckit-plan`
-- `tasks_ativo_spec_kit`: ainda nao gerado para `017`; spec ativa em `specs/017-extension-search-history/spec.md`
+- `fase_atual_roadmap`: Fase 4.5 `Outreach Freelance Em Massa` concluida, com recorte ativo de fine tuning no produto `Full-time`: `017-extension-search-history` planejado
+- `etapa_atual_action_plan`: `specs/017-extension-search-history/tasks.md` gerado para historico de buscas LinkedIn na extensao; proximo passo recomendado e `/speckit-implement`
+- `tasks_ativo_spec_kit`: `specs/017-extension-search-history/tasks.md` para implementar historico de buscas LinkedIn na extensao Full-time
 - `hotfix_local_freelance_db`: em 2026-06-09, `apps/web/scripts/bootstrap-db.ts` passou a aplicar a
   migration `20260609000100_niche_catalog_governance` quando um banco local antigo ja tem as tabelas
   freelance iniciais mas ainda nao possui `freelance_niches.display_name`. O bootstrap tambem atualiza
@@ -76,6 +76,10 @@
   `apps/extension npm.cmd run build` e
   `docker compose exec api python -m pytest tests/integration/test_external_application_jobs.py`.
 - `full_time_search_history_spec`: em 2026-07-13, criada `specs/017-extension-search-history/spec.md` via fluxo Spec Kit para uma aba de historico na extensao `Full-time`. O recorte registra runs LinkedIn da Search UI, agregados por query exata e keyword/token, e exige contador bruto de resultados encontrados/capturados no LinkedIn antes de dedupe. Duplicatas continuam como diagnostico separado e nao podem reduzir o total usado para comparar keywords. O escopo exclui explicitamente `apps/web`/Freelance, leads, outreach Email/WhatsApp e career-page/ATS no primeiro corte.
+- `full_time_search_history_plan`: em 2026-07-13, `/speckit-plan` gerou `plan.md`, `research.md`, `data-model.md`, `quickstart.md` e contratos `contracts/api.md` e `contracts/extension-ui.md`. Decisao principal: adicionar campo nullable para resultado bruto LinkedIn em `job_search_runs`, expor endpoint owner-scoped de historico/agregados LinkedIn e criar tab compacta `history` na extensao. O script oficial `.specify/scripts/bash/setup-plan.sh --json` foi tentado, mas falhou porque os scripts Bash estao com CRLF neste workspace Windows; os artefatos foram criados manualmente a partir de `.specify/feature.json` e do template.
+- `full_time_search_history_clarify`: em 2026-07-13, `/speckit-clarify` registrou que a lista principal do historico deve mostrar apenas as 20 buscas LinkedIn mais recentes. A ranking/lista de melhores keywords fica abaixo e nao depende de recorte por data; datas servem como contexto diagnostico para interpretar possiveis duplicatas.
+- `full_time_search_history_plan_refresh`: em 2026-07-13, `/speckit-plan` foi reexecutado apos a clarificacao e os artefatos `plan.md`, `research.md`, `data-model.md`, `quickstart.md`, `contracts/api.md` e `contracts/extension-ui.md` foram sincronizados com a regra de 20 runs recentes + ranking de keywords independente de data.
+- `full_time_search_history_tasks`: em 2026-07-13, `/speckit-tasks` gerou `specs/017-extension-search-history/tasks.md` com 75 tarefas em setup, fundacao, US1 historico de 20 runs, US2 ranking de keywords/query, US3 diagnosticos/evidencias, US4 isolamento Freelance e polish/validacao. O proximo passo recomendado e `/speckit-implement` iniciando por setup + fundacao + US1/US2 como MVP completo.
 - `full_time_field_assistant_lever_textareas`: em 2026-07-13, hotfix na extensao para voltar a sugerir/preencher respostas em textareas do Lever/Osmind que usam `name="cards[...]"`. A regra de campo sensivel deixou de bloquear a palavra generica `card/cards` e passou a bloquear apenas sinais de cartao de credito reais (`credit card`, `card number`, CVV/CVC etc.); a varredura tambem cobre `[contenteditable]` de forma mais ampla e usa visibilidade por `getBoundingClientRect`/computed style para funcionar melhor em modais/portais. Validacao: `apps/extension npm.cmd run typecheck` e `apps/extension npm.cmd run build`.
 - `full_time_linkedin_past_month_filter`: em 2026-06-17, a Search UI da extensao ganhou checkbox
   `Past month`. Quando marcado, a captura abre o LinkedIn com `datePosted="past-month"` junto do
@@ -721,7 +725,7 @@ ele nao rodou localmente porque o Python empacotado nao tem `pytest`.
 
 ## Proximo Passo Spec Kit Recomendado
 
-Rodar `/speckit-analyze` para `specs/016-freelance-bulk-outreach` como revisao nao destrutiva de
+Rodar `/speckit-implement` para `specs/017-extension-search-history/tasks.md`, priorizando schema/API/extensao de 20 runs recentes e ranking de keywords. Depois, ainda e util rodar `/speckit-analyze` para `specs/016-freelance-bulk-outreach` como revisao nao destrutiva de
 consistencia pos-implementacao. Possiveis follow-ups: webhooks/status reconciliation de providers,
 gestao avancada de templates/opt-in WhatsApp, contabilizacao diaria mais rica por provider e
 enriquecimento futuro de email para leads que chegam apenas com telefone/site.
@@ -799,3 +803,26 @@ as partes realmente assincronas/worker-owned de US6: T078-T079, T081, T084-T086 
 worker completo T101 e smoke manual T103. Depois do primeiro recorte do AI Field Assistant, o proximo
 prompt recomendado em `docs/next-spec-prompt.md` voltou para hardening operacional: retencao segura de
 vagas antigas, AI bulk generation duravel e feedback final pos-envio.
+
+## Implementacao 017 Extension Search History
+
+Em 2026-07-13, `/speckit-implement` entregou o primeiro recorte funcional de `specs/017-extension-search-history/tasks.md` para a extensao `Full-time`.
+
+Entregue:
+
+- API FastAPI: migration aditiva `021_extension_search_history`, campos nullable `raw_linkedin_result_count` e `raw_linkedin_result_count_source` em `job_search_runs`, schemas de history, endpoint `GET /job-search-runs/linkedin/history` owner-scoped e LinkedIn-only, excluindo `career_page`.
+- Agregados: ranking por query exata e por keyword/token, independente de data, com totais/medias ignorando raw count desconhecido; duplicatas continuam separadas e nao reduzem o total bruto.
+- Extensao Plasmo: captura autenticada envia `posts.length` como resultado bruto antes de dedupe/filtros/outcomes; nova aba `history` mostra 20 runs recentes, contadores de raw/checked/accepted/duplicates, diagnostico seguro e rankings `Best Keywords`/`Best Search Queries`.
+- Isolamento: `apps/web`/Freelance nao foi alterado.
+
+Validacao executada:
+
+- `cd apps/api && python -m pytest tests\contract\test_job_search_runs_contract.py tests\integration\test_job_search_runs_api.py` -> 5 passed.
+- `cd apps/extension && npm.cmd run typecheck` -> passed.
+
+Notas operacionais:
+
+- O script oficial `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` continua falhando neste workspace Windows por CRLF nos scripts Bash; a feature ativa foi resolvida por `.specify/feature.json`.
+- Smoke manual com LinkedIn real ainda deve confirmar a contagem bruta em capturas longas e a ergonomia visual da aba `history` dentro do popup carregado no Chrome.
+- Guarda apps/web: `rg "SearchHistory|searchHistory|linkedin/history|history" apps\web` retornou apenas usos genericos existentes (`window.history`, outreach history e teste de contrato de outreach), sem acoplamento com a aba History Full-time.
+- Tasks 017: 65/75 marcadas como concluidas. Abertas intencionalmente: testes especificos T011/T012, drilldown/diagnosticos US3 T051-T058, guard test dedicado em apps/web T059 e smoke manual T073.
