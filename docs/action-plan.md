@@ -194,6 +194,8 @@ Adicionar depois:
 
 Esses eventos precisam retroalimentar o CRM e a avaliacao da qualidade das buscas por emprego.
 
+Recorte ativo de feedback loop: `017-extension-search-history` adiciona historico de buscas LinkedIn na extensao `Full-time`, com lista de runs, agregados por query/keyword e contador bruto de resultados encontrados antes de dedupe. O objetivo e comparar quais termos trazem mais vagas sem penalizar keywords pesquisadas mais vezes por reencontrarem duplicatas.
+
 ### 7. App web freelance
 
 Depois que o fluxo de empregos estiver util, iniciar um produto separado para prospeccao freelance.
@@ -245,10 +247,11 @@ Se a meta for validar valor rapido, a melhor sequencia continua sendo:
 4. painel simples para revisar vagas
 5. envio real individual ou em massa de emails com curriculo
 6. login de usuario, ownership dos dados e prontidao de deploy/configuracao para sair do local
-7. smoke final de candidaturas externas do `Full-time` e registro de ajustes
-8. app web freelance com stack Next/shadcn/Zod/Zustand/Prisma/Postgres, Google Maps/local search,
+7. implementar `017-extension-search-history` para historico/analytics de Search LinkedIn na extensao
+8. smoke final de candidaturas externas do `Full-time` e registro de ajustes
+9. app web freelance com stack Next/shadcn/Zod/Zustand/Prisma/Postgres, Google Maps/local search,
    analise de site e prompts Lovable
-9. bulk outreach freelance implementado em `specs/016-freelance-bulk-outreach/tasks.md`, com
+10. bulk outreach freelance implementado em `specs/016-freelance-bulk-outreach/tasks.md`, com
    checkboxes na lista de leads, geracao IA por template/contexto, revisao item a item, envio real por
    email e envio real por WhatsApp provider-backed quando configurado, com diagnosticos de
    configuracao/erro

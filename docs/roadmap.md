@@ -76,9 +76,14 @@ Estado atual:
 - a Search UI tambem oferece `Past month` como checkbox opcional para abrir a busca de conteudo do
   LinkedIn com `datePosted="past-month"` junto do sort recente, aumentando a diversidade de posts
   capturados sem alterar o contrato da API
+- a spec `017-extension-search-history` foi criada para adicionar uma aba de historico na extensao
+  `Full-time`, mostrando runs LinkedIn recentes, agregados por query/keyword e o total bruto de
+  resultados capturados no LinkedIn antes de dedupe, mantendo duplicatas como diagnostico separado
 
 Gate restante desta fase:
 
+- implementar `017-extension-search-history` para medir qualidade real por query/keyword na extensao,
+  preservando o contador bruto de resultados LinkedIn antes de dedupe e exibindo duplicatas em coluna separada
 - continuar medindo qualidade real: candidatos inspecionados, aceitos, rejeitados, duplicados e falhas
 - validar capturas longas reais do LinkedIn com cerca de 250 posts para confirmar que a recuperacao de
   infinite scroll reduz truncamentos prematuros

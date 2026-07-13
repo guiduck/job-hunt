@@ -14,11 +14,9 @@
 
 ## Status Atual
 
-- `fase_atual_roadmap`: Fase 4.5 `Outreach Freelance Em Massa`, com fine tuning pontual restante no produto `Full-time`
-- `etapa_atual_action_plan`: `specs/016-freelance-bulk-outreach/tasks.md` concluido em T001-T077;
-  proximo passo recomendado e analise nao destrutiva/consistencia e follow-up de hardening se
-  necessario
-- `tasks_ativo_spec_kit`: `specs/016-freelance-bulk-outreach/tasks.md`
+- `fase_atual_roadmap`: Fase 4.5 `Outreach Freelance Em Massa` concluida, com novo recorte ativo de fine tuning no produto `Full-time`
+- `etapa_atual_action_plan`: `specs/017-extension-search-history/spec.md` criada para historico de buscas LinkedIn na extensao; proximo passo recomendado e `/speckit-plan`
+- `tasks_ativo_spec_kit`: ainda nao gerado para `017`; spec ativa em `specs/017-extension-search-history/spec.md`
 - `hotfix_local_freelance_db`: em 2026-06-09, `apps/web/scripts/bootstrap-db.ts` passou a aplicar a
   migration `20260609000100_niche_catalog_governance` quando um banco local antigo ja tem as tabelas
   freelance iniciais mas ainda nao possui `freelance_niches.display_name`. O bootstrap tambem atualiza
@@ -77,6 +75,7 @@
   `job_stage` aplicado/respondido/entrevista. Validacao: `apps/extension npm.cmd run typecheck`,
   `apps/extension npm.cmd run build` e
   `docker compose exec api python -m pytest tests/integration/test_external_application_jobs.py`.
+- `full_time_search_history_spec`: em 2026-07-13, criada `specs/017-extension-search-history/spec.md` via fluxo Spec Kit para uma aba de historico na extensao `Full-time`. O recorte registra runs LinkedIn da Search UI, agregados por query exata e keyword/token, e exige contador bruto de resultados encontrados/capturados no LinkedIn antes de dedupe. Duplicatas continuam como diagnostico separado e nao podem reduzir o total usado para comparar keywords. O escopo exclui explicitamente `apps/web`/Freelance, leads, outreach Email/WhatsApp e career-page/ATS no primeiro corte.
 - `full_time_linkedin_past_month_filter`: em 2026-06-17, a Search UI da extensao ganhou checkbox
   `Past month`. Quando marcado, a captura abre o LinkedIn com `datePosted="past-month"` junto do
   `sortBy="date_posted"`, preservando a mesma API run/search query e aumentando diversidade de posts
