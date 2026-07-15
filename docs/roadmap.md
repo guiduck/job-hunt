@@ -501,3 +501,11 @@ Antes de acelerar para a proxima fase, validar:
 - clareza do fluxo manual para o operador
 - compatibilidade do schema e dos contratos atuais
 - seguranca de secrets e ownership por usuario
+
+## Hotfix Freelance Lead Detail AI Outreach - 2026-07-13
+
+O detalhe de lead do `apps/web` agora diferencia duas acoes: gerar texto comercial por canal e revisar/enviar WhatsApp. A geracao de `Commercial message`, `Lovable prompt` e rascunhos de WhatsApp no painel de envio passa a usar IA quando `OPENAI_API_KEY` estiver configurada, com fallback deterministico quando a chave/modelo falhar. O contexto enviado para a IA inclui dados visiveis do lead, review do operador, evidencia de origem, analise de site, campanha, settings do vendedor/prestador e template selecionado. O envio por WhatsApp continua exigindo aprovacao humana no painel de review antes de chamar o provider.
+
+## Hotfix Full-time Field Assistant Modal Textareas - 2026-07-14
+
+A extensao `Full-time` recebeu um ajuste no Field Assistant para lidar melhor com textareas em modais/overlays de aplicacao externa. O detector agora aceita campos visiveis dentro de ancestrais com role de modal/apresentacao mesmo quando algum wrapper usa `aria-hidden=true`, e o preenchimento de input/textarea passou a usar o setter nativo antes de disparar eventos `input`/`change`, melhorando compatibilidade com campos controlados por React/Vue.

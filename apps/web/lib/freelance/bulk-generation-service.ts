@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { buildBulkCommercialDraft } from "@/lib/generation/commercial-message-builder";
+import { buildAiCommercialDraft } from "./generation-service";
 import { bulkOutreachGenerateSchema } from "@/lib/validation/freelance";
 import { freelanceRepositories, recomputeBulkOutreachBatchCounters, type OwnerScope } from "./repositories";
 import { requireOwnerScope } from "./repositories";
@@ -57,7 +57,7 @@ export async function generateBulkOutreachBatch(scope: OwnerScope, batchId: stri
           ? { in: ["queued", "generation_failed", "generated"] }
           : { in: ["queued", "generated"] }
       },
-      include: { lead: { include: { campaign: true } } },
+      include: { lead: { include: { campaign: true, websiteAnalyses: true } } },
       orderBy: { createdAt: "asc" }
     })
   ]);
@@ -77,11 +77,11 @@ export async function generateBulkOutreachBatch(scope: OwnerScope, batchId: stri
         where: { id: item.id },
         data: { status: "generating" }
       });
-      const draft = buildBulkCommercialDraft({
+      const draft = await buildAiCommercialDraft({
         lead: item.lead,
         template,
         settings,
-        channel: batch.channel
+        channel: batch.channel === "email" ? "email" : "whatsapp"
       });
       await freelanceRepositories.bulkOutreachItems.update({
         where: { id: item.id },

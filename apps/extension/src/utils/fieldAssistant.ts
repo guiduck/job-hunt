@@ -185,7 +185,15 @@ function isVisibleEditableElement(element: Element) {
   if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) {
     return false
   }
-  return !element.closest("[hidden], [aria-hidden='true']")
+  if (element.closest("[hidden]")) {
+    return false
+  }
+  const ariaHiddenAncestor = element.closest("[aria-hidden='true']")
+  if (!ariaHiddenAncestor) {
+    return true
+  }
+  const modalAncestor = element.closest("[role='dialog'], [role='alertdialog'], [role='presentation'], [aria-modal='true']")
+  return Boolean(modalAncestor)
 }
 
 export function describeField(element: EditableField): FieldDescriptor {

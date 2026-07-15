@@ -7,6 +7,7 @@ import type {
 
 type LeadWithCampaign = FreelanceLead & { campaign: FreelanceCampaign };
 type TargetLanguage = "pt-BR" | "en";
+export type OutreachChannel = "email" | "whatsapp";
 
 function jsonArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
@@ -126,7 +127,7 @@ export function buildBulkCommercialDraft({
   lead: LeadWithCampaign;
   template: CommercialTemplate;
   settings: SellerSettings | null;
-  channel: "email" | "whatsapp";
+  channel: OutreachChannel;
 }) {
   const targetLanguage = detectLeadMessageLanguage(lead);
   const message = buildCommercialMessage({ lead, template, settings });

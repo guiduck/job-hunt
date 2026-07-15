@@ -90,7 +90,8 @@ export const lovableGenerationSchema = z.object({
 export const messageGenerationSchema = z.object({
   leadId: z.string().trim().min(1),
   stage: z.enum(templateStages),
-  templateId: z.string().trim().min(1)
+  templateId: z.string().trim().min(1),
+  channel: z.enum(outreachChannels).default("whatsapp")
 });
 
 export const bulkOutreachCreateSchema = z.object({

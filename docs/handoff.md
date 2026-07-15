@@ -826,3 +826,11 @@ Notas operacionais:
 - Smoke manual com LinkedIn real ainda deve confirmar a contagem bruta em capturas longas e a ergonomia visual da aba `history` dentro do popup carregado no Chrome.
 - Guarda apps/web: `rg "SearchHistory|searchHistory|linkedin/history|history" apps\web` retornou apenas usos genericos existentes (`window.history`, outreach history e teste de contrato de outreach), sem acoplamento com a aba History Full-time.
 - Tasks 017: 65/75 marcadas como concluidas. Abertas intencionalmente: testes especificos T011/T012, drilldown/diagnosticos US3 T051-T058, guard test dedicado em apps/web T059 e smoke manual T073.
+
+## Hotfix Freelance Lead Detail AI Outreach - 2026-07-13
+
+O detalhe de lead do `apps/web` agora diferencia duas acoes: gerar texto comercial por canal e revisar/enviar WhatsApp. A geracao de `Commercial message`, `Lovable prompt` e rascunhos de WhatsApp no painel de envio passa a usar IA quando `OPENAI_API_KEY` estiver configurada, com fallback deterministico quando a chave/modelo falhar. O contexto enviado para a IA inclui dados visiveis do lead, review do operador, evidencia de origem, analise de site, campanha, settings do vendedor/prestador e template selecionado. O envio por WhatsApp continua exigindo aprovacao humana no painel de review antes de chamar o provider.
+
+## Hotfix Full-time Field Assistant Modal Textareas - 2026-07-14
+
+A extensao `Full-time` recebeu um ajuste no Field Assistant para lidar melhor com textareas em modais/overlays de aplicacao externa. O detector agora aceita campos visiveis dentro de ancestrais com role de modal/apresentacao mesmo quando algum wrapper usa `aria-hidden=true`, e o preenchimento de input/textarea passou a usar o setter nativo antes de disparar eventos `input`/`change`, melhorando compatibilidade com campos controlados por React/Vue.

@@ -362,12 +362,21 @@ function getFieldValue(field: EditableField) {
 function setFieldValue(field: EditableField, value: string) {
   field.focus()
   if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
-    field.value = value
+    setNativeInputValue(field, value)
   } else {
     field.textContent = value
   }
-  field.dispatchEvent(new Event("input", { bubbles: true }))
+  field.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: value }))
   field.dispatchEvent(new Event("change", { bubbles: true }))
+}
+
+function setNativeInputValue(field: HTMLInputElement | HTMLTextAreaElement, value: string) {
+  const prototype = field instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+  const descriptor = Object.getOwnPropertyDescriptor(prototype, "value")
+  descriptor?.set?.call(field, value)
+  if (field.value !== value) {
+    field.value = value
+  }
 }
 
 function renderShell(status?: FieldAssistantPageStatus) {

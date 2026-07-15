@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { BusinessInfoPanel, SourceEvidencePanel } from "@/components/leads/lead-detail-panels";
 import { TemperatureBadge, WebsiteStatusBadge } from "@/components/leads/lead-badges";
 import { LeadReviewPanel } from "@/components/leads/lead-review-panel";
+import { LeadWhatsappOutreachPanel } from "@/components/leads/lead-whatsapp-outreach-panel";
 import { LovablePromptModal } from "@/components/leads/lovable-prompt-modal";
 import { MessageGeneratorPanel } from "@/components/leads/message-generator-panel";
 import { WebsiteAnalysisPanel } from "@/components/leads/website-analysis-panel";
@@ -84,6 +85,14 @@ export default async function LeadDetailPage({
             </CardHeader>
             <CardContent>
               <MessageGeneratorPanel leadId={lead.id} templates={templates} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>WhatsApp outreach</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <LeadWhatsappOutreachPanel leadId={lead.id} />
             </CardContent>
           </Card>
         </div>
