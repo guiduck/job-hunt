@@ -52,7 +52,7 @@
   `freelance_auth_token`, valida `/auth/me` e usa o `user.id` autenticado como owner scope; sem login,
   continua caindo em `DEFAULT_FREELANCE_USER_ID || local-operator`. Para rodar local com a mesma conta
   da extensao, suba tambem `postgres` + `api`, porque o OAuth vive no backend FastAPI. O Compose agora
-  força `GMAIL_OAUTH_CLIENT_SECRETS_FILE=/app/.local/gmail/client_secret.json` dentro dos containers
+  forÃ§a `GMAIL_OAUTH_CLIENT_SECRETS_FILE=/app/.local/gmail/client_secret.json` dentro dos containers
   para reaproveitar o `.local/gmail/client_secret.json` montado pelo volume do repo.
 - `lead_social_maps_evidence`: em 2026-06-10, leads passaram a separar site proprio (`website_url`)
   de perfil social (`social_url`). A pagina de detalhe nao mostra mais score mockado como auditoria
@@ -520,7 +520,7 @@ Hotfix de infinite scroll LinkedIn validado em 2026-06-11:
 - A captura da extensao em `apps/extension/contents/linkedin-search.ts` agora, quando um scroll
   estoura timeout sem progresso, tenta recuperar o infinite scroll do LinkedIn com dois scrolls para
   cima e uma nova descida antes de incrementar `noProgressCount`.
-- Esses scrolls de recuperacao nao avançam o loop de `maxScrolls`; ficam registrados apenas em
+- Esses scrolls de recuperacao nao avanÃ§am o loop de `maxScrolls`; ficam registrados apenas em
   `diagnostics.scrolls[].recoveryScrolls` para depuracao.
 - Validacao: `cd apps/extension && npm.cmd run typecheck`.
 - Smoke manual recomendado: repetir uma busca longa com `max posts` perto de 250 e confirmar no
@@ -642,7 +642,7 @@ blocking e eventos de delivery. US5 adicionou readiness/settings por canal, rota
 diagnostico em Settings e aprovacao WhatsApp quando configurado. Polish adicionou guardas de copy,
 segredo e acessibilidade, quickstart/docs e proximo prompt.
 
-Validação final T001-T077:
+ValidaÃ§Ã£o final T001-T077:
 
 - `cd apps/web && $env:DATABASE_URL='postgresql://scrapper:scrapper@localhost:5433/freelance_app'; npx.cmd prisma validate --schema prisma/schema.prisma`
 - `cd apps/web && $env:DATABASE_URL='postgresql://scrapper:scrapper@localhost:5433/freelance_app'; npx.cmd prisma generate --schema prisma/schema.prisma`
@@ -829,7 +829,7 @@ Notas operacionais:
 
 ## Hotfix Freelance Lead Detail AI Outreach - 2026-07-13
 
-O detalhe de lead do `apps/web` agora diferencia duas acoes: gerar texto comercial por canal e revisar/enviar WhatsApp. A geracao de `Commercial message`, `Lovable prompt` e rascunhos de WhatsApp no painel de envio passa a usar IA quando `OPENAI_API_KEY` estiver configurada, com fallback deterministico quando a chave/modelo falhar. O contexto enviado para a IA inclui dados visiveis do lead, review do operador, evidencia de origem, analise de site, campanha, settings do vendedor/prestador e template selecionado. O envio por WhatsApp continua exigindo aprovacao humana no painel de review antes de chamar o provider.
+O detalhe de lead do `apps/web` centraliza o fluxo no card amplo `Commercial message`: a IA gera a mensagem usando dados visiveis do lead, review do operador, evidencia de origem, analise de site, campanha, settings do vendedor/prestador e template selecionado apenas como base. O operador edita a mensagem no proprio campo e clica em `Send message`; um modal permite escolher WhatsApp ou Email, desabilitando Email quando o lead nao tem endereco capturado, editar destinatario/mensagem e confirmar `Send`. O backend continua usando as rotas de outreach existentes por tras, mas sem expor conceitos de batch/approve na UX de detalhe. Telefones de WhatsApp sao normalizados para E.164 antes do envio ao Twilio.
 
 ## Hotfix Full-time Field Assistant Modal Textareas - 2026-07-14
 

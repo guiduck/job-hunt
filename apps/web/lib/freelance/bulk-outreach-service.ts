@@ -15,16 +15,31 @@ import {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function normalizePhone(value?: string | null) {
+function normalizePhone(value?: string | null, country?: string | null) {
   const trimmed = value?.trim();
   if (!trimmed) {
     return null;
   }
-  return trimmed;
+  const withoutWhatsappPrefix = trimmed.replace(/^whatsapp:/i, "").trim();
+  const digits = withoutWhatsappPrefix.replace(/\D/g, "");
+  if (!digits) {
+    return null;
+  }
+  if (withoutWhatsappPrefix.startsWith("+")) {
+    return `+${digits}`;
+  }
+  const normalizedCountry = country?.trim().toLowerCase();
+  const isBrazil = normalizedCountry === "br" || normalizedCountry === "brazil" || normalizedCountry === "brasil";
+  if (isBrazil && (digits.length === 10 || digits.length === 11)) {
+    return `+55${digits}`;
+  }
+  return `+${digits}`;
 }
 
 function isValidPhone(value?: string | null) {
-  return (value ?? "").replace(/\D/g, "").length >= 8;
+  const normalized = normalizePhone(value);
+  const digits = normalized?.replace(/\D/g, "") ?? "";
+  return Boolean(normalized?.startsWith("+") && digits.length >= 10 && digits.length <= 15);
 }
 
 function getInitialItemState(input: {
@@ -66,7 +81,7 @@ function getInitialItemState(input: {
     };
   }
 
-  const recipientWhatsapp = normalizePhone(input.lead.whatsapp ?? input.lead.phone);
+  const recipientWhatsapp = normalizePhone(input.lead.whatsapp ?? input.lead.phone, input.lead.country);
   if (!recipientWhatsapp) {
     return {
       status: "missing_contact" as const,
@@ -81,7 +96,7 @@ function getInitialItemState(input: {
     return {
       status: "invalid_contact" as const,
       recipientWhatsapp,
-      recipientPhone: input.lead.phone,
+      recipientPhone: recipientWhatsapp,
       validationErrorCode: "invalid_phone",
       validationErrorMessage: "Review and correct this phone number before approval."
     };
@@ -213,10 +228,10 @@ export async function updateBulkOutreachItem(
     }
   } else {
     if (input.recipientWhatsapp !== undefined) {
-      data.recipientWhatsapp = input.recipientWhatsapp || null;
+      data.recipientWhatsapp = normalizePhone(input.recipientWhatsapp) || null;
       data.contactSource = "manual_edit";
     }
-    if (input.recipientPhone !== undefined) data.recipientPhone = input.recipientPhone || null;
+    if (input.recipientPhone !== undefined) data.recipientPhone = normalizePhone(input.recipientPhone) || null;
     if (input.message !== undefined) data.message = input.message || null;
     const target = String(data.recipientWhatsapp ?? data.recipientPhone ?? item.recipientWhatsapp ?? item.recipientPhone ?? "");
     const message = String(data.message ?? item.message ?? "");

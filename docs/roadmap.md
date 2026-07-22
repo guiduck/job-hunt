@@ -329,7 +329,7 @@ mockados como auditoria real; o analyzer atual registra apenas status/evidencia 
 A tela de lead agora deve mostrar link de verificacao no Google Maps para conferencia manual do
 resultado capturado.
 
-Validacao complementar em 2026-06-09: `apps/web` passou em typecheck, suíte completa, build, bootstrap
+Validacao complementar em 2026-06-09: `apps/web` passou em typecheck, suÃ­te completa, build, bootstrap
 local, smoke HTTP de `/settings/niches`, `/api/freelance/niche-audit` e
 `/api/freelance/niche-candidates`, alem de guardas sem CSV, sem linguagem Full-time indevida na UI de
 nichos e sem caminhos de candidatos criando lead/job/outreach.
@@ -504,7 +504,7 @@ Antes de acelerar para a proxima fase, validar:
 
 ## Hotfix Freelance Lead Detail AI Outreach - 2026-07-13
 
-O detalhe de lead do `apps/web` agora diferencia duas acoes: gerar texto comercial por canal e revisar/enviar WhatsApp. A geracao de `Commercial message`, `Lovable prompt` e rascunhos de WhatsApp no painel de envio passa a usar IA quando `OPENAI_API_KEY` estiver configurada, com fallback deterministico quando a chave/modelo falhar. O contexto enviado para a IA inclui dados visiveis do lead, review do operador, evidencia de origem, analise de site, campanha, settings do vendedor/prestador e template selecionado. O envio por WhatsApp continua exigindo aprovacao humana no painel de review antes de chamar o provider.
+O detalhe de lead do `apps/web` centraliza o fluxo no card amplo `Commercial message`: a IA gera a mensagem usando dados visiveis do lead, review do operador, evidencia de origem, analise de site, campanha, settings do vendedor/prestador e template selecionado apenas como base. O operador edita a mensagem no proprio campo e clica em `Send message`; um modal permite escolher WhatsApp ou Email, desabilitando Email quando o lead nao tem endereco capturado, editar destinatario/mensagem e confirmar `Send`. O backend continua usando as rotas de outreach existentes por tras, mas sem expor conceitos de batch/approve na UX de detalhe. Telefones de WhatsApp sao normalizados para E.164 antes do envio ao Twilio.
 
 ## Hotfix Full-time Field Assistant Modal Textareas - 2026-07-14
 

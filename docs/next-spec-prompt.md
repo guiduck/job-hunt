@@ -25,6 +25,6 @@ Specify a follow-up Full-time extension feature that lets the operator drill int
 - The detail view surfaces enough source/query/status context to decide whether to retry, refine, or retire that search query.
 - The feature remains compact enough for the Plasmo popup and does not become a marketing/landing page.
 ## Freelance app guardrail
-Recent app-web hotfix: lead detail has AI-backed Lovable prompt/commercial message generation and a single-lead WhatsApp review/send panel. Keep the next Full-time Search History Drilldown spec isolated from this Freelance flow and do not alter `apps/web` outreach behavior unless explicitly requested.
+Recent app-web hotfix: lead detail has AI-backed Lovable prompt/commercial message generation and sends from the existing `Commercial message` card through a simple `Send message` modal. Email is disabled when the lead has no email, and WhatsApp phone numbers are normalized before Twilio delivery. Keep the next Full-time Search History Drilldown spec isolated from this Freelance flow and do not alter `apps/web` outreach behavior unless explicitly requested.
 ## Field Assistant modal textarea hotfix
 Recent extension hotfix: Field Assistant detection/fill now handles visible textareas inside external-site modals and React/Vue-controlled inputs more reliably. Preserve this behavior when specifying or implementing the next Full-time Search History Drilldown work.
