@@ -856,3 +856,11 @@ A validacao manual mostrou dois novos pontos de instabilidade: alguns cliques no
 ## Hotfix LinkedIn Jobs Immediate Interrupted Run Recovery - 2026-07-24
 
 A extensao agora trata o erro `A LinkedIn Jobs external search is already pending or running` como sinal de run browser-owned interrompido: busca o ultimo run LinkedIn Jobs do usuario, finaliza como `failed/cancelled` quando ainda esta `pending/running` e tenta iniciar a captura novamente uma vez. Isso evita que uma queda de login/aba deixe o operador preso esperando a janela backend de stale recovery. Validacao: `apps/extension npm.cmd run typecheck` passed e `apps/extension npm.cmd run build` passed.
+
+## Hotfix LinkedIn Jobs Preserve Search Results List - 2026-07-24
+
+A validacao manual mostrou que clicar diretamente no anchor `a[href*='/jobs/view/']` pode navegar para a pagina full `/jobs/view/{id}` e remover a lista da esquerda. O content script deixou de usar o anchor como alvo de clique: agora seleciona o container do resultado (`li.jobs-search-results__list-item`, `li.scaffold-layout__list-item`, `li[data-occludable-job-id]`, `div.job-card-container` ou `div[data-job-id]`) e adiciona rollback se o LinkedIn ainda assim navegar para `/jobs/view/`. O detector de link externo tambem aceita textos como `Acessar site da empresa` para vagas onde o usuario ja se candidatou fora do LinkedIn. Validacao: `apps/extension npm.cmd run typecheck` passed e `apps/extension npm.cmd run build` passed.
+
+## Hotfix LinkedIn Jobs Left List Scoped Selection - 2026-07-24
+
+Manual validation showed that scanning the whole LinkedIn document could treat right-detail pane elements as result cards and dispatch selection clicks outside the left jobs list, including preference-match UI such as the "Correspondencia de preferencias" modal. The content script now discovers a concrete left results list root, scopes job card detection, dedupe, link counting, and scroll target discovery to that root, and refuses to inspect/click a result when the click target is outside the left jobs list. If no left list root is found, the capture fails closed with no cards instead of clicking arbitrary LinkedIn UI. Validation: `npm.cmd run typecheck` and `npm.cmd run build` passed for `apps/extension`.

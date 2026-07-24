@@ -331,7 +331,7 @@ function sanitizeAuthorName(value: string) {
     .replace(/^view\s+/i, "")
     .replace(/\s+profile$/i, "")
     .replace(/\s+perfil$/i, "")
-  const firstLine = cleanText(text.split(/\b(?:1st|2nd|3rd|seguidores?|followers?|follow|seguir|conex[aÃ£]o)\b/i, 1)[0] || "")
+  const firstLine = cleanText(text.split(/\b(?:1st|2nd|3rd|seguidores?|followers?|follow|seguir|conex\S*o)\b/i, 1)[0] || "")
   if (!firstLine || firstLine.length > 80) {
     return ""
   }
@@ -701,9 +701,9 @@ const JOB_CARD_SELECTORS = [
   "li[class*=jobs-search-results]",
   "div[class*=job-card]"
 ]
-const NEXT_PAGE_LABELS = ["next", "proxima", "próxima", "avancar", "avançar"]
+const NEXT_PAGE_LABELS = ["next", "proxima", "pr\u00f3xima", "avancar", "avan\u00e7ar"]
 const ASSISTED_JOBS_SHOW_ALL_LABELS = ["exibir todas", "exibir todos", "mostrar todas", "mostrar todos", "show all", "see all", "view all"]
-const ASSISTED_JOBS_SECTION_LABELS = ["vagas com base nas suas preferências", "vagas com base nas suas preferencias", "jobs based on your preferences"]
+const ASSISTED_JOBS_SECTION_LABELS = ["vagas com base nas suas prefer\u00eancias", "vagas com base nas suas preferencias", "jobs based on your preferences"]
 const JOBS_INITIAL_TIMEOUT_MS = 15000
 const ASSISTED_JOBS_ENTRY_TIMEOUT_MS = 20000
 const JOBS_PAGE_DELAY_MS = 1500
@@ -787,13 +787,33 @@ function emitLinkedInJobsContentProgress(progress: Partial<LinkedInJobsDiagnosti
   }
   chrome.runtime.sendMessage({ type: "LINKEDIN_JOBS_EXTERNAL_PROGRESS", payload: { status: "capturing", message: progress.safeMessage, diagnostics } }).catch(() => undefined)
 }
+
+function findJobsListRoot(): Element | null {
+  const selectors = [
+    ".jobs-search-results-list",
+    ".scaffold-layout__list",
+    ".scaffold-layout__list-container",
+    ".jobs-search-results-list__list",
+    "ul.jobs-search-results__list"
+  ]
+
+  return selectors.map((selector) => document.querySelector(selector)).find((element) => {
+    if (!element || !isVisibleElement(element)) return false
+    return Boolean(element.querySelector("a[href*='/jobs/view/'], a[href*='currentJobId=']"))
+  }) || null
+}
+
+function isInsideJobResultsList(element: Element) {
+  const root = findJobsListRoot()
+  return Boolean(root && root.contains(element))
+}
 function addJobCard(cards: Element[], seen: Set<Element>, element: Element | null) {
-  if (!element || seen.has(element) || !isVisibleElement(element)) {
+  if (!element || seen.has(element) || !isVisibleElement(element) || !isInsideJobResultsList(element)) {
     return
   }
   const text = jobText(element)
   const hasJobLink = Boolean(element.querySelector("a[href*='/jobs/view/'], a[href*='currentJobId=']"))
-  const hasJobText = /(candidat|candidate|remoto|remote|híbrido|hybrid|tempo integral|full.?time|desenvolvedor|developer|engineer|engenheiro)/i.test(text)
+  const hasJobText = /(candidat|candidate|remoto|remote|h\u00edbrido|hybrid|tempo integral|full.?time|desenvolvedor|developer|engineer|engenheiro)/i.test(text)
   if (!hasJobLink && !hasJobText) {
     return
   }
@@ -822,27 +842,37 @@ function findJobCardFromAnchor(anchor: HTMLAnchorElement) {
 }
 
 function findJobsCards() {
+  const root = findJobsListRoot()
+  if (!root) {
+    console.info("[Opportunity Desk] LinkedIn Jobs card scan skipped: no left results list root", { url: window.location.href })
+    return []
+  }
+
   const seen = new Set<Element>()
   const cards: Element[] = []
   for (const selector of JOB_CARD_SELECTORS) {
-    for (const element of Array.from(document.querySelectorAll(selector))) {
+    for (const element of Array.from(root.querySelectorAll(selector))) {
       addJobCard(cards, seen, element)
     }
   }
 
-  for (const anchor of Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href*='/jobs/view/'], a[href*='currentJobId=']"))) {
+  for (const anchor of Array.from(root.querySelectorAll<HTMLAnchorElement>("a[href*='/jobs/view/'], a[href*='currentJobId=']"))) {
     addJobCard(cards, seen, findJobCardFromAnchor(anchor))
   }
 
   console.info("[Opportunity Desk] LinkedIn Jobs card scan", {
     cards: cards.length,
-    jobLinks: document.querySelectorAll("a[href*='/jobs/view/'], a[href*='currentJobId=']").length,
+    jobLinks: root.querySelectorAll("a[href*='/jobs/view/'], a[href*='currentJobId=']").length,
     url: window.location.href
   })
   return cards
 }
 function findJobsScrollTarget(cards: Element[]) {
-  const candidates = Array.from(document.querySelectorAll<HTMLElement>("main, [role='main'], .jobs-search-results-list, .scaffold-layout__list, .scaffold-layout__list-container, .jobs-search-results-list__list, div, ul"))
+  const root = findJobsListRoot()
+  if (!root) return null
+
+  const rootCandidates = root instanceof HTMLElement ? [root] : []
+  const candidates = rootCandidates.concat(Array.from(root.querySelectorAll<HTMLElement>(".jobs-search-results-list, .scaffold-layout__list, .scaffold-layout__list-container, .jobs-search-results-list__list, div, ul")))
     .filter((element) => {
       if (!isVisibleElement(element)) return false
       if (element.scrollHeight <= element.clientHeight + 24) return false
@@ -899,6 +929,27 @@ function findJobLocation(card: Element) {
   return null
 }
 
+function findSelectableJobCardElement(card: Element) {
+  const anchor = findJobAnchor(card)
+  const selectors = [
+    "li.jobs-search-results__list-item",
+    "li.scaffold-layout__list-item",
+    "li[data-occludable-job-id]",
+    "div.job-card-container",
+    "div[data-job-id]"
+  ]
+  for (const selector of selectors) {
+    const candidate = anchor?.closest(selector) || card.closest(selector)
+    if (candidate && isVisibleElement(candidate)) {
+      return candidate as HTMLElement
+    }
+  }
+  return card as HTMLElement
+}
+
+function isLinkedInFullJobView() {
+  return /\/jobs\/view\//i.test(window.location.pathname)
+}
 function findJobAnchor(card: Element) {
   return Array.from(card.querySelectorAll<HTMLAnchorElement>("a[href*='/jobs/view/'], a[href*='currentJobId=']"))[0] || null
 }
@@ -950,7 +1001,7 @@ function findExternalApplyHref() {
   const applyLike = anchors.find((anchor) => {
     const label = cleanText(`${anchor.textContent || ""} ${anchor.getAttribute("aria-label") || ""}`).toLowerCase()
     const href = anchor.href || ""
-    return /(apply|candidatar|candidate|inscrever)/i.test(label) && !href.includes("/jobs/view/")
+    return /(apply|candidatar|candidate|inscrever|site da empresa|company site|company website|acessar site)/i.test(label) && !href.includes("/jobs/view/")
   })
   return applyLike?.href || null
 }
@@ -977,13 +1028,51 @@ async function inspectJobCard(card: Element, pageNumber: number, positionOnPage:
   const location = findJobLocation(card)
   const linkedinJobUrl = findLinkedInJobUrl(card)
   try {
-    const anchor = findJobAnchor(card)
-    const clickTarget = anchor || (card as HTMLElement)
-    ;(clickTarget as HTMLElement).scrollIntoView({ block: "center", behavior: "auto" })
+    const beforeUrl = window.location.href
+    const clickTarget = findSelectableJobCardElement(card)
+    if (!isInsideJobResultsList(clickTarget)) {
+      return {
+        linkedinJobUrl,
+        jobTitle: title,
+        companyName: company,
+        locationText: location,
+        applyButtonKind: "unknown",
+        rawApplyHref: null,
+        decodedApplyUrl: null,
+        canonicalApplyUrl: null,
+        sourceKey: null,
+        outcome: "inspection_failed",
+        skipReason: "LinkedIn result click target was outside the left jobs list.",
+        pageNumber,
+        positionOnPage
+      }
+    }
+
+    clickTarget.scrollIntoView({ block: "center", behavior: "auto" })
     await delay(150)
-    ;(clickTarget as HTMLElement).dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }))
-    ;(clickTarget as HTMLElement).dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }))
-    ;(clickTarget as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }))
+    clickTarget.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }))
+    clickTarget.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }))
+    clickTarget.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }))
+    await delay(250)
+    if (isLinkedInFullJobView()) {
+      window.history.back()
+      await delay(1200)
+      return {
+        linkedinJobUrl,
+        jobTitle: title,
+        companyName: company,
+        locationText: location,
+        applyButtonKind: "unknown",
+        rawApplyHref: null,
+        decodedApplyUrl: null,
+        canonicalApplyUrl: null,
+        sourceKey: null,
+        outcome: "inspection_failed",
+        skipReason: `LinkedIn navigated away from the results list after clicking this card: ${beforeUrl}`,
+        pageNumber,
+        positionOnPage
+      }
+    }
     const selected = await waitForJobDetailSelection(title, linkedinJobUrl)
     if (!selected) {
       return {
