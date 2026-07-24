@@ -840,3 +840,7 @@ A extensao `Full-time` recebeu um ajuste no Field Assistant para lidar melhor co
 ## Hotfix LinkedIn Jobs External Search Tab Opening - 2026-07-23
 
 O popup de `Search > External jobs > LinkedIn Jobs` ficava preso em `opening` porque `apps/extension/background.ts` ainda nao roteava a mensagem `START_LINKEDIN_JOBS_EXTERNAL_CAPTURE`; o background ignorava a chamada e nao executava `chrome.tabs.create`. O listener agora trata esse fluxo antes do handler antigo de `START_LINKEDIN_CAPTURE`, abre a aba LinkedIn Jobs, reporta falhas por `LINKEDIN_JOBS_EXTERNAL_PROGRESS` e preserva o fluxo existente de captura de publicacoes. Validacao: `apps/extension npm.cmd run typecheck` passed e `apps/extension npm.cmd run build` passed.
+
+## Hotfix LinkedIn Jobs Runtime Stabilization - 2026-07-23
+
+A validacao manual mostrou que o LinkedIn Jobs assistido precisa abrir `https://www.linkedin.com/jobs/` e clicar em `Exibir todas` na secao `Vagas com base nas suas preferencias`; a URL direta fica apenas para o modo nao assistido. A extensao tambem passou a ouvir `LINKEDIN_JOBS_EXTERNAL_PROGRESS`, varrer a lista de resultados por scroll interno com dedupe de URLs vistas, emitir progresso durante a inspecao e finalizar o run como failed em timeout, evitando ficar preso em `pending` quando o DOM do LinkedIn para de responder. Validacao: `apps/extension npm.cmd run typecheck` passed e `apps/extension npm.cmd run build` passed.

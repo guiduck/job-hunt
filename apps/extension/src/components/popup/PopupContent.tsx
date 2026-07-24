@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 
-import type { CaptureProgress } from "../../capture/types"
+import type { CaptureProgress, LinkedInJobsProgress } from "../../capture/types"
 import { usePopupStore } from "../../store/popupStore"
 import { AuthView } from "./AuthView"
 import { DashboardView } from "./DashboardView"
@@ -57,11 +57,15 @@ function ActiveView({ activeTab }: { activeTab: "dashboard" | "search" | "histor
 
 export function CaptureProgressListener() {
   const setCaptureProgress = usePopupStore((state) => state.setCaptureProgress)
+  const setLinkedInJobsProgress = usePopupStore((state) => state.setLinkedInJobsProgress)
 
   useEffect(() => {
-    const listener = (message: { type?: string; payload?: CaptureProgress }) => {
+    const listener = (message: { type?: string; payload?: CaptureProgress | LinkedInJobsProgress }) => {
       if (message.type === "CAPTURE_PROGRESS" && message.payload) {
-        setCaptureProgress(message.payload)
+        setCaptureProgress(message.payload as CaptureProgress)
+      }
+      if (message.type === "LINKEDIN_JOBS_EXTERNAL_PROGRESS" && message.payload) {
+        setLinkedInJobsProgress(message.payload as LinkedInJobsProgress)
       }
     }
 
@@ -74,9 +78,17 @@ export function CaptureProgressListener() {
         }
       })
       .catch(() => undefined)
+    chrome.runtime
+      .sendMessage({ type: "GET_LINKEDIN_JOBS_EXTERNAL_PROGRESS" })
+      .then((progress: LinkedInJobsProgress) => {
+        if (progress) {
+          setLinkedInJobsProgress(progress)
+        }
+      })
+      .catch(() => undefined)
 
     return () => chrome.runtime.onMessage.removeListener(listener)
-  }, [setCaptureProgress])
+  }, [setCaptureProgress, setLinkedInJobsProgress])
 
   return null
 }

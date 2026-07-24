@@ -88,7 +88,7 @@ function ExternalJobsSearchPanel() {
   const startCareerPageSearch = usePopupStore((state) => state.startCareerPageSearch)
   const startLinkedInJobsExternalSearch = usePopupStore((state) => state.startLinkedInJobsExternalSearch)
   const isCareerSearchRunning = latestCareerPageRun ? ["pending", "running"].includes(latestCareerPageRun.status) : false
-  const isLinkedInJobsRunning = LINKEDIN_JOBS_BUSY_STATUSES.has(linkedinJobsProgress.status) || (latestLinkedInJobsExternalRun ? ["pending", "running"].includes(latestLinkedInJobsExternalRun.status) : false)
+  const isLinkedInJobsRunning = LINKEDIN_JOBS_BUSY_STATUSES.has(linkedinJobsProgress.status)
   const canUseExternalSources = selectedCareerSourceKeys.length > 0
   const latestCareerSearchLabel = latestCareerPageRun ? new Date(latestCareerPageRun.created_at).toLocaleString() : "Never"
 

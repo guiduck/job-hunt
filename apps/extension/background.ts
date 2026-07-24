@@ -47,8 +47,14 @@ let latestProgress: CaptureProgress = {
   message: "Ready to capture LinkedIn posts."
 }
 
+let latestLinkedInJobsProgress: LinkedInJobsProgress = {
+  status: "idle",
+  message: "Ready to inspect LinkedIn Jobs."
+}
+
 const RUN_VERIFICATION_MAX_ATTEMPTS = 300
 const RUN_VERIFICATION_POLL_INTERVAL_MS = 2000
+const LINKEDIN_JOBS_CAPTURE_TIMEOUT_MS = 180000
 
 function setProgress(progress: CaptureProgress) {
   latestProgress = progress
@@ -73,6 +79,18 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs)
+  })
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  })
+}
 function splitTerms(input: string) {
   return input
     .split(/[,\n]/)
@@ -486,6 +504,7 @@ async function sendLinkedInJobsCaptureMessage(tabId: number, payload: LinkedInJo
 }
 
 function setJobsProgress(progress: LinkedInJobsProgress) {
+  latestLinkedInJobsProgress = progress
   console.info("[Opportunity Desk] LinkedIn Jobs progress", progress)
   chrome.runtime.sendMessage({ type: "LINKEDIN_JOBS_EXTERNAL_PROGRESS", payload: progress }).catch(() => undefined)
 }
@@ -539,14 +558,15 @@ async function startLinkedInJobsExternalCapture(payload: LinkedInJobsExternalReq
     assisted_search_enabled: payload.assistedSearchEnabled
   })
 
-  setJobsProgress({ status: "opening", message: "Opening LinkedIn Jobs...", runId: run.id })
-  const url = buildLinkedInJobsSearchUrl({
+  setJobsProgress({ status: "opening", message: payload.assistedSearchEnabled ? "Opening LinkedIn Jobs home for assisted search..." : "Opening LinkedIn Jobs search...", runId: run.id })
+  const directUrl = buildLinkedInJobsSearchUrl({
     searchText: payload.searchText,
     queryTerms,
     mode: searchMode,
     datePosted: payload.datePosted,
     sort: payload.sort
   })
+  const url = payload.assistedSearchEnabled ? "https://www.linkedin.com/jobs/" : directUrl
   const tab = await chrome.tabs.create({ active: true, url })
   if (tab.id === undefined) {
     throw new Error("Chrome did not return a tab id for the LinkedIn Jobs search.")
@@ -555,12 +575,36 @@ async function startLinkedInJobsExternalCapture(payload: LinkedInJobsExternalReq
   await delay(1200)
   await updateLinkedInJobsExternalRun(run.id, {
     status: "running",
-    navigation_method: payload.assistedSearchEnabled ? "assisted_entry" : "direct_url",
-    safe_message: "LinkedIn Jobs tab opened; inspecting rendered job cards."
+    navigation_method: payload.assistedSearchEnabled ? "jobs_click_path" : "direct_url",
+    safe_message: payload.assistedSearchEnabled ? "LinkedIn Jobs home opened; looking for the assisted search entry." : "LinkedIn Jobs tab opened; inspecting rendered job cards."
   })
 
-  setJobsProgress({ status: "capturing", message: "Inspecting LinkedIn Jobs cards...", runId: run.id, sourceTabId: tab.id })
-  const captured = await sendLinkedInJobsCaptureMessage(tab.id, payload)
+  setJobsProgress({ status: "capturing", message: payload.assistedSearchEnabled ? "Clicking LinkedIn assisted jobs entry and inspecting cards..." : "Inspecting LinkedIn Jobs cards...", runId: run.id, sourceTabId: tab.id })
+  let captured: ContentLinkedInJobsCaptureResponse
+  try {
+    captured = await withTimeout(
+      sendLinkedInJobsCaptureMessage(tab.id, payload),
+      LINKEDIN_JOBS_CAPTURE_TIMEOUT_MS,
+      "LinkedIn Jobs inspection stopped responding. Try again with fewer pages or reload LinkedIn."
+    )
+  } catch (error) {
+    const message = errorMessage(error)
+    await completeLinkedInJobsExternalRun(run.id, {
+      status: "failed",
+      terminal_reason: "dom_inspection_failed",
+      pages_visited: 0,
+      jobs_inspected: 0,
+      external_links_found: 0,
+      accepted: 0,
+      skipped_easy_apply: 0,
+      unsupported_source: 0,
+      duplicates: 0,
+      failures: 1,
+      navigation_method: payload.assistedSearchEnabled ? "jobs_click_path" : "direct_url"
+    }).catch(() => undefined)
+    setJobsProgress({ status: "failed", message, runId: run.id, sourceTabId: tab.id })
+    throw new Error(message)
+  }
   let accepted = 0
   let duplicates = 0
   let failures = captured.diagnostics.failures
@@ -619,6 +663,11 @@ function errorMessage(error: unknown) {
 chrome.runtime.onMessage.addListener((message: StartCaptureMessage | StartLinkedInJobsExternalMessage | { type: string; payload?: any }, sender, sendResponse) => {
   if (message.type === "GET_CAPTURE_PROGRESS") {
     sendResponse(latestProgress)
+    return false
+  }
+
+  if (message.type === "GET_LINKEDIN_JOBS_EXTERNAL_PROGRESS") {
+    sendResponse(latestLinkedInJobsProgress)
     return false
   }
 

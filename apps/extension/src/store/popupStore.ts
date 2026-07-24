@@ -185,6 +185,7 @@ type PopupState = {
   setLinkedInJobsDatePosted: (datePosted: "any_time" | "past_month" | "past_week" | "past_24_hours") => void
   setLinkedInJobsSort: (sort: "relevant" | "most_recent") => void
   setLinkedInJobsAssisted: (assisted: boolean) => void
+  setLinkedInJobsProgress: (progress: LinkedInJobsProgress) => void
   startLinkedInJobsExternalSearch: () => Promise<void>
   refreshLinkedInJobsExternalSearch: () => Promise<void>
   setJobsLane: (jobsLane: JobApplicationKind) => Promise<void>
@@ -637,6 +638,9 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   setLinkedInJobsAssisted: (linkedinJobsAssisted) => {
     persistPopupState({ linkedinJobsAssisted })
     set({ linkedinJobsAssisted })
+  },
+  setLinkedInJobsProgress: (linkedinJobsProgress) => {
+    set({ linkedinJobsProgress })
   },
   setJobsLane: async (jobsLane) => {
     const laneFilters = opportunityFiltersForLane(jobsLane, { ...get().filters, page: 1 })
@@ -1203,12 +1207,8 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       linkedinJobsMaxPages,
       linkedinJobsDatePosted,
       linkedinJobsSort,
-      linkedinJobsAssisted,
-      latestLinkedInJobsExternalRun
+      linkedinJobsAssisted
     } = get()
-    if (latestLinkedInJobsExternalRun && CAREER_PAGE_BUSY_STATUSES.has(latestLinkedInJobsExternalRun.status)) {
-      return
-    }
     set({ loading: true, error: null, linkedinJobsProgress: { status: "opening", message: "Opening LinkedIn Jobs..." } })
     try {
       if (selectedCareerSourceKeys.length === 0) {
