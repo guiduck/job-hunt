@@ -899,8 +899,43 @@ function findJobLocation(card: Element) {
   return null
 }
 
+function findJobAnchor(card: Element) {
+  return Array.from(card.querySelectorAll<HTMLAnchorElement>("a[href*='/jobs/view/'], a[href*='currentJobId=']"))[0] || null
+}
+
+function findJobDetailPane() {
+  const selectors = [
+    ".jobs-search__job-details--container",
+    ".jobs-search__right-rail",
+    ".jobs-details",
+    ".jobs-details__main-content",
+    ".scaffold-layout__detail",
+    "main"
+  ]
+  return selectors.map((selector) => document.querySelector(selector)).find(Boolean) || document.body
+}
+
+async function waitForJobDetailSelection(title: string | null, linkedinJobUrl: string | null) {
+  const startedAt = Date.now()
+  const normalizedTitle = cleanText(title || "").toLowerCase()
+  const jobIdMatch = linkedinJobUrl?.match(/currentJobId=(\d+)|\/jobs\/view\/(\d+)/)
+  const jobId = jobIdMatch?.[1] || jobIdMatch?.[2] || ""
+
+  while (Date.now() - startedAt < 5000) {
+    const paneText = cleanText(findJobDetailPane().textContent || "").toLowerCase()
+    const href = window.location.href
+    const titleMatches = normalizedTitle.length > 0 && paneText.includes(normalizedTitle)
+    const urlMatches = jobId.length > 0 && href.includes(jobId)
+    if (titleMatches || urlMatches) {
+      return true
+    }
+    await delay(250)
+  }
+
+  return false
+}
 function findLinkedInJobUrl(card: Element) {
-  const anchor = Array.from(card.querySelectorAll<HTMLAnchorElement>("a[href*='/jobs/view/'], a[href*='currentJobId=']"))[0]
+  const anchor = findJobAnchor(card)
   if (!anchor?.href) return window.location.href
   try {
     const parsed = new URL(anchor.href)
@@ -910,7 +945,6 @@ function findLinkedInJobUrl(card: Element) {
     return anchor.href
   }
 }
-
 function findExternalApplyHref() {
   const anchors = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]"))
   const applyLike = anchors.find((anchor) => {
@@ -943,9 +977,32 @@ async function inspectJobCard(card: Element, pageNumber: number, positionOnPage:
   const location = findJobLocation(card)
   const linkedinJobUrl = findLinkedInJobUrl(card)
   try {
-    ;(card as HTMLElement).scrollIntoView({ block: "center", behavior: "auto" })
-    ;(card as HTMLElement).click()
-    await delay(900)
+    const anchor = findJobAnchor(card)
+    const clickTarget = anchor || (card as HTMLElement)
+    ;(clickTarget as HTMLElement).scrollIntoView({ block: "center", behavior: "auto" })
+    await delay(150)
+    ;(clickTarget as HTMLElement).dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }))
+    ;(clickTarget as HTMLElement).dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }))
+    ;(clickTarget as HTMLElement).dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }))
+    const selected = await waitForJobDetailSelection(title, linkedinJobUrl)
+    if (!selected) {
+      return {
+        linkedinJobUrl,
+        jobTitle: title,
+        companyName: company,
+        locationText: location,
+        applyButtonKind: "unknown",
+        rawApplyHref: null,
+        decodedApplyUrl: null,
+        canonicalApplyUrl: null,
+        sourceKey: null,
+        outcome: "inspection_failed",
+        skipReason: "LinkedIn did not update the job detail pane after clicking this result.",
+        pageNumber,
+        positionOnPage
+      }
+    }
+    await delay(500)
     if (hasEasyApplySignal()) {
       return {
         linkedinJobUrl,

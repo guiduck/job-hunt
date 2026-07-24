@@ -1,3 +1,8 @@
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import select
+
+from app.models.job_search_run import JobSearchRun, JobSearchRunStatus
 from fastapi.testclient import TestClient
 
 
@@ -135,3 +140,32 @@ def test_linkedin_jobs_external_candidate_pipeline(client: TestClient, auth_head
     assert opportunities.status_code == 200
     assert len(opportunities.json()) == 1
     assert opportunities.json()[0]["job_detail"]["job_application_kind"] == "external_application"
+
+def test_linkedin_jobs_external_stale_browser_run_is_recovered(client: TestClient, auth_headers: dict[str, str], db_session) -> None:
+    first = create_run(client, auth_headers)
+    blocked = client.post(
+        "/job-search-runs/linkedin-jobs-external",
+        headers=auth_headers,
+        json={"selected_source_keys": ["ashby"], "max_pages": 1},
+    )
+    assert blocked.status_code == 409
+
+    old_run = db_session.scalar(select(JobSearchRun).where(JobSearchRun.id == first["id"]))
+    assert old_run is not None
+    stale_at = datetime.now(UTC) - timedelta(minutes=6)
+    old_run.status = JobSearchRunStatus.RUNNING.value
+    old_run.updated_at = stale_at
+    old_run.started_at = stale_at
+    db_session.commit()
+
+    recovered = client.post(
+        "/job-search-runs/linkedin-jobs-external",
+        headers=auth_headers,
+        json={"selected_source_keys": ["ashby"], "max_pages": 1},
+    )
+    db_session.refresh(old_run)
+
+    assert recovered.status_code == 202, recovered.text
+    assert recovered.json()["id"] != first["id"]
+    assert old_run.status == JobSearchRunStatus.FAILED.value
+    assert old_run.provider_error_code == "stale_browser_capture"

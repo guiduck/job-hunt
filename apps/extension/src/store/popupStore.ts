@@ -6,6 +6,7 @@ import {
   approveBulkEmail,
   bulkDeleteOpportunities,
   confirmPasswordReset,
+  completeLinkedInJobsExternalRun,
   createEmailDraft,
   createCareerPageRun,
   deleteSavedSearchKeyword as apiDeleteSavedSearchKeyword,
@@ -410,6 +411,30 @@ type LinkedInJobsExternalResponse =
   | { ok: true; result: { runId: string; tabId: number; diagnostics?: LinkedInJobsProgress["diagnostics"] } }
   | { ok: false; error: string }
 
+function isLinkedInJobsAlreadyRunningError(message: string) {
+  return /linkedin jobs external search is already pending or running/i.test(message)
+}
+
+async function recoverInterruptedLinkedInJobsExternalRun() {
+  const latest = await getLatestLinkedInJobsExternalRun()
+  if (!latest || !CAREER_PAGE_BUSY_STATUSES.has(latest.status)) {
+    return false
+  }
+  await completeLinkedInJobsExternalRun(latest.id, {
+    status: "failed",
+    terminal_reason: "cancelled",
+    pages_visited: 0,
+    jobs_inspected: 0,
+    external_links_found: 0,
+    accepted: 0,
+    skipped_easy_apply: 0,
+    unsupported_source: 0,
+    duplicates: 0,
+    failures: 1,
+    navigation_method: "unknown"
+  })
+  return true
+}
 function sendLinkedInJobsExternalRequest(payload: {
   searchText: string
   selectedSourceKeys: string[]
@@ -1218,7 +1243,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       if (searchText) {
         await updateJobSearchPreference({ search_text: searchText }).catch(() => undefined)
       }
-      const response = await sendLinkedInJobsExternalRequest({
+      const requestPayload = {
         searchText,
         selectedSourceKeys: selectedCareerSourceKeys,
         maxPages: linkedinJobsMaxPages,
@@ -1231,7 +1256,14 @@ export const usePopupStore = create<PopupState>((set, get) => ({
           domain: source.domain,
           active: source.active
         }))
-      })
+      }
+      let response = await sendLinkedInJobsExternalRequest(requestPayload)
+      if (response.ok === false && isLinkedInJobsAlreadyRunningError(response.error)) {
+        const recovered = await recoverInterruptedLinkedInJobsExternalRun()
+        if (recovered) {
+          response = await sendLinkedInJobsExternalRequest(requestPayload)
+        }
+      }
       if (response.ok === false) {
         throw new Error(response.error)
       }

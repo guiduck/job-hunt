@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import json
 import re
 
@@ -28,6 +28,8 @@ from app.services.job_dedupe import build_job_dedupe_key
 from app.services.job_review_scoring import default_review_profile
 from app.services.opportunity_service import create_opportunity, get_active_job_keywords, get_opportunity_by_dedupe_key
 
+
+LINKEDIN_JOBS_EXTERNAL_STALE_AFTER = timedelta(minutes=5)
 
 POSTER_NAME_PREFIXES = ("Publicação no feed ", "Publicacao no feed ", "PublicaÃ§Ã£o no feed ")
 
@@ -106,6 +108,32 @@ def _linkedin_jobs_diagnostics_from_payload(payload: object) -> dict[str, object
     return {key: value for key, value in data.items() if key in safe_keys and value is not None}
 
 
+def _utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+
+def _is_stale_linkedin_jobs_external_run(run: JobSearchRun, now: datetime) -> bool:
+    heartbeat = _utc(run.updated_at) or _utc(run.started_at) or _utc(run.created_at)
+    return heartbeat is not None and now - heartbeat >= LINKEDIN_JOBS_EXTERNAL_STALE_AFTER
+
+
+def _fail_stale_linkedin_jobs_external_run(run: JobSearchRun, now: datetime) -> None:
+    run.status = JobSearchRunStatus.FAILED.value
+    run.provider_status = ProviderStatus.FAILED.value
+    run.provider_error_code = "stale_browser_capture"
+    run.provider_error_message = "LinkedIn Jobs browser capture was interrupted before it could finalize."
+    run.stop_reason = "stale_browser_capture"
+    run.completed_at = now
+    _merge_run_diagnostics(
+        run,
+        {
+            "terminal_reason": "stale_browser_capture",
+            "safe_message": "Previous LinkedIn Jobs browser capture was interrupted and marked failed before starting a new run.",
+        },
+    )
+
 def _merge_run_diagnostics(run: JobSearchRun, diagnostics: dict[str, object]) -> None:
     current = dict(run.source_diagnostics or {})
     linkedin_jobs = dict(current.get("linkedin_jobs_external") or {})
@@ -141,15 +169,20 @@ def create_linkedin_jobs_external_run(
 ) -> JobSearchRun:
     user = user or ensure_default_local_user(db)
     active_run = db.scalar(
-        select(JobSearchRun).where(
+        select(JobSearchRun)
+        .where(
             JobSearchRun.user_id == user.id,
             JobSearchRun.search_kind == JobSearchKind.LINKEDIN_JOBS_EXTERNAL.value,
             JobSearchRun.status.in_([JobSearchRunStatus.PENDING.value, JobSearchRunStatus.RUNNING.value]),
         )
+        .order_by(JobSearchRun.updated_at.desc())
     )
     if active_run:
-        raise ValueError("A LinkedIn Jobs external search is already pending or running")
-
+        now = datetime.now(UTC)
+        if not _is_stale_linkedin_jobs_external_run(active_run, now):
+            raise ValueError("A LinkedIn Jobs external search is already pending or running")
+        _fail_stale_linkedin_jobs_external_run(active_run, now)
+        db.flush()
     selected_source_keys = validate_source_keys(payload.selected_source_keys)
     query_terms = list(payload.query_terms or [])
     search_text = (payload.search_text or "").strip()
