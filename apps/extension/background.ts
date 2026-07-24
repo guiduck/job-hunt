@@ -685,6 +685,17 @@ chrome.runtime.onMessage.addListener((message: StartCaptureMessage | StartLinked
     return true
   }
 
+  if (message.type === "START_LINKEDIN_JOBS_EXTERNAL_CAPTURE") {
+    startLinkedInJobsExternalCapture(message.payload)
+      .then((result) => sendResponse({ ok: true, result }))
+      .catch((error: Error) => {
+        const message = error.message || "LinkedIn Jobs external search failed."
+        setJobsProgress({ status: "failed", message })
+        sendResponse({ ok: false, error: message })
+      })
+
+    return true
+  }
   if (message.type !== "START_LINKEDIN_CAPTURE") {
     return false
   }
