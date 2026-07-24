@@ -693,6 +693,8 @@ chrome.runtime.onMessage.addListener((message: ContentCaptureMessage, _sender, s
 })
 
 const JOB_CARD_SELECTORS = [
+  "[componentkey^='job-card-component']",
+  "[componentkey*='job-card-component']",
   "li.jobs-search-results__list-item",
   "div.job-card-container",
   "li[data-occludable-job-id]",
@@ -795,7 +797,8 @@ function hasLinkedInJobResultSignal(element: Element) {
   const hasJobLink = Boolean(element.querySelector("a[href*='/jobs/view/'], a[href*='currentJobId=']"))
   const explicitCards = JOB_CARD_SELECTORS.reduce((count, selector) => count + element.querySelectorAll(selector).length, 0)
   const textLooksLikeJobs = /(candidat|candidate|remoto|remote|h\u00edbrido|hybrid|tempo integral|full.?time|desenvolvedor|developer|engineer|engenheiro|software|frontend|front-end|fullstack|full-stack)/i.test(text)
-  return hasJobLink || explicitCards >= 2 || (textLooksLikeJobs && text.length >= 80)
+  const hasSduiJobCard = Boolean(element.querySelector("[componentkey^='job-card-component'], [componentkey*='job-card-component']"))
+  return hasSduiJobCard || hasJobLink || explicitCards >= 2 || (textLooksLikeJobs && text.length >= 80)
 }
 
 function findJobsListRoot(): Element | null {
@@ -822,7 +825,7 @@ function findJobsListRoot(): Element | null {
       if (rect.height < 240 || rect.width < 240) return false
       if (rect.left > window.innerWidth * 0.55) return false
       if (rect.width > window.innerWidth * 0.65) return false
-      return element.scrollHeight > element.clientHeight + 24 || element.querySelectorAll("li, article, div[data-job-id], div.job-card-container").length >= 2
+      return element.scrollHeight > element.clientHeight + 24 || element.querySelectorAll("[componentkey^='job-card-component'], [componentkey*='job-card-component'], li, article, div[data-job-id], div.job-card-container").length >= 2
     })
     .map((element) => {
       const rect = element.getBoundingClientRect()
@@ -855,6 +858,8 @@ function addJobCard(cards: Element[], seen: Set<Element>, element: Element | nul
 
 function findJobCardFromAnchor(anchor: HTMLAnchorElement) {
   const selectors = [
+    "[componentkey^='job-card-component']",
+    "[componentkey*='job-card-component']",
     "li.jobs-search-results__list-item",
     "li.scaffold-layout__list-item",
     "li[data-occludable-job-id]",
@@ -893,7 +898,7 @@ function findJobsCards() {
   }
 
   if (cards.length === 0) {
-    for (const element of Array.from(root.querySelectorAll("li, article, div[data-job-id], div[data-view-name*=job], div.job-card-container, div[class*=job-card]"))) {
+    for (const element of Array.from(root.querySelectorAll("[componentkey^='job-card-component'], [componentkey*='job-card-component'], li, article, div[data-job-id], div[data-view-name*=job], div.job-card-container, div[class*=job-card]"))) {
       addJobCard(cards, seen, element)
     }
   }
@@ -941,7 +946,7 @@ function scrollJobsResultsList(cards: Element[]) {
   return { targetLabel: elementLabel(target), before, after: target.scrollTop }
 }
 function findJobTitle(card: Element) {
-  const selectors = [".job-card-list__title", ".job-card-container__link", "a[href*='/jobs/view/']", "strong"]
+  const selectors = ["[componentkey^='job-card-component'] p", "[componentkey*='job-card-component'] p", ".job-card-list__title", ".job-card-container__link", "a[href*='/jobs/view/']", "strong"]
   for (const selector of selectors) {
     const text = jobText(card.querySelector(selector))
     if (text) return text.slice(0, 500)
@@ -968,8 +973,18 @@ function findJobLocation(card: Element) {
 }
 
 function findSelectableJobCardElement(card: Element) {
+  const component = card.matches("[componentkey^='job-card-component'], [componentkey*='job-card-component']")
+    ? card
+    : card.querySelector("[componentkey^='job-card-component'], [componentkey*='job-card-component']")
+  const buttonLike = component?.closest<HTMLElement>("[role='button'][tabindex], [role='button'], button")
+  if (buttonLike && isVisibleElement(buttonLike)) {
+    return buttonLike
+  }
+
   const anchor = findJobAnchor(card)
   const selectors = [
+    "[componentkey^='job-card-component']",
+    "[componentkey*='job-card-component']",
     "li.jobs-search-results__list-item",
     "li.scaffold-layout__list-item",
     "li[data-occludable-job-id]",
@@ -1035,6 +1050,20 @@ function findLinkedInJobUrl(card: Element) {
   }
 }
 function findExternalApplyHref() {
+  const selectors = [
+    "a[aria-label*='Candidatar-se no site da empresa'][href]",
+    "a[aria-label*='site da empresa'][href]",
+    "a[aria-label*='company site'][href]",
+    "a[href*='linkedin.com/safety/go/']"
+  ]
+
+  for (const selector of selectors) {
+    const anchor = Array.from(document.querySelectorAll<HTMLAnchorElement>(selector)).find((candidate) => {
+      return isVisibleElement(candidate) && !candidate.href.includes("/jobs/view/")
+    })
+    if (anchor?.href) return anchor.href
+  }
+
   const anchors = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]"))
   const applyLike = anchors.find((anchor) => {
     const label = cleanText(`${anchor.textContent || ""} ${anchor.getAttribute("aria-label") || ""}`).toLowerCase()
@@ -1220,6 +1249,11 @@ async function inspectJobCard(card: Element, pageNumber: number, positionOnPage:
 }
 
 function findNextJobsPageButton() {
+  const explicitNext = document.querySelector<HTMLButtonElement>("button[data-testid='pagination-controls-next-button-visible']")
+  if (explicitNext && !explicitNext.disabled && explicitNext.getAttribute("aria-disabled") !== "true") {
+    return explicitNext
+  }
+
   const buttons = Array.from(document.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>("button, a[role='button'], a[href*='start=']"))
   return buttons.find((button) => {
     const label = cleanText(`${button.textContent || ""} ${button.getAttribute("aria-label") || ""}`).toLowerCase()
