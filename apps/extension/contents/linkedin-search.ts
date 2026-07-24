@@ -1080,28 +1080,51 @@ function getLinkedInJobCardKey(card: Element, pageNumber: number, indexOnPage: n
 
   return `position:${pageNumber}:${indexOnPage}:${cleanText(card.textContent || "").slice(0, 80).toLowerCase()}`
 }
-function findExternalApplyHref() {
-  const selectors = [
-    "a[aria-label*='Candidatar-se no site da empresa'][href]",
-    "a[aria-label*='site da empresa'][href]",
-    "a[aria-label*='company site'][href]",
-    "a[href*='linkedin.com/safety/go/']"
-  ]
-
-  for (const selector of selectors) {
-    const anchor = Array.from(document.querySelectorAll<HTMLAnchorElement>(selector)).find((candidate) => {
-      return isVisibleElement(candidate) && !candidate.href.includes("/jobs/view/")
-    })
-    if (anchor?.href) return anchor.href
+function isLinkedInInternalHref(href: string) {
+  try {
+    const parsed = new URL(href)
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, "")
+    if (host !== "linkedin.com") return false
+    return !parsed.pathname.includes("/safety/") && !parsed.pathname.includes("/redir/")
+  } catch {
+    return true
   }
+}
 
+function findExternalApplyHref() {
   const anchors = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]"))
-  const applyLike = anchors.find((anchor) => {
+  const candidates = anchors.map((anchor) => {
     const label = cleanText(`${anchor.textContent || ""} ${anchor.getAttribute("aria-label") || ""}`).toLowerCase()
-    const href = anchor.href || ""
-    return /(apply|candidatar|candidate|inscrever|site da empresa|company site|company website|acessar site)/i.test(label) && !href.includes("/jobs/view/")
+    const href = anchor.href || anchor.getAttribute("href") || ""
+    const decoded = decodeLinkedInSafetyRedirect(href)
+    const decodedHost = decoded ? (() => {
+      try {
+        return new URL(decoded).hostname.toLowerCase().replace(/^www\./, "")
+      } catch {
+        return ""
+      }
+    })() : ""
+    return { anchor, label, href, decodedHost }
   })
-  return applyLike?.href || null
+
+  const exact = candidates.find(({ label, href }) => {
+    if (!href || href.includes("/jobs/view/")) return false
+    if (isLinkedInInternalHref(href)) return false
+    if (label.includes("candidatura simplificada")) return false
+    return label.includes("candidatar-se no site da empresa") || label.includes("acessar site da empresa") || label.includes("company site") || label.includes("company website")
+  })
+  if (exact?.href) return exact.href
+
+  const applyButton = candidates.find(({ label, href, decodedHost }) => {
+    if (!href || href.includes("/jobs/view/")) return false
+    if (isLinkedInInternalHref(href)) return false
+    if (label.includes("candidatura simplificada")) return false
+    const hasApplyText = label.includes("candidatar-se") || label.includes("candidate-se") || label.includes("apply") || label.includes("inscrever")
+    const hasExternalRedirect = href.includes("linkedin.com/safety/go/") || href.includes("linkedin.com/redir/") || Boolean(decodedHost && decodedHost !== "linkedin.com")
+    return hasApplyText || hasExternalRedirect
+  })
+
+  return applyButton?.href || null
 }
 
 function hasEasyApplySignal() {
@@ -1191,7 +1214,8 @@ async function inspectJobCard(card: Element, pageNumber: number, positionOnPage:
       }
     }
     await delay(500)
-    if (hasEasyApplySignal()) {
+    const rawApplyHref = findExternalApplyHref()
+    if (!rawApplyHref && hasEasyApplySignal()) {
       return {
         linkedinJobUrl,
         jobTitle: title,
@@ -1203,12 +1227,11 @@ async function inspectJobCard(card: Element, pageNumber: number, positionOnPage:
         canonicalApplyUrl: null,
         sourceKey: null,
         outcome: "skipped_easy_apply",
-        skipReason: "LinkedIn Easy Apply job skipped by deterministic rule.",
+        skipReason: "LinkedIn Easy Apply job skipped after no external apply link was found.",
         pageNumber,
         positionOnPage
       }
     }
-    const rawApplyHref = findExternalApplyHref()
     if (!rawApplyHref) {
       return {
         linkedinJobUrl,
@@ -1306,6 +1329,19 @@ function countersFromCandidates(candidates: LinkedInJobsInspectedCandidate[], pa
     failures: candidates.filter((candidate) => candidate.outcome === "failed_decode" || candidate.outcome === "inspection_failed").length
   }
 }
+function buildLinkedInJobsDiagnosticSamples(candidates: LinkedInJobsInspectedCandidate[]) {
+  const prioritized = candidates.filter((candidate) => candidate.rawApplyHref || candidate.outcome !== "skipped_easy_apply")
+  const source = prioritized.length > 0 ? prioritized : candidates
+  return source.slice(-10).map((candidate) => ({
+    title: candidate.jobTitle,
+    company: candidate.companyName,
+    outcome: candidate.outcome,
+    applyUrl: candidate.canonicalApplyUrl,
+    rawApplyHref: candidate.rawApplyHref,
+    sourceKey: candidate.sourceKey,
+    skipReason: candidate.skipReason
+  }))
+}
 
 async function captureLinkedInJobs(payload: ContentLinkedInJobsCaptureMessage["payload"]): Promise<ContentLinkedInJobsCaptureResponse> {
   const candidates: LinkedInJobsInspectedCandidate[] = []
@@ -1363,7 +1399,17 @@ async function captureLinkedInJobs(payload: ContentLinkedInJobsCaptureMessage["p
 
         seenLinkedInJobUrls.add(seenKey)
         inspectedThisScroll += 1
-        candidates.push(await inspectJobCard(cards[index], page, candidates.length + 1, payload))
+        const inspectedCandidate = await inspectJobCard(cards[index], page, candidates.length + 1, payload)
+        candidates.push(inspectedCandidate)
+        console.info("[Opportunity Desk] inspected LinkedIn job", {
+          title: inspectedCandidate.jobTitle,
+          company: inspectedCandidate.companyName,
+          outcome: inspectedCandidate.outcome,
+          rawApplyHref: inspectedCandidate.rawApplyHref,
+          canonicalApplyUrl: inspectedCandidate.canonicalApplyUrl,
+          sourceKey: inspectedCandidate.sourceKey,
+          skipReason: inspectedCandidate.skipReason
+        })
         const partialCounters = countersFromCandidates(candidates, page)
         emitLinkedInJobsContentProgress({
           startedAt,
@@ -1371,12 +1417,7 @@ async function captureLinkedInJobs(payload: ContentLinkedInJobsCaptureMessage["p
           navigationMethod,
           safeMessage: `Inspecting LinkedIn Jobs cards: page ${page}, ${partialCounters.jobsInspected} inspected.`,
           ...partialCounters,
-          samples: candidates.slice(0, 8).map((candidate) => ({
-            title: candidate.jobTitle,
-            company: candidate.companyName,
-            outcome: candidate.outcome,
-            applyUrl: candidate.canonicalApplyUrl
-          }))
+          samples: buildLinkedInJobsDiagnosticSamples(candidates)
         })
         await delay(JOBS_CARD_INSPECTION_DELAY_MS)
       }
@@ -1418,12 +1459,7 @@ async function captureLinkedInJobs(payload: ContentLinkedInJobsCaptureMessage["p
     terminalReason,
     safeMessage,
     ...counters,
-    samples: candidates.slice(0, 8).map((candidate) => ({
-      title: candidate.jobTitle,
-      company: candidate.companyName,
-      outcome: candidate.outcome,
-      applyUrl: candidate.canonicalApplyUrl
-    }))
+    samples: buildLinkedInJobsDiagnosticSamples(candidates)
   }
   return { candidates, diagnostics }
 }

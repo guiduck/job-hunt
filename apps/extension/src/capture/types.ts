@@ -185,7 +185,7 @@ export type LinkedInJobsDiagnostics = LinkedInJobsCounters & {
   navigationMethod: "direct_url" | "direct_url_with_geo" | "jobs_click_path" | "assisted_entry" | "unknown"
   terminalReason: LinkedInJobsTerminalReason
   safeMessage: string
-  samples: Array<{ title: string | null; company: string | null; outcome: string; applyUrl: string | null }>
+  samples: Array<{ title: string | null; company: string | null; outcome: string; applyUrl: string | null; rawApplyHref?: string | null; sourceKey?: string | null; skipReason?: string | null }>
 }
 
 export type LinkedInJobsExternalResult = {
