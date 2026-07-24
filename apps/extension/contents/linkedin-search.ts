@@ -972,14 +972,19 @@ function findJobLocation(card: Element) {
   return null
 }
 
-function findSelectableJobCardElement(card: Element) {
+function addSelectableJobCardTarget(targets: HTMLElement[], element: Element | null | undefined) {
+  if (!(element instanceof HTMLElement)) return
+  if (!isVisibleElement(element) || !isInsideJobResultsList(element)) return
+  if (!targets.includes(element)) targets.push(element)
+}
+
+function findSelectableJobCardTargets(card: Element) {
+  const targets: HTMLElement[] = []
   const component = card.matches("[componentkey^='job-card-component'], [componentkey*='job-card-component']")
     ? card
     : card.querySelector("[componentkey^='job-card-component'], [componentkey*='job-card-component']")
-  const buttonLike = component?.closest<HTMLElement>("[role='button'][tabindex], [role='button'], button")
-  if (buttonLike && isVisibleElement(buttonLike)) {
-    return buttonLike
-  }
+  addSelectableJobCardTarget(targets, component?.closest("[role='button'][tabindex], [role='button'], button"))
+  addSelectableJobCardTarget(targets, component)
 
   const anchor = findJobAnchor(card)
   const selectors = [
@@ -992,12 +997,22 @@ function findSelectableJobCardElement(card: Element) {
     "div[data-job-id]"
   ]
   for (const selector of selectors) {
-    const candidate = anchor?.closest(selector) || card.closest(selector)
-    if (candidate && isVisibleElement(candidate)) {
-      return candidate as HTMLElement
-    }
+    addSelectableJobCardTarget(targets, anchor?.closest(selector))
+    addSelectableJobCardTarget(targets, card.closest(selector))
   }
-  return card as HTMLElement
+  addSelectableJobCardTarget(targets, card)
+  return targets
+}
+
+async function clickLinkedInJobCardTarget(target: HTMLElement) {
+  target.scrollIntoView({ block: "center", behavior: "auto" })
+  await delay(150)
+  target.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, cancelable: true, view: window }))
+  target.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, cancelable: true, view: window }))
+  target.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }))
+  target.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }))
+  target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }))
+  await delay(250)
 }
 
 function isLinkedInFullJobView() {
@@ -1040,7 +1055,7 @@ async function waitForJobDetailSelection(title: string | null, linkedinJobUrl: s
 }
 function findLinkedInJobUrl(card: Element) {
   const anchor = findJobAnchor(card)
-  if (!anchor?.href) return window.location.href
+  if (!anchor?.href) return null
   try {
     const parsed = new URL(anchor.href)
     parsed.hash = ""
@@ -1048,6 +1063,22 @@ function findLinkedInJobUrl(card: Element) {
   } catch {
     return anchor.href
   }
+}
+
+function getLinkedInJobCardKey(card: Element, pageNumber: number, indexOnPage: number) {
+  const component = card.matches("[componentkey^='job-card-component'], [componentkey*='job-card-component']")
+    ? card
+    : card.querySelector("[componentkey^='job-card-component'], [componentkey*='job-card-component']")
+  const componentKey = component?.getAttribute("componentkey")
+  if (componentKey) return `component:${componentKey}`
+
+  const title = findJobTitle(card) || ""
+  const company = findJobCompany(card) || ""
+  const location = findJobLocation(card) || ""
+  const text = cleanText(`${title}|${company}|${location}`)
+  if (text.length > 5) return `text:${text.toLowerCase()}`
+
+  return `position:${pageNumber}:${indexOnPage}:${cleanText(card.textContent || "").slice(0, 80).toLowerCase()}`
 }
 function findExternalApplyHref() {
   const selectors = [
@@ -1074,7 +1105,8 @@ function findExternalApplyHref() {
 }
 
 function hasEasyApplySignal() {
-  const text = cleanText(document.body.textContent || "").toLowerCase()
+  const pane = findJobDetailPane()
+  const text = cleanText(pane.textContent || "").toLowerCase()
   return text.includes("easy apply") || text.includes("candidatura simplificada") || text.includes("candidatar-se facilmente")
 }
 
@@ -1096,8 +1128,8 @@ async function inspectJobCard(card: Element, pageNumber: number, positionOnPage:
   const linkedinJobUrl = findLinkedInJobUrl(card)
   try {
     const beforeUrl = window.location.href
-    const clickTarget = findSelectableJobCardElement(card)
-    if (!isInsideJobResultsList(clickTarget)) {
+    const clickTargets = findSelectableJobCardTargets(card)
+    if (clickTargets.length === 0) {
       return {
         linkedinJobUrl,
         jobTitle: title,
@@ -1109,38 +1141,38 @@ async function inspectJobCard(card: Element, pageNumber: number, positionOnPage:
         canonicalApplyUrl: null,
         sourceKey: null,
         outcome: "inspection_failed",
-        skipReason: "LinkedIn result click target was outside the left jobs list.",
+        skipReason: "LinkedIn result had no safe click target inside the left jobs list.",
         pageNumber,
         positionOnPage
       }
     }
 
-    clickTarget.scrollIntoView({ block: "center", behavior: "auto" })
-    await delay(150)
-    clickTarget.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }))
-    clickTarget.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }))
-    clickTarget.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }))
-    await delay(250)
-    if (isLinkedInFullJobView()) {
-      window.history.back()
-      await delay(1200)
-      return {
-        linkedinJobUrl,
-        jobTitle: title,
-        companyName: company,
-        locationText: location,
-        applyButtonKind: "unknown",
-        rawApplyHref: null,
-        decodedApplyUrl: null,
-        canonicalApplyUrl: null,
-        sourceKey: null,
-        outcome: "inspection_failed",
-        skipReason: `LinkedIn navigated away from the results list after clicking this card: ${beforeUrl}`,
-        pageNumber,
-        positionOnPage
+    let selected = false
+    for (const clickTarget of clickTargets) {
+      await clickLinkedInJobCardTarget(clickTarget)
+      if (isLinkedInFullJobView()) {
+        window.history.back()
+        await delay(1200)
+        return {
+          linkedinJobUrl,
+          jobTitle: title,
+          companyName: company,
+          locationText: location,
+          applyButtonKind: "unknown",
+          rawApplyHref: null,
+          decodedApplyUrl: null,
+          canonicalApplyUrl: null,
+          sourceKey: null,
+          outcome: "inspection_failed",
+          skipReason: `LinkedIn navigated away from the results list after clicking this card: ${beforeUrl}`,
+          pageNumber,
+          positionOnPage
+        }
       }
+      selected = await waitForJobDetailSelection(title, linkedinJobUrl)
+      if (selected) break
     }
-    const selected = await waitForJobDetailSelection(title, linkedinJobUrl)
+
     if (!selected) {
       return {
         linkedinJobUrl,
@@ -1324,7 +1356,7 @@ async function captureLinkedInJobs(payload: ContentLinkedInJobsCaptureMessage["p
 
       for (let index = 0; index < cards.length; index += 1) {
         const linkedinJobUrl = findLinkedInJobUrl(cards[index])
-        const seenKey = linkedinJobUrl || cleanText(cards[index].textContent || "").slice(0, 300)
+        const seenKey = linkedinJobUrl || getLinkedInJobCardKey(cards[index], page, index + 1)
         if (seenLinkedInJobUrls.has(seenKey)) {
           continue
         }
