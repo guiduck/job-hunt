@@ -1,6 +1,8 @@
 import {
+  completeLinkedInJobsExternalRun,
   createFieldAssistantActivation,
   createAuthenticatedBrowserRun,
+  createLinkedInJobsExternalRun,
   generateFieldAnswerFromInput,
   getJobSearchRun,
   listFieldAssistantActivations,
@@ -9,17 +11,23 @@ import {
   listRunOpportunities,
   recordFieldResponseSuggestionUsed,
   saveFieldResponseSuggestion,
-  setApiAccessToken
+  setApiAccessToken,
+  submitLinkedInJobsExternalCandidate,
+  updateLinkedInJobsExternalRun
 } from "./src/api/client"
 import type { FieldAssistantScopeType } from "./src/api/types"
-import { buildLinkedInContentSearchUrl, normalizeKeywords, toCollectionInputs } from "./src/capture/linkedin"
+import { buildLinkedInContentSearchUrl, buildLinkedInJobsSearchUrl, normalizeKeywords, parseLinkedInJobsQueryTerms, toCollectionInputs } from "./src/capture/linkedin"
 import type {
   CaptureProgress,
   CaptureRequest,
   CaptureResult,
   CaptureVerification,
   ContentCaptureResponse,
-  StartCaptureMessage
+  ContentLinkedInJobsCaptureResponse,
+  LinkedInJobsExternalRequest,
+  LinkedInJobsProgress,
+  StartCaptureMessage,
+  StartLinkedInJobsExternalMessage
 } from "./src/capture/types"
 import { loadStoredAuthSession } from "./src/store/authSession"
 import {
@@ -459,11 +467,156 @@ async function verifyRunProcessing(
   }
 }
 
+
+async function sendLinkedInJobsCaptureMessage(tabId: number, payload: LinkedInJobsExternalRequest): Promise<ContentLinkedInJobsCaptureResponse> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      const response = await chrome.tabs.sendMessage(tabId, {
+        type: "CAPTURE_LINKEDIN_JOBS_EXTERNAL",
+        payload
+      })
+      return response as ContentLinkedInJobsCaptureResponse
+    } catch (error) {
+      lastError = error
+      await delay(500)
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Could not reach the LinkedIn Jobs content script.")
+}
+
+function setJobsProgress(progress: LinkedInJobsProgress) {
+  console.info("[Opportunity Desk] LinkedIn Jobs progress", progress)
+  chrome.runtime.sendMessage({ type: "LINKEDIN_JOBS_EXTERNAL_PROGRESS", payload: progress }).catch(() => undefined)
+}
+
+function toApiCandidate(candidate: ContentLinkedInJobsCaptureResponse["candidates"][number]) {
+  return {
+    linkedin_job_url: candidate.linkedinJobUrl,
+    job_title: candidate.jobTitle,
+    company_name: candidate.companyName,
+    location_text: candidate.locationText,
+    apply_button_kind: candidate.applyButtonKind,
+    raw_apply_href: candidate.rawApplyHref,
+    decoded_apply_url: candidate.decodedApplyUrl,
+    canonical_apply_url: candidate.canonicalApplyUrl,
+    source_key: candidate.sourceKey,
+    outcome: candidate.outcome,
+    skip_reason: candidate.skipReason,
+    page_number: candidate.pageNumber,
+    position_on_page: candidate.positionOnPage
+  }
+}
+
+function toApiProgress(diagnostics: ContentLinkedInJobsCaptureResponse["diagnostics"], status: "running" | "completed" | "completed_no_results" | "failed" = "running") {
+  return {
+    status,
+    navigation_method: diagnostics.navigationMethod,
+    pages_visited: diagnostics.pagesVisited,
+    jobs_inspected: diagnostics.jobsInspected,
+    external_links_found: diagnostics.externalLinksFound,
+    accepted: diagnostics.accepted,
+    skipped_easy_apply: diagnostics.skippedEasyApply,
+    unsupported_source: diagnostics.unsupportedSource,
+    duplicates: diagnostics.duplicates,
+    failures: diagnostics.failures,
+    safe_message: diagnostics.safeMessage
+  }
+}
+
+async function startLinkedInJobsExternalCapture(payload: LinkedInJobsExternalRequest) {
+  await restoreBackgroundAuth()
+  const queryTerms = parseLinkedInJobsQueryTerms(payload.searchText)
+  const searchMode = payload.assistedSearchEnabled ? "assisted" : queryTerms.length > 0 ? "classic_keywords" : "default_browse"
+  const run = await createLinkedInJobsExternalRun({
+    search_text: payload.searchText.trim() || null,
+    search_mode: searchMode,
+    query_terms: queryTerms,
+    date_posted: payload.datePosted,
+    sort: payload.sort,
+    selected_source_keys: payload.selectedSourceKeys,
+    max_pages: payload.maxPages,
+    assisted_search_enabled: payload.assistedSearchEnabled
+  })
+
+  setJobsProgress({ status: "opening", message: "Opening LinkedIn Jobs...", runId: run.id })
+  const url = buildLinkedInJobsSearchUrl({
+    searchText: payload.searchText,
+    queryTerms,
+    mode: searchMode,
+    datePosted: payload.datePosted,
+    sort: payload.sort
+  })
+  const tab = await chrome.tabs.create({ active: true, url })
+  if (tab.id === undefined) {
+    throw new Error("Chrome did not return a tab id for the LinkedIn Jobs search.")
+  }
+  await waitForTabComplete(tab.id)
+  await delay(1200)
+  await updateLinkedInJobsExternalRun(run.id, {
+    status: "running",
+    navigation_method: payload.assistedSearchEnabled ? "assisted_entry" : "direct_url",
+    safe_message: "LinkedIn Jobs tab opened; inspecting rendered job cards."
+  })
+
+  setJobsProgress({ status: "capturing", message: "Inspecting LinkedIn Jobs cards...", runId: run.id, sourceTabId: tab.id })
+  const captured = await sendLinkedInJobsCaptureMessage(tab.id, payload)
+  let accepted = 0
+  let duplicates = 0
+  let failures = captured.diagnostics.failures
+  for (const candidate of captured.candidates) {
+    try {
+      const result = await submitLinkedInJobsExternalCandidate(run.id, toApiCandidate(candidate))
+      if (result.outcome === "accepted") accepted += 1
+      if (result.outcome === "duplicate") duplicates += 1
+    } catch (error) {
+      failures += 1
+      console.error("[Opportunity Desk] LinkedIn Jobs candidate submit failed", { error, candidate })
+    }
+  }
+
+  const diagnostics = {
+    ...captured.diagnostics,
+    accepted,
+    duplicates,
+    failures
+  }
+  await updateLinkedInJobsExternalRun(run.id, toApiProgress(diagnostics))
+  const terminalStatus = failures > 0 && captured.candidates.length === 0 ? "failed" : accepted > 0 ? "completed" : "completed_no_results"
+  const completed = await completeLinkedInJobsExternalRun(run.id, {
+    status: terminalStatus,
+    terminal_reason: diagnostics.terminalReason,
+    pages_visited: diagnostics.pagesVisited,
+    jobs_inspected: diagnostics.jobsInspected,
+    external_links_found: diagnostics.externalLinksFound,
+    accepted: diagnostics.accepted,
+    skipped_easy_apply: diagnostics.skippedEasyApply,
+    unsupported_source: diagnostics.unsupportedSource,
+    duplicates: diagnostics.duplicates,
+    failures: diagnostics.failures,
+    navigation_method: diagnostics.navigationMethod
+  })
+
+  const finalProgress: LinkedInJobsProgress = {
+    status: completed.status === "failed" ? "failed" : "completed",
+    message: `${completed.status}: ${diagnostics.safeMessage}`,
+    runId: run.id,
+    sourceTabId: tab.id,
+    diagnostics
+  }
+  setJobsProgress(finalProgress)
+  return {
+    runId: run.id,
+    tabId: tab.id,
+    candidates: captured.candidates,
+    diagnostics
+  }
+}
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "request failed"
 }
 
-chrome.runtime.onMessage.addListener((message: StartCaptureMessage | { type: string; payload?: any }, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: StartCaptureMessage | StartLinkedInJobsExternalMessage | { type: string; payload?: any }, sender, sendResponse) => {
   if (message.type === "GET_CAPTURE_PROGRESS") {
     sendResponse(latestProgress)
     return false

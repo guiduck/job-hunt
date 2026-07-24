@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import json
 import re
 
 from sqlalchemy import select
@@ -18,11 +19,11 @@ from app.models.job_search_run import (
 )
 from app.models.opportunity import ContactChannelType
 from app.models.user import User
-from app.schemas.job_search_run import CareerPageSearchRunCreate, JobSearchRunCreate, SearchAggregate, SearchHistoryResponse, SearchHistoryRun
+from app.schemas.job_search_run import CareerPageSearchRunCreate, JobSearchRunCreate, LinkedInJobsExternalCandidateCreate, LinkedInJobsExternalCandidateResult, LinkedInJobsExternalComplete, LinkedInJobsExternalProgressUpdate, LinkedInJobsExternalRunCreate, SearchAggregate, SearchHistoryResponse, SearchHistoryRun
 from app.schemas.opportunity import JobDetailCreate, OpportunityCreate
 from app.core.config import get_settings
 from app.services.auth_service import ensure_default_local_user
-from app.services.career_page_sources import validate_source_keys
+from app.services.career_page_sources import match_curated_source, validate_source_keys
 from app.services.job_dedupe import build_job_dedupe_key
 from app.services.job_review_scoring import default_review_profile
 from app.services.opportunity_service import create_opportunity, get_active_job_keywords, get_opportunity_by_dedupe_key
@@ -77,6 +78,296 @@ def dedupe_repeated_name(name: str) -> str:
     second_half = " ".join(parts[midpoint:])
     return first_half if first_half == second_half else name
 
+
+LINKEDIN_JOBS_REJECTED_OUTCOMES = {
+    JobCandidateOutcome.SKIPPED_EASY_APPLY.value,
+    JobCandidateOutcome.UNSUPPORTED_SOURCE.value,
+    JobCandidateOutcome.FAILED_DECODE.value,
+    JobCandidateOutcome.MISSING_EXTERNAL_APPLY.value,
+    JobCandidateOutcome.INSPECTION_FAILED.value,
+}
+
+
+def _linkedin_jobs_diagnostics_from_payload(payload: object) -> dict[str, object]:
+    data = payload.model_dump(mode="json") if hasattr(payload, "model_dump") else {}
+    safe_keys = {
+        "navigation_method",
+        "pages_visited",
+        "jobs_inspected",
+        "external_links_found",
+        "accepted",
+        "skipped_easy_apply",
+        "unsupported_source",
+        "duplicates",
+        "failures",
+        "safe_message",
+        "terminal_reason",
+    }
+    return {key: value for key, value in data.items() if key in safe_keys and value is not None}
+
+
+def _merge_run_diagnostics(run: JobSearchRun, diagnostics: dict[str, object]) -> None:
+    current = dict(run.source_diagnostics or {})
+    linkedin_jobs = dict(current.get("linkedin_jobs_external") or {})
+    linkedin_jobs.update(diagnostics)
+    current["linkedin_jobs_external"] = linkedin_jobs
+    run.source_diagnostics = current
+    if "navigation_method" in linkedin_jobs or "terminal_reason" in linkedin_jobs:
+        metadata = dict(run.provider_metadata or {})
+        metadata.update(
+            {
+                key: linkedin_jobs[key]
+                for key in ("navigation_method", "terminal_reason")
+                if key in linkedin_jobs
+            }
+        )
+        run.provider_metadata = metadata
+
+
+def _apply_linkedin_jobs_counters(run: JobSearchRun, diagnostics: dict[str, object]) -> None:
+    if "jobs_inspected" in diagnostics:
+        run.inspected_count = max(run.inspected_count, int(diagnostics["jobs_inspected"] or 0))
+    if "accepted" in diagnostics:
+        run.accepted_count = max(run.accepted_count, int(diagnostics["accepted"] or 0))
+    if "duplicates" in diagnostics:
+        run.duplicate_count = max(run.duplicate_count, int(diagnostics["duplicates"] or 0))
+    rejected = sum(int(diagnostics.get(key) or 0) for key in ("skipped_easy_apply", "unsupported_source", "failures"))
+    if rejected:
+        run.rejected_count = max(run.rejected_count, rejected)
+
+
+def create_linkedin_jobs_external_run(
+    db: Session, payload: LinkedInJobsExternalRunCreate, user: User | None = None
+) -> JobSearchRun:
+    user = user or ensure_default_local_user(db)
+    active_run = db.scalar(
+        select(JobSearchRun).where(
+            JobSearchRun.user_id == user.id,
+            JobSearchRun.search_kind == JobSearchKind.LINKEDIN_JOBS_EXTERNAL.value,
+            JobSearchRun.status.in_([JobSearchRunStatus.PENDING.value, JobSearchRunStatus.RUNNING.value]),
+        )
+    )
+    if active_run:
+        raise ValueError("A LinkedIn Jobs external search is already pending or running")
+
+    selected_source_keys = validate_source_keys(payload.selected_source_keys)
+    query_terms = list(payload.query_terms or [])
+    search_text = (payload.search_text or "").strip()
+    if not query_terms and search_text:
+        query_terms = [term for term in re.split(r"[\s,;]+", search_text) if term]
+
+    run = JobSearchRun(
+        user_id=user.id,
+        search_kind=JobSearchKind.LINKEDIN_JOBS_EXTERNAL.value,
+        status=JobSearchRunStatus.PENDING.value,
+        requested_keywords=query_terms,
+        search_query=search_text,
+        search_sort_order=SearchSortOrder.RELEVANT.value,
+        selected_source_keys=selected_source_keys,
+        source_diagnostics={
+            "linkedin_jobs_external": {
+                "pages_visited": 0,
+                "jobs_inspected": 0,
+                "external_links_found": 0,
+                "accepted": 0,
+                "skipped_easy_apply": 0,
+                "unsupported_source": 0,
+                "duplicates": 0,
+                "failures": 0,
+                "navigation_method": "unknown",
+            }
+        },
+        source_name="LinkedIn Jobs",
+        candidate_limit=None,
+        accepted_limit=None,
+        inspected_cap=payload.max_pages,
+        provider_status=ProviderStatus.NOT_STARTED.value,
+        provider_metadata={
+            "search_mode": payload.search_mode.value,
+            "query_terms": query_terms,
+            "date_posted": payload.date_posted.value,
+            "sort": payload.sort.value,
+            "max_pages": payload.max_pages,
+            "assisted_search_enabled": payload.assisted_search_enabled,
+        },
+        ai_filters_enabled=False,
+        ai_filter_settings={},
+        ai_filter_status=AIFilterStatus.SKIPPED.value,
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    return run
+
+
+def update_linkedin_jobs_external_run(
+    db: Session, run: JobSearchRun, payload: LinkedInJobsExternalProgressUpdate
+) -> JobSearchRun:
+    if run.search_kind != JobSearchKind.LINKEDIN_JOBS_EXTERNAL.value:
+        raise ValueError("Run is not a LinkedIn Jobs external search")
+    if payload.status in {JobSearchRunStatus.PENDING, JobSearchRunStatus.RUNNING}:
+        run.status = payload.status.value
+    run.started_at = run.started_at or datetime.now(UTC)
+    run.provider_status = ProviderStatus.PARTIAL.value
+    diagnostics = _linkedin_jobs_diagnostics_from_payload(payload)
+    _merge_run_diagnostics(run, diagnostics)
+    _apply_linkedin_jobs_counters(run, diagnostics)
+    db.commit()
+    db.refresh(run)
+    return run
+
+
+def record_linkedin_jobs_external_candidate(
+    db: Session, run: JobSearchRun, payload: LinkedInJobsExternalCandidateCreate
+) -> LinkedInJobsExternalCandidateResult:
+    if run.search_kind != JobSearchKind.LINKEDIN_JOBS_EXTERNAL.value:
+        raise ValueError("Run is not a LinkedIn Jobs external search")
+
+    outcome = payload.outcome.value
+    canonical_url = (payload.canonical_apply_url or payload.decoded_apply_url or "").strip()
+    source_key = payload.source_key
+    source = match_curated_source(canonical_url, run.selected_source_keys) if canonical_url else None
+    if outcome == JobCandidateOutcome.ACCEPTED.value:
+        if not canonical_url or source is None:
+            outcome = JobCandidateOutcome.UNSUPPORTED_SOURCE.value if canonical_url else JobCandidateOutcome.MISSING_EXTERNAL_APPLY.value
+        else:
+            source_key = source.key
+
+    opportunity_id = None
+    duplicate_id = None
+    dedupe_key = build_job_dedupe_key(
+        payload.company_name or "",
+        payload.job_title or "",
+        payload.job_title or "",
+        list(run.requested_keywords or []),
+        canonical_url,
+        payload.linkedin_job_url or canonical_url,
+    )
+    existing = get_opportunity_by_dedupe_key(db, dedupe_key, user_id=run.user_id) if canonical_url else None
+    if outcome == JobCandidateOutcome.ACCEPTED.value and existing is not None:
+        outcome = JobCandidateOutcome.DUPLICATE.value
+        opportunity_id = existing.id
+        duplicate_id = existing.id
+    elif outcome == JobCandidateOutcome.ACCEPTED.value:
+        evidence = {
+            "discovery_source": "linkedin_jobs_external",
+            "run_id": run.id,
+            "linkedin_job_url": payload.linkedin_job_url,
+            "decoded_apply_url": payload.decoded_apply_url or canonical_url,
+            "canonical_apply_url": canonical_url,
+            "selected_source_key": source_key,
+            "search_mode": (run.provider_metadata or {}).get("search_mode"),
+            "page_number": payload.page_number,
+            "position_on_page": payload.position_on_page,
+        }
+        opportunity = create_opportunity(
+            db,
+            OpportunityCreate(
+                title=payload.job_title or "LinkedIn Jobs external application",
+                organization_name=payload.company_name or "",
+                source_name=f"LinkedIn Jobs / {source.name if source else source_key}",
+                source_url=payload.linkedin_job_url or canonical_url,
+                source_query=run.search_query or "LinkedIn Jobs default browse",
+                source_evidence=json.dumps(evidence, sort_keys=True),
+                job_detail=JobDetailCreate(
+                    company_name=payload.company_name or "",
+                    role_title=payload.job_title or "",
+                    post_headline=payload.job_title or "LinkedIn Jobs external application",
+                    job_description=payload.location_text or "",
+                    contact_channel_type=ContactChannelType.OTHER_PUBLIC_CONTACT,
+                    contact_channel_value=canonical_url,
+                    application_url=canonical_url,
+                    linkedin_url=payload.linkedin_job_url or "",
+                    collection_source_type="linkedin_jobs_external",
+                    matched_keywords=list(run.requested_keywords or []),
+                    dedupe_key=dedupe_key,
+                    review_profile=default_review_profile(matched_keywords=list(run.requested_keywords or [])),
+                ),
+            ),
+            user_id=run.user_id,
+        )
+        opportunity_id = opportunity.id
+
+    row = JobSearchCandidate(
+        user_id=run.user_id,
+        run_id=run.id,
+        opportunity_id=opportunity_id,
+        outcome=outcome,
+        company_name=payload.company_name or "",
+        role_title=payload.job_title or "",
+        contact_channel_type=ContactChannelType.OTHER_PUBLIC_CONTACT.value if canonical_url else None,
+        contact_channel_value=canonical_url or None,
+        collection_source_type="linkedin_jobs_external",
+        provider_name="extension",
+        provider_status=ProviderStatus.COLLECTED.value if outcome == JobCandidateOutcome.ACCEPTED.value else ProviderStatus.EMPTY.value,
+        application_url=canonical_url or None,
+        application_kind="external_application" if canonical_url else None,
+        selected_source_key=source_key,
+        source_name="LinkedIn Jobs",
+        provider_metadata={
+            "apply_button_kind": payload.apply_button_kind.value,
+            "raw_apply_href": payload.raw_apply_href,
+            "decoded_apply_url": payload.decoded_apply_url,
+            "canonical_apply_url": canonical_url or None,
+            "page_number": payload.page_number,
+            "position_on_page": payload.position_on_page,
+            "location_text": payload.location_text,
+            "duplicate_of_opportunity_id": duplicate_id,
+        },
+        source_url=payload.linkedin_job_url or canonical_url or "",
+        source_query=run.search_query or "LinkedIn Jobs default browse",
+        source_evidence=payload.skip_reason or payload.decoded_apply_url or canonical_url or None,
+        matched_keywords=list(run.requested_keywords or []),
+        analysis_status="skipped" if outcome != JobCandidateOutcome.ACCEPTED.value else "deterministic_only",
+        ai_filter_status=AIFilterStatus.SKIPPED.value,
+        normalized_company_name=payload.company_name or None,
+        normalized_role_title=payload.job_title or None,
+        raw_excerpt=payload.location_text or None,
+        dedupe_key=dedupe_key if canonical_url else None,
+        rejection_reason=payload.skip_reason if outcome != JobCandidateOutcome.ACCEPTED.value else None,
+        inspected_at=datetime.now(UTC),
+    )
+    db.add(row)
+    db.flush()
+    db.expire(run, ["candidates"])
+    reconcile_run_counters(run)
+    db.commit()
+    db.refresh(row)
+    return LinkedInJobsExternalCandidateResult(
+        candidate_id=row.id,
+        outcome=JobCandidateOutcome(outcome),
+        opportunity_id=opportunity_id,
+        duplicate_of_opportunity_id=duplicate_id,
+    )
+
+
+def complete_linkedin_jobs_external_run(
+    db: Session, run: JobSearchRun, payload: LinkedInJobsExternalComplete
+) -> JobSearchRun:
+    if run.search_kind != JobSearchKind.LINKEDIN_JOBS_EXTERNAL.value:
+        raise ValueError("Run is not a LinkedIn Jobs external search")
+    diagnostics = _linkedin_jobs_diagnostics_from_payload(payload)
+    _merge_run_diagnostics(run, diagnostics)
+    _apply_linkedin_jobs_counters(run, diagnostics)
+    reconcile_run_counters(run)
+    run.stop_reason = payload.terminal_reason
+    run.completed_at = datetime.now(UTC)
+    if payload.status == JobSearchRunStatus.FAILED:
+        run.status = JobSearchRunStatus.FAILED.value
+        run.provider_status = ProviderStatus.FAILED.value
+        run.provider_error_code = payload.terminal_reason
+    elif payload.status == JobSearchRunStatus.CANCELLED:
+        run.status = JobSearchRunStatus.CANCELLED.value
+        run.provider_status = ProviderStatus.PARTIAL.value
+    elif run.accepted_count > 0:
+        run.status = JobSearchRunStatus.COMPLETED.value
+        run.provider_status = ProviderStatus.COLLECTED.value
+    else:
+        run.status = JobSearchRunStatus.COMPLETED_NO_RESULTS.value
+        run.provider_status = ProviderStatus.EMPTY.value
+    db.commit()
+    db.refresh(run)
+    return run
 
 def create_job_search_run(db: Session, payload: JobSearchRunCreate, user: User | None = None) -> JobSearchRun:
     user = user or ensure_default_local_user(db)

@@ -1,12 +1,187 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 import { API_BASE_URL } from "../../api/client"
-import { CAPTURE_MAX_POSTS, CAPTURE_MAX_SCROLLS, usePopupStore } from "../../store/popupStore"
+import { CAPTURE_MAX_POSTS, CAPTURE_MAX_SCROLLS, LINKEDIN_JOBS_MAX_PAGES, usePopupStore } from "../../store/popupStore"
 
 const CAPTURE_BUSY_STATUSES = new Set(["opening", "capturing", "submitting", "processing"])
+const LINKEDIN_JOBS_BUSY_STATUSES = new Set(["opening", "capturing", "submitting"])
+
+type SearchPanel = "external_jobs" | "linkedin_posts"
 
 export function SearchView() {
+  const [activePanel, setActivePanel] = useState<SearchPanel>("external_jobs")
+
+  useEffect(() => {
+    void usePopupStore.getState().refreshCareerPageSearch()
+  }, [])
+
+  return (
+    <section className="card">
+      <h2 className="card-title">Search</h2>
+      <nav aria-label="Search type" className="search-type-tabs" role="tablist">
+        <button aria-selected={activePanel === "external_jobs"} onClick={() => setActivePanel("external_jobs")} role="tab" type="button">
+          External jobs
+        </button>
+        <button aria-selected={activePanel === "linkedin_posts"} onClick={() => setActivePanel("linkedin_posts")} role="tab" type="button">
+          LinkedIn posts
+        </button>
+      </nav>
+      {activePanel === "external_jobs" ? <ExternalJobsSearchPanel /> : <LinkedInPostsSearchPanel />}
+    </section>
+  )
+}
+
+function SavedKeywordBadges() {
+  const savedSearchKeywords = usePopupStore((state) => state.savedSearchKeywords)
+  const appendSavedSearchKeyword = usePopupStore((state) => state.appendSavedSearchKeyword)
+  const deleteSavedSearchKeyword = usePopupStore((state) => state.deleteSavedSearchKeyword)
+
+  if (!savedSearchKeywords.length) return null
+
+  return (
+    <div aria-label="Saved search keywords" className="saved-keyword-badges">
+      {savedSearchKeywords.map((keyword) => (
+        <span className="saved-keyword-badge" key={keyword}>
+          <button className="saved-keyword-badge__term" onClick={() => appendSavedSearchKeyword(keyword)} title={`Add ${keyword} to search`} type="button">
+            {keyword}
+          </button>
+          <button aria-label={`Remove ${keyword}`} className="saved-keyword-badge__remove" onClick={() => void deleteSavedSearchKeyword(keyword)} title={`Remove ${keyword}`} type="button">
+            x
+          </button>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function SearchTextField() {
   const keywords = usePopupStore((state) => state.keywords)
+  const setKeywords = usePopupStore((state) => state.setKeywords)
+  return (
+    <label className="field">
+      <span>Search text</span>
+      <input value={keywords} onChange={(event) => setKeywords(event.target.value)} />
+    </label>
+  )
+}
+
+function ExternalJobsSearchPanel() {
+  const keywords = usePopupStore((state) => state.keywords)
+  const curatedCareerSources = usePopupStore((state) => state.curatedCareerSources)
+  const selectedCareerSourceKeys = usePopupStore((state) => state.selectedCareerSourceKeys)
+  const latestCareerPageRun = usePopupStore((state) => state.latestCareerPageRun)
+  const latestLinkedInJobsExternalRun = usePopupStore((state) => state.latestLinkedInJobsExternalRun)
+  const careerPageAcceptedLimit = usePopupStore((state) => state.careerPageAcceptedLimit)
+  const careerPageInspectedCap = usePopupStore((state) => state.careerPageInspectedCap)
+  const linkedinJobsMaxPages = usePopupStore((state) => state.linkedinJobsMaxPages)
+  const linkedinJobsDatePosted = usePopupStore((state) => state.linkedinJobsDatePosted)
+  const linkedinJobsSort = usePopupStore((state) => state.linkedinJobsSort)
+  const linkedinJobsAssisted = usePopupStore((state) => state.linkedinJobsAssisted)
+  const linkedinJobsProgress = usePopupStore((state) => state.linkedinJobsProgress)
+  const setSelectedCareerSourceKeys = usePopupStore((state) => state.setSelectedCareerSourceKeys)
+  const setCareerPageAcceptedLimit = usePopupStore((state) => state.setCareerPageAcceptedLimit)
+  const setCareerPageInspectedCap = usePopupStore((state) => state.setCareerPageInspectedCap)
+  const setLinkedInJobsMaxPages = usePopupStore((state) => state.setLinkedInJobsMaxPages)
+  const setLinkedInJobsDatePosted = usePopupStore((state) => state.setLinkedInJobsDatePosted)
+  const setLinkedInJobsSort = usePopupStore((state) => state.setLinkedInJobsSort)
+  const setLinkedInJobsAssisted = usePopupStore((state) => state.setLinkedInJobsAssisted)
+  const startCareerPageSearch = usePopupStore((state) => state.startCareerPageSearch)
+  const startLinkedInJobsExternalSearch = usePopupStore((state) => state.startLinkedInJobsExternalSearch)
+  const isCareerSearchRunning = latestCareerPageRun ? ["pending", "running"].includes(latestCareerPageRun.status) : false
+  const isLinkedInJobsRunning = LINKEDIN_JOBS_BUSY_STATUSES.has(linkedinJobsProgress.status) || (latestLinkedInJobsExternalRun ? ["pending", "running"].includes(latestLinkedInJobsExternalRun.status) : false)
+  const canUseExternalSources = selectedCareerSourceKeys.length > 0
+  const latestCareerSearchLabel = latestCareerPageRun ? new Date(latestCareerPageRun.created_at).toLocaleString() : "Never"
+
+  function toggleCareerSource(sourceKey: string, checked: boolean) {
+    setSelectedCareerSourceKeys(checked ? [...selectedCareerSourceKeys, sourceKey] : selectedCareerSourceKeys.filter((key) => key !== sourceKey))
+  }
+
+  return (
+    <>
+      <div className="search-section">
+        <p className="section-label">External job sources</p>
+        <SearchTextField />
+        <SavedKeywordBadges />
+        {!keywords.trim() ? <p className="message">LinkedIn Jobs will browse default relevant jobs when search text is empty.</p> : null}
+        {curatedCareerSources.length > 0 ? (
+          <div className="source-checkbox-grid" aria-label="External job sources">
+            {curatedCareerSources.map((source) => (
+              <label key={source.key}>
+                <input checked={selectedCareerSourceKeys.includes(source.key)} disabled={!source.active || isCareerSearchRunning || isLinkedInJobsRunning} onChange={(event) => toggleCareerSource(source.key, event.target.checked)} type="checkbox" />
+                {source.name}
+              </label>
+            ))}
+          </div>
+        ) : (
+          <p className="message">No external sources loaded yet.</p>
+        )}
+      </div>
+
+      <div className="search-section search-section--career">
+        <div className="section-heading-row">
+          <p className="section-label">LinkedIn Jobs external search</p>
+          <span className="latest-search-label">Max {LINKEDIN_JOBS_MAX_PAGES} pages</span>
+        </div>
+        <label className="toggle-row">
+          <input checked={linkedinJobsAssisted} onChange={(event) => setLinkedInJobsAssisted(event.target.checked)} type="checkbox" />
+          <span>
+            <strong>Assisted Jobs mode</strong>
+            <small>Best effort. LinkedIn may use account preferences; date and sort may not apply.</small>
+          </span>
+        </label>
+        <div className="form-row">
+          <label className="field">
+            <span>Date posted</span>
+            <select disabled={linkedinJobsAssisted} value={linkedinJobsDatePosted} onChange={(event) => setLinkedInJobsDatePosted(event.target.value as typeof linkedinJobsDatePosted)}>
+              <option value="any_time">Any time</option>
+              <option value="past_month">Past month</option>
+              <option value="past_week">Past week</option>
+              <option value="past_24_hours">Past 24 hours</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Sort</span>
+            <select disabled={linkedinJobsAssisted} value={linkedinJobsSort} onChange={(event) => setLinkedInJobsSort(event.target.value as typeof linkedinJobsSort)}>
+              <option value="relevant">Relevant</option>
+              <option value="most_recent">Most recent</option>
+            </select>
+          </label>
+        </div>
+        <label className="field">
+          <span>Max pages</span>
+          <input max={LINKEDIN_JOBS_MAX_PAGES} min={1} type="number" value={linkedinJobsMaxPages} onChange={(event) => setLinkedInJobsMaxPages(Number(event.target.value))} />
+        </label>
+        <button className="primary-button" disabled={!canUseExternalSources || isLinkedInJobsRunning} onClick={() => void startLinkedInJobsExternalSearch()} type="button">
+          Search LinkedIn Jobs
+        </button>
+        <LinkedInJobsDiagnosticsPanel />
+      </div>
+
+      <div className="search-section search-section--career">
+        <div className="section-heading-row">
+          <p className="section-label">Career-page search</p>
+          <span className="latest-search-label">Last search: {latestCareerSearchLabel}</span>
+        </div>
+        <div className="form-row">
+          <label className="field">
+            <span>Max accepted</span>
+            <input max={250} min={1} type="number" value={careerPageAcceptedLimit} onChange={(event) => setCareerPageAcceptedLimit(Number(event.target.value))} />
+          </label>
+          <label className="field">
+            <span>Inspect cap</span>
+            <input max={1000} min={1} type="number" value={careerPageInspectedCap} onChange={(event) => setCareerPageInspectedCap(Number(event.target.value))} />
+          </label>
+        </div>
+        <button className="primary-button" disabled={!canUseExternalSources || isCareerSearchRunning} onClick={() => void startCareerPageSearch()} type="button">
+          Search career pages
+        </button>
+        {latestCareerPageRun ? <p className="message">{latestCareerPageRun.status}: {latestCareerPageRun.accepted_count} accepted, {latestCareerPageRun.rejected_count} rejected, {latestCareerPageRun.duplicate_count} duplicate.</p> : null}
+      </div>
+    </>
+  )
+}
+
+function LinkedInPostsSearchPanel() {
   const aiFiltersEnabled = usePopupStore((state) => state.aiFiltersEnabled)
   const acceptedRegions = usePopupStore((state) => state.acceptedRegions)
   const excludedRegions = usePopupStore((state) => state.excludedRegions)
@@ -16,16 +191,7 @@ export function SearchView() {
   const pastMonthOnly = usePopupStore((state) => state.pastMonthOnly)
   const maxPosts = usePopupStore((state) => state.maxPosts)
   const maxScrolls = usePopupStore((state) => state.maxScrolls)
-  const curatedCareerSources = usePopupStore((state) => state.curatedCareerSources)
-  const selectedCareerSourceKeys = usePopupStore((state) => state.selectedCareerSourceKeys)
-  const latestCareerPageRun = usePopupStore((state) => state.latestCareerPageRun)
-  const careerPageAcceptedLimit = usePopupStore((state) => state.careerPageAcceptedLimit)
-  const careerPageInspectedCap = usePopupStore((state) => state.careerPageInspectedCap)
-  const savedSearchKeywords = usePopupStore((state) => state.savedSearchKeywords)
   const captureProgress = usePopupStore((state) => state.captureProgress)
-  const setKeywords = usePopupStore((state) => state.setKeywords)
-  const appendSavedSearchKeyword = usePopupStore((state) => state.appendSavedSearchKeyword)
-  const deleteSavedSearchKeyword = usePopupStore((state) => state.deleteSavedSearchKeyword)
   const setAiFiltersEnabled = usePopupStore((state) => state.setAiFiltersEnabled)
   const setAcceptedRegions = usePopupStore((state) => state.setAcceptedRegions)
   const setExcludedRegions = usePopupStore((state) => state.setExcludedRegions)
@@ -35,80 +201,30 @@ export function SearchView() {
   const setPastMonthOnly = usePopupStore((state) => state.setPastMonthOnly)
   const setMaxPosts = usePopupStore((state) => state.setMaxPosts)
   const setMaxScrolls = usePopupStore((state) => state.setMaxScrolls)
-  const setSelectedCareerSourceKeys = usePopupStore((state) => state.setSelectedCareerSourceKeys)
-  const setCareerPageAcceptedLimit = usePopupStore((state) => state.setCareerPageAcceptedLimit)
-  const setCareerPageInspectedCap = usePopupStore((state) => state.setCareerPageInspectedCap)
   const startCapture = usePopupStore((state) => state.startCapture)
-  const startCareerPageSearch = usePopupStore((state) => state.startCareerPageSearch)
-  const refreshCareerPageSearch = usePopupStore((state) => state.refreshCareerPageSearch)
   const isCapturing = CAPTURE_BUSY_STATUSES.has(captureProgress.status)
-  const isCareerSearchRunning = latestCareerPageRun ? ["pending", "running"].includes(latestCareerPageRun.status) : false
-  const canSearchCareerPages = !isCareerSearchRunning && selectedCareerSourceKeys.length > 0
-  const latestCareerSearchLabel = latestCareerPageRun
-    ? new Date(latestCareerPageRun.created_at).toLocaleString()
-    : "Never"
-
-  useEffect(() => {
-    void refreshCareerPageSearch()
-  }, [refreshCareerPageSearch])
-
-  function toggleCareerSource(sourceKey: string, checked: boolean) {
-    setSelectedCareerSourceKeys(
-      checked
-        ? [...selectedCareerSourceKeys, sourceKey]
-        : selectedCareerSourceKeys.filter((key) => key !== sourceKey)
-    )
-  }
 
   return (
-    <section className="card">
-      <h2 className="card-title">Capture LinkedIn posts</h2>
+    <>
       <div className="search-section">
-        <p className="section-label">LinkedIn search</p>
-      <label className="field">
-        <span>Search text</span>
-        <input value={keywords} onChange={(event) => setKeywords(event.target.value)} />
-      </label>
-      {savedSearchKeywords.length ? (
-        <div aria-label="Saved search keywords" className="saved-keyword-badges">
-          {savedSearchKeywords.map((keyword) => (
-            <span className="saved-keyword-badge" key={keyword}>
-              <button
-                className="saved-keyword-badge__term"
-                onClick={() => appendSavedSearchKeyword(keyword)}
-                title={`Add ${keyword} to search`}
-                type="button"
-              >
-                {keyword}
-              </button>
-              <button
-                aria-label={`Remove ${keyword}`}
-                className="saved-keyword-badge__remove"
-                onClick={() => void deleteSavedSearchKeyword(keyword)}
-                title={`Remove ${keyword}`}
-                type="button"
-              >
-                x
-              </button>
-            </span>
-          ))}
-        </div>
-      ) : null}
-      <label className="field">
-        <span>Sort</span>
-        <select value={sortMode} onChange={(event) => setSortMode(event.target.value as "recent" | "relevant")}>
-          <option value="recent">Most recent</option>
-          <option value="relevant">Most relevant</option>
-        </select>
-      </label>
-      <label className="toggle-row">
-        <input checked={pastMonthOnly} onChange={(event) => setPastMonthOnly(event.target.checked)} type="checkbox" />
-        <span>
-          <strong>Past month</strong>
-          <small>Apply LinkedIn's last-month date facet.</small>
-        </span>
-      </label>
-      <p className="message">LinkedIn opens with only this search text, sort order, and optional date facet.</p>
+        <p className="section-label">LinkedIn post search</p>
+        <SearchTextField />
+        <SavedKeywordBadges />
+        <label className="field">
+          <span>Sort</span>
+          <select value={sortMode} onChange={(event) => setSortMode(event.target.value as "recent" | "relevant")}>
+            <option value="recent">Most recent</option>
+            <option value="relevant">Most relevant</option>
+          </select>
+        </label>
+        <label className="toggle-row">
+          <input checked={pastMonthOnly} onChange={(event) => setPastMonthOnly(event.target.checked)} type="checkbox" />
+          <span>
+            <strong>Past month</strong>
+            <small>Apply LinkedIn's last-month date facet.</small>
+          </span>
+        </label>
+        <p className="message">LinkedIn post capture uses this text, sort order, optional date facet, and post AI filters only.</p>
       </div>
       <div className={`search-section ${aiFiltersEnabled ? "" : "search-section--disabled"}`}>
         <label className="toggle-row">
@@ -119,125 +235,48 @@ export function SearchView() {
           </span>
         </label>
         <div className="checkbox-grid">
-          <label>
-            <input checked={remoteOnly} disabled={!aiFiltersEnabled} onChange={(event) => setRemoteOnly(event.target.checked)} type="checkbox" />
-            Remote only
-          </label>
-          <label>
-            <input checked={excludeOnsite} disabled={!aiFiltersEnabled} onChange={(event) => setExcludeOnsite(event.target.checked)} type="checkbox" />
-            Exclude onsite/hybrid
-          </label>
+          <label><input checked={remoteOnly} disabled={!aiFiltersEnabled} onChange={(event) => setRemoteOnly(event.target.checked)} type="checkbox" />Remote only</label>
+          <label><input checked={excludeOnsite} disabled={!aiFiltersEnabled} onChange={(event) => setExcludeOnsite(event.target.checked)} type="checkbox" />Exclude onsite/hybrid</label>
         </div>
-      <label className="field">
-        <span>Accepted regions</span>
-        <input
-          disabled={!aiFiltersEnabled}
-          placeholder="LATAM, Brazil, Portugal, Europe"
-          value={acceptedRegions}
-          onChange={(event) => setAcceptedRegions(event.target.value)}
-        />
-      </label>
-      <label className="field">
-        <span>Exclude regions</span>
-        <input
-          disabled={!aiFiltersEnabled}
-          placeholder="India, Bengaluru, Pune"
-          value={excludedRegions}
-          onChange={(event) => setExcludedRegions(event.target.value)}
-        />
-      </label>
-      <p className="message">
-        AI reads captured posts after collection and weighs these preferences with your default resume/profile context.
-      </p>
+        <label className="field"><span>Accepted regions</span><input disabled={!aiFiltersEnabled} placeholder="LATAM, Brazil, Portugal, Europe" value={acceptedRegions} onChange={(event) => setAcceptedRegions(event.target.value)} /></label>
+        <label className="field"><span>Exclude regions</span><input disabled={!aiFiltersEnabled} placeholder="India, Bengaluru, Pune" value={excludedRegions} onChange={(event) => setExcludedRegions(event.target.value)} /></label>
       </div>
       <div className="form-row">
-        <label className="field">
-          <span>Max posts</span>
-          <input
-            max={CAPTURE_MAX_POSTS}
-            min={1}
-            type="number"
-            value={maxPosts}
-            onChange={(event) => setMaxPosts(Number(event.target.value))}
-          />
-        </label>
-        <label className="field">
-          <span>Max scrolls</span>
-          <input
-            max={CAPTURE_MAX_SCROLLS}
-            min={0}
-            type="number"
-            value={maxScrolls}
-            onChange={(event) => setMaxScrolls(Number(event.target.value))}
-          />
-        </label>
+        <label className="field"><span>Max posts</span><input max={CAPTURE_MAX_POSTS} min={1} type="number" value={maxPosts} onChange={(event) => setMaxPosts(Number(event.target.value))} /></label>
+        <label className="field"><span>Max scrolls</span><input max={CAPTURE_MAX_SCROLLS} min={0} type="number" value={maxScrolls} onChange={(event) => setMaxScrolls(Number(event.target.value))} /></label>
       </div>
-      <button className="primary-button" disabled={isCapturing} onClick={() => void startCapture()} type="button">
-        Open LinkedIn and capture
-      </button>
+      <button className="primary-button" disabled={isCapturing} onClick={() => void startCapture()} type="button">Open LinkedIn and capture</button>
       <p className={`message ${captureProgress.status === "failed" ? "message--error" : ""}`}>{captureProgress.message}</p>
-      <div className="search-section search-section--career">
-        <div className="section-heading-row">
-          <p className="section-label">Career-page search</p>
-          <span className="latest-search-label">Last search: {latestCareerSearchLabel}</span>
-        </div>
-        {curatedCareerSources.length > 0 ? (
-          <div className="source-checkbox-grid" aria-label="Career-page sources">
-            {curatedCareerSources.map((source) => (
-              <label key={source.key}>
-                <input
-                  checked={selectedCareerSourceKeys.includes(source.key)}
-                  disabled={!source.active || isCareerSearchRunning}
-                  onChange={(event) => toggleCareerSource(source.key, event.target.checked)}
-                  type="checkbox"
-                />
-                {source.name}
-              </label>
-            ))}
-          </div>
-        ) : (
-          <p className="message">No career sources loaded yet.</p>
-        )}
-        <div className="form-row">
-          <label className="field">
-            <span>Max accepted</span>
-            <input
-              max={250}
-              min={1}
-              type="number"
-              value={careerPageAcceptedLimit}
-              onChange={(event) => setCareerPageAcceptedLimit(Number(event.target.value))}
-            />
-          </label>
-          <label className="field">
-            <span>Inspect cap</span>
-            <input
-              max={1000}
-              min={1}
-              type="number"
-              value={careerPageInspectedCap}
-              onChange={(event) => setCareerPageInspectedCap(Number(event.target.value))}
-            />
-          </label>
-        </div>
-        <button
-          className="primary-button"
-          disabled={!canSearchCareerPages}
-          onClick={() => void startCareerPageSearch()}
-          type="button">
-          Search career pages
-        </button>
-        {latestCareerPageRun ? (
-          <p className="message">
-            {latestCareerPageRun.status}: {latestCareerPageRun.accepted_count} accepted, {latestCareerPageRun.rejected_count} rejected, {latestCareerPageRun.duplicate_count} duplicate.
-          </p>
-        ) : null}
-      </div>
       <CaptureDebugPanel />
-    </section>
+    </>
   )
 }
 
+function LinkedInJobsDiagnosticsPanel() {
+  const progress = usePopupStore((state) => state.linkedinJobsProgress)
+  const diagnostics = progress.diagnostics
+  const latestRun = usePopupStore((state) => state.latestLinkedInJobsExternalRun)
+  if (!diagnostics && !latestRun && progress.status === "idle") return null
+  return (
+    <div className="debug-panel">
+      <p className="section-label">LinkedIn Jobs diagnostics</p>
+      <p className={`message ${progress.status === "failed" ? "message--error" : ""}`}>{progress.message}</p>
+      <dl className="debug-list">
+        <div><dt>Run</dt><dd>{progress.runId || latestRun?.id || "-"}</dd></div>
+        <div><dt>Status</dt><dd>{latestRun?.status || progress.status}</dd></div>
+        <div><dt>Pages</dt><dd>{diagnostics?.pagesVisited ?? "-"}</dd></div>
+        <div><dt>Inspected</dt><dd>{diagnostics?.jobsInspected ?? latestRun?.inspected_count ?? "-"}</dd></div>
+        <div><dt>Accepted</dt><dd>{diagnostics?.accepted ?? latestRun?.accepted_count ?? "-"}</dd></div>
+        <div><dt>Easy Apply skipped</dt><dd>{diagnostics?.skippedEasyApply ?? "-"}</dd></div>
+        <div><dt>Unsupported</dt><dd>{diagnostics?.unsupportedSource ?? "-"}</dd></div>
+        <div><dt>Duplicates</dt><dd>{diagnostics?.duplicates ?? latestRun?.duplicate_count ?? "-"}</dd></div>
+        <div><dt>Failures</dt><dd>{diagnostics?.failures ?? "-"}</dd></div>
+        <div><dt>Navigation</dt><dd>{diagnostics?.navigationMethod || "-"}</dd></div>
+        <div><dt>Terminal reason</dt><dd>{diagnostics?.terminalReason || latestRun?.stop_reason || "-"}</dd></div>
+      </dl>
+    </div>
+  )
+}
 function CaptureDebugPanel() {
   const captureProgress = usePopupStore((state) => state.captureProgress)
 

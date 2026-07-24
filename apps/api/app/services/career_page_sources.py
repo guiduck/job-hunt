@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 
 @dataclass(frozen=True)
@@ -8,6 +9,7 @@ class CareerPageSource:
     domain: str
     active: bool = True
     search_hint: str | None = None
+    enabled_by_default: bool = True
 
 
 CURATED_CAREER_SOURCES: tuple[CareerPageSource, ...] = (
@@ -18,6 +20,7 @@ CURATED_CAREER_SOURCES: tuple[CareerPageSource, ...] = (
     CareerPageSource("smartrecruiters", "SmartRecruiters", "jobs.smartrecruiters.com"),
     CareerPageSource("trampos", "Trampos", "trampos.co"),
     CareerPageSource("catho", "Catho", "catho.com.br"),
+    CareerPageSource("teamtailor", "Teamtailor", "jobs.teamtailor.com", active=False, enabled_by_default=False),
 )
 
 
@@ -28,10 +31,34 @@ def list_curated_career_sources() -> list[dict[str, object]]:
             "name": source.name,
             "domain": source.domain,
             "active": source.active,
+            "enabled_by_default": source.enabled_by_default and source.active,
             "search_hint": source.search_hint,
         }
         for source in CURATED_CAREER_SOURCES
     ]
+
+
+def source_by_key() -> dict[str, CareerPageSource]:
+    return {source.key: source for source in CURATED_CAREER_SOURCES}
+
+
+def match_curated_source(url: str, selected_source_keys: list[str] | None = None) -> CareerPageSource | None:
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return None
+    hostname = (parsed.hostname or "").lower().removeprefix("www.")
+    if not hostname:
+        return None
+    try:
+        selected = set(validate_source_keys(selected_source_keys)) if selected_source_keys is not None else set(active_source_keys())
+    except ValueError:
+        return None
+    for source in CURATED_CAREER_SOURCES:
+        domain = source.domain.lower().removeprefix("www.")
+        if source.key in selected and source.active and (hostname == domain or hostname.endswith(f".{domain}")):
+            return source
+    return None
 
 
 def active_source_keys() -> list[str]:

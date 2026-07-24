@@ -74,3 +74,18 @@ def test_normalize_old_dated_result_sets_rejection_hint() -> None:
 
     assert candidate["outcome_hint"] == "rejected_weak_match"
     assert candidate["rejection_reason"] == "Result is older than 31 days"
+
+from app.services.external_job_normalizer import canonicalize_external_application_url, decode_linkedin_safety_redirect, match_external_job_source
+
+
+def test_linkedin_safety_redirect_decodes_and_canonicalizes_apply_url() -> None:
+    raw = "https://www.linkedin.com/safety/go?url=https%3A%2F%2Fjobs.ashbyhq.com%2Fexample%2Fabc%3Futm_source%3Dlinkedin%26jobId%3D123"
+
+    assert decode_linkedin_safety_redirect(raw) == "https://jobs.ashbyhq.com/example/abc?utm_source=linkedin&jobId=123"
+    assert canonicalize_external_application_url(raw) == "https://jobs.ashbyhq.com/example/abc?jobId=123"
+
+
+def test_match_external_job_source_respects_selected_active_sources() -> None:
+    assert match_external_job_source("https://jobs.lever.co/example/backend", ["lever"]) == "lever"
+    assert match_external_job_source("https://jobs.lever.co/example/backend", ["ashby"]) is None
+    assert match_external_job_source("https://jobs.teamtailor.com/example/backend", ["teamtailor"]) is None

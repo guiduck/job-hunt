@@ -1,7 +1,8 @@
-import type { CaptureDiagnostics, ContentCaptureMessage, ContentCaptureResponse, LinkedInCapturedPost } from "../src/capture/types"
+import { canonicalizeExternalApplicationUrl, decodeLinkedInSafetyRedirect, matchCuratedExternalSource } from "../src/capture/linkedin"
+import type { CaptureDiagnostics, ContentCaptureMessage, ContentCaptureResponse, ContentLinkedInJobsCaptureMessage, ContentLinkedInJobsCaptureResponse, LinkedInCapturedPost, LinkedInJobsCounters, LinkedInJobsDiagnostics, LinkedInJobsInspectedCandidate } from "../src/capture/types"
 
 export const config = {
-  matches: ["https://www.linkedin.com/search/results/content/*"]
+  matches: ["https://www.linkedin.com/search/results/content/*", "https://www.linkedin.com/jobs/*"]
 }
 
 const POST_SELECTORS = [
@@ -688,5 +689,295 @@ chrome.runtime.onMessage.addListener((message: ContentCaptureMessage, _sender, s
       })
     })
 
+  return true
+})
+
+const JOB_CARD_SELECTORS = [
+  "li.jobs-search-results__list-item",
+  "div.job-card-container",
+  "li[data-occludable-job-id]",
+  "div[data-job-id]"
+]
+const NEXT_PAGE_LABELS = ["next", "proxima", "próxima", "avancar", "avançar"]
+const JOBS_INITIAL_TIMEOUT_MS = 15000
+const JOBS_PAGE_DELAY_MS = 1500
+
+function jobText(element: Element | null) {
+  return cleanText(element?.textContent || "")
+}
+
+function findJobsCards() {
+  const seen = new Set<Element>()
+  const cards: Element[] = []
+  for (const selector of JOB_CARD_SELECTORS) {
+    for (const element of Array.from(document.querySelectorAll(selector))) {
+      if (!seen.has(element) && isVisibleElement(element)) {
+        seen.add(element)
+        cards.push(element)
+      }
+    }
+  }
+  return cards
+}
+
+function findJobTitle(card: Element) {
+  const selectors = [".job-card-list__title", ".job-card-container__link", "a[href*='/jobs/view/']", "strong"]
+  for (const selector of selectors) {
+    const text = jobText(card.querySelector(selector))
+    if (text) return text.slice(0, 500)
+  }
+  return jobText(card).split("\n")[0]?.slice(0, 500) || null
+}
+
+function findJobCompany(card: Element) {
+  const selectors = [".job-card-container__primary-description", ".artdeco-entity-lockup__subtitle", "[class*='company']"]
+  for (const selector of selectors) {
+    const text = jobText(card.querySelector(selector))
+    if (text) return text.slice(0, 255)
+  }
+  return null
+}
+
+function findJobLocation(card: Element) {
+  const selectors = [".job-card-container__metadata-item", ".artdeco-entity-lockup__caption", "[class*='location']"]
+  for (const selector of selectors) {
+    const text = jobText(card.querySelector(selector))
+    if (text) return text.slice(0, 255)
+  }
+  return null
+}
+
+function findLinkedInJobUrl(card: Element) {
+  const anchor = Array.from(card.querySelectorAll<HTMLAnchorElement>("a[href*='/jobs/view/'], a[href*='currentJobId=']"))[0]
+  if (!anchor?.href) return window.location.href
+  try {
+    const parsed = new URL(anchor.href)
+    parsed.hash = ""
+    return parsed.toString()
+  } catch {
+    return anchor.href
+  }
+}
+
+function findExternalApplyHref() {
+  const anchors = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]"))
+  const applyLike = anchors.find((anchor) => {
+    const label = cleanText(`${anchor.textContent || ""} ${anchor.getAttribute("aria-label") || ""}`).toLowerCase()
+    const href = anchor.href || ""
+    return /(apply|candidatar|candidate|inscrever)/i.test(label) && !href.includes("/jobs/view/")
+  })
+  return applyLike?.href || null
+}
+
+function hasEasyApplySignal() {
+  const text = cleanText(document.body.textContent || "").toLowerCase()
+  return text.includes("easy apply") || text.includes("candidatura simplificada") || text.includes("candidatar-se facilmente")
+}
+
+async function waitForJobsCards() {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < JOBS_INITIAL_TIMEOUT_MS) {
+    const cards = findJobsCards()
+    if (cards.length > 0) return cards
+    if (/checkpoint|login|uas\/login|authwall/i.test(window.location.href)) return []
+    await delay(500)
+  }
+  return findJobsCards()
+}
+
+async function inspectJobCard(card: Element, pageNumber: number, positionOnPage: number, payload: ContentLinkedInJobsCaptureMessage["payload"]): Promise<LinkedInJobsInspectedCandidate> {
+  const title = findJobTitle(card)
+  const company = findJobCompany(card)
+  const location = findJobLocation(card)
+  const linkedinJobUrl = findLinkedInJobUrl(card)
+  try {
+    ;(card as HTMLElement).scrollIntoView({ block: "center", behavior: "auto" })
+    ;(card as HTMLElement).click()
+    await delay(900)
+    if (hasEasyApplySignal()) {
+      return {
+        linkedinJobUrl,
+        jobTitle: title,
+        companyName: company,
+        locationText: location,
+        applyButtonKind: "easy_apply",
+        rawApplyHref: null,
+        decodedApplyUrl: null,
+        canonicalApplyUrl: null,
+        sourceKey: null,
+        outcome: "skipped_easy_apply",
+        skipReason: "LinkedIn Easy Apply job skipped by deterministic rule.",
+        pageNumber,
+        positionOnPage
+      }
+    }
+    const rawApplyHref = findExternalApplyHref()
+    if (!rawApplyHref) {
+      return {
+        linkedinJobUrl,
+        jobTitle: title,
+        companyName: company,
+        locationText: location,
+        applyButtonKind: "missing",
+        rawApplyHref: null,
+        decodedApplyUrl: null,
+        canonicalApplyUrl: null,
+        sourceKey: null,
+        outcome: "missing_external_apply",
+        skipReason: "No external apply link found in LinkedIn job detail.",
+        pageNumber,
+        positionOnPage
+      }
+    }
+    const decodedApplyUrl = decodeLinkedInSafetyRedirect(rawApplyHref)
+    const canonicalApplyUrl = canonicalizeExternalApplicationUrl(rawApplyHref)
+    if (!decodedApplyUrl || !canonicalApplyUrl) {
+      return {
+        linkedinJobUrl,
+        jobTitle: title,
+        companyName: company,
+        locationText: location,
+        applyButtonKind: "external",
+        rawApplyHref,
+        decodedApplyUrl,
+        canonicalApplyUrl,
+        sourceKey: null,
+        outcome: "failed_decode",
+        skipReason: "External apply link could not be decoded safely.",
+        pageNumber,
+        positionOnPage
+      }
+    }
+    const source = matchCuratedExternalSource(canonicalApplyUrl, payload.sources, payload.selectedSourceKeys)
+    return {
+      linkedinJobUrl,
+      jobTitle: title,
+      companyName: company,
+      locationText: location,
+      applyButtonKind: "external",
+      rawApplyHref,
+      decodedApplyUrl,
+      canonicalApplyUrl,
+      sourceKey: source?.key || null,
+      outcome: source ? "accepted" : "unsupported_source",
+      skipReason: source ? null : "External apply source is not selected or not curated.",
+      pageNumber,
+      positionOnPage
+    }
+  } catch (error) {
+    return {
+      linkedinJobUrl,
+      jobTitle: title,
+      companyName: company,
+      locationText: location,
+      applyButtonKind: "unknown",
+      rawApplyHref: null,
+      decodedApplyUrl: null,
+      canonicalApplyUrl: null,
+      sourceKey: null,
+      outcome: "inspection_failed",
+      skipReason: error instanceof Error ? error.message.slice(0, 300) : "DOM inspection failed.",
+      pageNumber,
+      positionOnPage
+    }
+  }
+}
+
+function findNextJobsPageButton() {
+  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>("button, a[role='button'], a[href*='start=']"))
+  return buttons.find((button) => {
+    const label = cleanText(`${button.textContent || ""} ${button.getAttribute("aria-label") || ""}`).toLowerCase()
+    const disabled = button instanceof HTMLButtonElement ? button.disabled : button.getAttribute("aria-disabled") === "true"
+    return !disabled && NEXT_PAGE_LABELS.some((text) => label.includes(text))
+  }) || null
+}
+
+function countersFromCandidates(candidates: LinkedInJobsInspectedCandidate[], pagesVisited: number): LinkedInJobsCounters {
+  return {
+    pagesVisited,
+    jobsInspected: candidates.length,
+    externalLinksFound: candidates.filter((candidate) => candidate.rawApplyHref).length,
+    accepted: candidates.filter((candidate) => candidate.outcome === "accepted").length,
+    skippedEasyApply: candidates.filter((candidate) => candidate.outcome === "skipped_easy_apply").length,
+    unsupportedSource: candidates.filter((candidate) => candidate.outcome === "unsupported_source").length,
+    duplicates: candidates.filter((candidate) => candidate.outcome === "duplicate").length,
+    failures: candidates.filter((candidate) => candidate.outcome === "failed_decode" || candidate.outcome === "inspection_failed").length
+  }
+}
+
+async function captureLinkedInJobs(payload: ContentLinkedInJobsCaptureMessage["payload"]): Promise<ContentLinkedInJobsCaptureResponse> {
+  const candidates: LinkedInJobsInspectedCandidate[] = []
+  const startedAt = new Date().toISOString()
+  let terminalReason: LinkedInJobsDiagnostics["terminalReason"] = "max_pages_reached"
+  let safeMessage = "Reached the configured LinkedIn Jobs page limit."
+  const navigationMethod: LinkedInJobsDiagnostics["navigationMethod"] = payload.assistedSearchEnabled ? "assisted_entry" : "direct_url"
+
+  for (let page = 1; page <= payload.maxPages; page += 1) {
+    const cards = await waitForJobsCards()
+    if (cards.length === 0) {
+      terminalReason = /checkpoint|login|uas\/login|authwall/i.test(window.location.href) ? "linkedin_login_required" : "no_renderable_results"
+      safeMessage = terminalReason === "linkedin_login_required" ? "LinkedIn login is required in this Chrome profile." : "LinkedIn Jobs did not render inspectable job cards."
+      break
+    }
+    for (let index = 0; index < cards.length; index += 1) {
+      candidates.push(await inspectJobCard(cards[index], page, index + 1, payload))
+      await delay(250)
+    }
+    if (page >= payload.maxPages) break
+    const nextButton = findNextJobsPageButton()
+    if (!nextButton) {
+      terminalReason = "no_next_page"
+      safeMessage = "LinkedIn Jobs did not expose another results page."
+      break
+    }
+    nextButton.scrollIntoView({ block: "center", behavior: "auto" })
+    await delay(300)
+    nextButton.click()
+    await delay(JOBS_PAGE_DELAY_MS)
+  }
+
+  const counters = countersFromCandidates(candidates, Math.max(1, Math.min(payload.maxPages, new Set(candidates.map((candidate) => candidate.pageNumber)).size || 1)))
+  const diagnostics: LinkedInJobsDiagnostics = {
+    startedAt,
+    pageUrl: window.location.href,
+    navigationMethod,
+    terminalReason,
+    safeMessage,
+    ...counters,
+    samples: candidates.slice(0, 8).map((candidate) => ({
+      title: candidate.jobTitle,
+      company: candidate.companyName,
+      outcome: candidate.outcome,
+      applyUrl: candidate.canonicalApplyUrl
+    }))
+  }
+  return { candidates, diagnostics }
+}
+
+chrome.runtime.onMessage.addListener((message: ContentLinkedInJobsCaptureMessage, _sender, sendResponse) => {
+  if (message.type !== "CAPTURE_LINKEDIN_JOBS_EXTERNAL") {
+    return false
+  }
+  captureLinkedInJobs(message.payload)
+    .then(sendResponse)
+    .catch((error: Error) => {
+      const diagnostics: LinkedInJobsDiagnostics = {
+        startedAt: new Date().toISOString(),
+        pageUrl: window.location.href,
+        navigationMethod: message.payload.assistedSearchEnabled ? "assisted_entry" : "direct_url",
+        terminalReason: "dom_inspection_failed",
+        safeMessage: error.message || "LinkedIn Jobs DOM inspection failed.",
+        pagesVisited: 0,
+        jobsInspected: 0,
+        externalLinksFound: 0,
+        accepted: 0,
+        skippedEasyApply: 0,
+        unsupportedSource: 0,
+        duplicates: 0,
+        failures: 1,
+        samples: []
+      }
+      sendResponse({ candidates: [], diagnostics })
+    })
   return true
 })

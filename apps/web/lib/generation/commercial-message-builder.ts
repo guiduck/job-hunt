@@ -41,9 +41,9 @@ function languageDefaults(language: TargetLanguage, settings: SellerSettings | n
   if (language === "pt-BR") {
     return {
       demoUrl: "o link do demo",
-      offerPrice: settings?.landingPagePrice ? String(settings.landingPagePrice) : "um preco fechado",
-      installments: settings?.installments ? String(settings.installments) : "parcelas flexiveis",
-      deliveryTime: settings?.deliveryTime ?? "um prazo curto",
+      offerPrice: settings?.landingPagePrice ? `a partir de R$ ${String(settings.landingPagePrice)}` : "a partir de R$ 2500",
+      installments: settings?.installments ? `ate ${String(settings.installments)}x sem juros` : "ate 6x sem juros",
+      deliveryTime: settings?.deliveryTime ?? "15 dias",
       offerTitle: settings?.offerTitle ?? "uma landing page focada em conversao",
       offerDescription:
         settings?.offerDescription ?? "uma experiencia de site mais clara com chamadas de contato mais fortes",
@@ -55,9 +55,9 @@ function languageDefaults(language: TargetLanguage, settings: SellerSettings | n
 
   return {
     demoUrl: "the demo link",
-    offerPrice: settings?.landingPagePrice ? String(settings.landingPagePrice) : "a fixed project price",
-    installments: settings?.installments ? String(settings.installments) : "flexible installments",
-    deliveryTime: settings?.deliveryTime ?? "a short delivery window",
+    offerPrice: settings?.landingPagePriceUsd ? `starting at US$ ${String(settings.landingPagePriceUsd)}` : "starting at US$ 1000",
+    installments: settings?.installments ? `${String(settings.installments)} installments for Brazil only` : "installments for Brazil only",
+    deliveryTime: settings?.deliveryTime ?? "15 days",
     offerTitle: settings?.offerTitle ?? "a conversion-focused landing page",
     offerDescription:
       settings?.offerDescription ?? "a clearer website experience with stronger contact calls-to-action",
@@ -96,16 +96,24 @@ export function buildCommercialMessage({
     city: lead.city,
     demo_url: lead.demoUrl ?? defaults.demoUrl,
     offer_price: defaults.offerPrice,
+    base_price_brl: settings?.landingPagePrice ? String(settings.landingPagePrice) : "2500",
+    base_price_usd: settings?.landingPagePriceUsd ? String(settings.landingPagePriceUsd) : "1000",
+    advanced_price_range_brl: settings?.advancedPriceRangeBrl ?? "3000-5000",
+    advanced_price_range_usd: settings?.advancedPriceRangeUsd ?? "1200-2000",
+    automation_price_range_brl: settings?.automationPriceRangeBrl ?? "above 5000",
+    automation_price_range_usd: settings?.automationPriceRangeUsd ?? "above 2000",
     installments: defaults.installments,
     delivery_time: defaults.deliveryTime,
     offer_title: defaults.offerTitle,
     offer_description: defaults.offerDescription,
+    company_website: settings?.companyWebsite ?? "",
     portfolio_url: settings?.portfolioUrl ?? "",
     website_score: String(lead.leadScore),
     seller_name: defaults.sellerName,
     seller_title: defaults.sellerTitle,
     seller_email: settings?.sellerEmail ?? "",
     seller_whatsapp: settings?.sellerWhatsapp ?? "",
+    seller_linkedin_url: settings?.sellerLinkedinUrl ?? "",
     classification_reason: jsonArray(lead.classificationReasons).join("; ") || defaults.classificationReason,
     target_language: targetLanguage
   };

@@ -39,7 +39,7 @@ def generate_job_application_email(context: dict[str, object]) -> dict[str, str]
                     "provided; never expand it into facts not present in the context. Keep the signature concise and "
                     "consistent. If linkedin_url and whatsapp are both present, end with a clean contact line like "
                     "'LinkedIn: {linkedin_url} | WhatsApp: {whatsapp}'. If only one contact link/phone exists, include "
-                    "only that item. Include portfolio_url only when it is useful and does not make the signature noisy. "
+                    "only that item. If portfolio_url is present, always include it in the footer/signature as the candidate website or portfolio. "
                     "Never include WhatsApp when whatsapp is empty or null."
                 ),
             },

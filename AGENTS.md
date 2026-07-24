@@ -48,7 +48,7 @@ For general prompt refinement or change-risk review, consider:
 
 The active Spec Kit implementation task list is:
 
-- `specs/017-extension-search-history/tasks.md` for Full-time extension Search History
+- `specs/018-linkedin-jobs-external-search/tasks.md` for Full-time LinkedIn Jobs External Search
 
 ## Conflict Handling
 
@@ -82,3 +82,4 @@ Do not load optional skills unnecessarily for backend-only scraper or worker wor
   `docs/roadmap.md`, and prepare the next Spec Kit `/speckit-specify` prompt in
   `docs/next-spec-prompt.md`. Treat this as a required closeout step even when the code change is
   otherwise complete.
+

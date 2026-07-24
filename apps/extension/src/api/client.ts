@@ -27,6 +27,12 @@ import type {
   JobSearchCandidate,
   JobSearchRun,
   JobSearchRunCreate,
+  LinkedInJobsExternalCandidateCreate,
+  LinkedInJobsExternalCandidateResult,
+  LinkedInJobsExternalComplete,
+  LinkedInJobsExternalProgressUpdate,
+  LinkedInJobsExternalRunCreate,
+  CuratedExternalSourceResponse,
   Opportunity,
   OpportunityBulkDeleteRequest,
   OpportunityBulkDeleteResponse,
@@ -267,6 +273,11 @@ export function listCuratedCareerSources(options?: RequestOptions) {
   return request<CuratedCareerSource[]>("/job-search/curated-sources", {}, options)
 }
 
+export async function listExternalJobSources(options?: RequestOptions) {
+  const response = await request<CuratedExternalSourceResponse>("/job-search-runs/external-sources", {}, options)
+  return response.sources
+}
+
 export function getLatestCareerPageRun(options?: RequestOptions) {
   return request<JobSearchRun | null>("/job-search-runs/career-page/latest", {}, options)
 }
@@ -305,6 +316,37 @@ export function createCareerPageRun(payload: CareerPageSearchRunCreate, options?
   )
 }
 
+export function createLinkedInJobsExternalRun(payload: LinkedInJobsExternalRunCreate, options?: RequestOptions) {
+  return request<JobSearchRun>("/job-search-runs/linkedin-jobs-external", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  }, options)
+}
+
+export function updateLinkedInJobsExternalRun(id: string, payload: LinkedInJobsExternalProgressUpdate, options?: RequestOptions) {
+  return request<JobSearchRun>(`/job-search-runs/linkedin-jobs-external/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  }, options)
+}
+
+export function submitLinkedInJobsExternalCandidate(id: string, payload: LinkedInJobsExternalCandidateCreate, options?: RequestOptions) {
+  return request<LinkedInJobsExternalCandidateResult>(`/job-search-runs/linkedin-jobs-external/${id}/candidates`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  }, options)
+}
+
+export function completeLinkedInJobsExternalRun(id: string, payload: LinkedInJobsExternalComplete, options?: RequestOptions) {
+  return request<JobSearchRun>(`/job-search-runs/linkedin-jobs-external/${id}/complete`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  }, options)
+}
+
+export function getLatestLinkedInJobsExternalRun(options?: RequestOptions) {
+  return request<JobSearchRun | null>("/job-search-runs/linkedin-jobs-external/latest", {}, options)
+}
 export function markOpportunityApplied(id: string, options?: RequestOptions) {
   return request<Opportunity>(`/opportunities/${id}/mark-applied`, { method: "PATCH" }, options)
 }

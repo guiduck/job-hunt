@@ -187,3 +187,20 @@ candidatura ficam em `External applications` para aplicacao manual. Como planeja
 vagas de LinkedIn e career pages devem ter vida util aproximada de 1 mes apos captura, mas esta feature
 nao executa limpeza destrutiva automatica. Qualquer arquivamento/retencao deve preservar historico de
 envio, aplicacao e oportunidades com eventos.
+
+
+## LinkedIn Jobs External Search
+
+`018-linkedin-jobs-external-search` adiciona uma terceira fonte Full-time: a aba Jobs do LinkedIn como busca deterministica de candidaturas externas. A extensao continua dona da navegacao e inspecao da aba logada; API/worker ficam com persistencia, owner scope, dedupe por URL canonica, diagnosticos seguros e validacao de fontes curadas.
+
+A tela Search agora separa `External jobs` de `LinkedIn posts`. `External jobs` agrupa career-page search e LinkedIn Jobs external search usando as mesmas fontes curadas. `LinkedIn posts` preserva a captura antiga de posts e os filtros de IA.
+
+Regras do LinkedIn Jobs externo:
+
+- Easy Apply e links ausentes sao registrados como skip e nao criam oportunidade.
+- Somente URLs oficiais de fontes selecionadas/curadas viram `external_application`.
+- Safety redirects do LinkedIn sao decodificados antes de matching/dedupe.
+- A URL canonica remove tracking, preserva identidade da vaga e e usada na dedupe owner-scoped.
+- Nao ha filtro de qualidade por IA antes de salvar nem limite de aceitos por run.
+- Diagnosticos expostos: paginas, jobs inspecionados, links externos, aceitos, Easy Apply, unsupported source, duplicados, falhas, navigation method e terminal reason.
+- Nenhum Gmail draft/send request/outreach e criado por essa busca; aplicacao externa continua manual na lane `External applications`.

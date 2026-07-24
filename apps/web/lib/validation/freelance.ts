@@ -14,6 +14,15 @@ import {
 
 const optionalText = z.string().trim().optional().nullable();
 const emptyStringToUndefined = (value: unknown) => (value === "" ? undefined : value);
+const normalizeOptionalUrl = (value: unknown) => {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+};
+const optionalUrl = z.preprocess(normalizeOptionalUrl, z.string().url().optional().or(z.literal("")));
+const optionalNumber = z.preprocess(emptyStringToUndefined, z.coerce.number().nonnegative().optional());
+const optionalPositiveInt = z.preprocess(emptyStringToUndefined, z.coerce.number().int().positive().optional());
 const optionalQueryText = z.preprocess(emptyStringToUndefined, z.string().trim().optional());
 
 export const campaignCreateSchema = z.object({
@@ -70,13 +79,20 @@ export const sellerSettingsSchema = z.object({
   sellerTitle: optionalText,
   sellerEmail: z.string().email().optional().or(z.literal("")),
   sellerWhatsapp: optionalText,
-  portfolioUrl: z.string().url().optional().or(z.literal("")),
+  companyWebsite: optionalUrl,
+  portfolioUrl: optionalUrl,
+  sellerLinkedinUrl: optionalUrl,
   defaultCountry: optionalText,
   defaultCurrency: optionalText,
   offerTitle: optionalText,
   offerDescription: optionalText,
-  landingPagePrice: z.coerce.number().nonnegative().optional(),
-  installments: z.coerce.number().int().positive().optional(),
+  landingPagePrice: optionalNumber,
+  landingPagePriceUsd: optionalNumber,
+  advancedPriceRangeBrl: optionalText,
+  advancedPriceRangeUsd: optionalText,
+  automationPriceRangeBrl: optionalText,
+  automationPriceRangeUsd: optionalText,
+  installments: optionalPositiveInt,
   deliveryTime: optionalText,
   preferredNicheIds: z.array(z.string()).default([]),
   extraContext: optionalText

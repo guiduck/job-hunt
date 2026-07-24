@@ -14,6 +14,7 @@ import {
   getCurrentUser,
   getJobSearchPreference,
   getLatestCareerPageRun,
+  getLatestLinkedInJobsExternalRun,
   getOpportunity,
   getOpportunityMetrics,
   getSendingProviderAccount,
@@ -23,7 +24,7 @@ import {
   login as apiLogin,
   listEmailHistory,
   listEmailTemplates,
-  listCuratedCareerSources,
+  listExternalJobSources,
   listJobSearchRuns,
   listLinkedInSearchHistory,
   listOpportunityPage,
@@ -71,7 +72,7 @@ import type {
   UserSettings,
   UserSettingsUpdate
 } from "../api/types"
-import type { CaptureProgress, CaptureRequest, CaptureResult } from "../capture/types"
+import type { CaptureProgress, CaptureRequest, CaptureResult, LinkedInJobsProgress } from "../capture/types"
 import { appendKeywordToSearchText } from "../capture/linkedin"
 import { FIELD_ASSISTANT_MESSAGE_TYPES, normalizeActivationScope } from "../utils/fieldAssistant"
 import { clearStoredAuthSession, loadStoredAuthSession, saveStoredAuthSession } from "./authSession"
@@ -94,6 +95,8 @@ export const CAPTURE_MAX_POSTS = 1000
 export const CAPTURE_MAX_SCROLLS = 300
 export const CAREER_PAGE_DEFAULT_ACCEPTED_LIMIT = 25
 export const CAREER_PAGE_DEFAULT_INSPECTED_CAP = 200
+export const LINKEDIN_JOBS_DEFAULT_MAX_PAGES = 15
+export const LINKEDIN_JOBS_MAX_PAGES = 30
 
 const CAREER_PAGE_BUSY_STATUSES = new Set(["pending", "running"])
 
@@ -122,6 +125,12 @@ type PopupState = {
   curatedCareerSources: CuratedCareerSource[]
   selectedCareerSourceKeys: string[]
   latestCareerPageRun: JobSearchRun | null
+  latestLinkedInJobsExternalRun: JobSearchRun | null
+  linkedinJobsProgress: LinkedInJobsProgress
+  linkedinJobsMaxPages: number
+  linkedinJobsDatePosted: "any_time" | "past_month" | "past_week" | "past_24_hours"
+  linkedinJobsSort: "relevant" | "most_recent"
+  linkedinJobsAssisted: boolean
   careerPageAcceptedLimit: number
   careerPageInspectedCap: number
   careerPagePolling: boolean
@@ -172,6 +181,12 @@ type PopupState = {
   setSelectedCareerSourceKeys: (selectedCareerSourceKeys: string[]) => void
   setCareerPageAcceptedLimit: (careerPageAcceptedLimit: number) => void
   setCareerPageInspectedCap: (careerPageInspectedCap: number) => void
+  setLinkedInJobsMaxPages: (maxPages: number) => void
+  setLinkedInJobsDatePosted: (datePosted: "any_time" | "past_month" | "past_week" | "past_24_hours") => void
+  setLinkedInJobsSort: (sort: "relevant" | "most_recent") => void
+  setLinkedInJobsAssisted: (assisted: boolean) => void
+  startLinkedInJobsExternalSearch: () => Promise<void>
+  refreshLinkedInJobsExternalSearch: () => Promise<void>
   setJobsLane: (jobsLane: JobApplicationKind) => Promise<void>
   setCaptureProgress: (captureProgress: CaptureProgress) => void
   setSelectedOpportunity: (selectedOpportunity: Opportunity | null) => void
@@ -247,6 +262,10 @@ type PersistedPopupState = {
   selectedCareerSourceKeys?: string[]
   careerPageAcceptedLimit?: number
   careerPageInspectedCap?: number
+  linkedinJobsMaxPages?: number
+  linkedinJobsDatePosted?: "any_time" | "past_month" | "past_week" | "past_24_hours"
+  linkedinJobsSort?: "relevant" | "most_recent"
+  linkedinJobsAssisted?: boolean
   filters?: OpportunityFilters
   captureProgress?: CaptureProgress
 }
@@ -257,6 +276,7 @@ const OPPORTUNITY_PAGE_CACHE_TTL_MS = 30_000
 const OPPORTUNITY_PAGE_CACHE_MAX_ENTRIES = 12
 const CAREER_PAGE_POLL_INTERVAL_MS = 3000
 const CAREER_PAGE_MAX_POLL_ATTEMPTS = 80
+const DEFAULT_LINKEDIN_JOBS_PROGRESS: LinkedInJobsProgress = { status: "idle", message: "Ready to inspect LinkedIn Jobs." }
 
 type CachedOpportunityPage = {
   cachedAt: number
@@ -385,6 +405,22 @@ function sendCaptureRequest(payload: CaptureRequest) {
   return chrome.runtime.sendMessage({ type: "START_LINKEDIN_CAPTURE", payload }) as Promise<CaptureResponse>
 }
 
+type LinkedInJobsExternalResponse =
+  | { ok: true; result: { runId: string; tabId: number; diagnostics?: LinkedInJobsProgress["diagnostics"] } }
+  | { ok: false; error: string }
+
+function sendLinkedInJobsExternalRequest(payload: {
+  searchText: string
+  selectedSourceKeys: string[]
+  maxPages: number
+  datePosted: "any_time" | "past_month" | "past_week" | "past_24_hours"
+  sort: "relevant" | "most_recent"
+  assistedSearchEnabled: boolean
+  sources: Array<{ key: string; name: string; domain: string; active: boolean }>
+}) {
+  return chrome.runtime.sendMessage({ type: "START_LINKEDIN_JOBS_EXTERNAL_CAPTURE", payload }) as Promise<LinkedInJobsExternalResponse>
+}
+
 function errorMessage(error: unknown, fallback: string) {
   if (error instanceof ApiError && error.status >= 500) {
     return `Local API error (${error.status}). Check Docker logs for the server traceback.`
@@ -496,6 +532,12 @@ export const usePopupStore = create<PopupState>((set, get) => ({
   curatedCareerSources: [],
   selectedCareerSourceKeys: [],
   latestCareerPageRun: null,
+  latestLinkedInJobsExternalRun: null,
+  linkedinJobsProgress: DEFAULT_LINKEDIN_JOBS_PROGRESS,
+  linkedinJobsMaxPages: clampNumber(persistedPopupState.linkedinJobsMaxPages ?? LINKEDIN_JOBS_DEFAULT_MAX_PAGES, 1, LINKEDIN_JOBS_MAX_PAGES),
+  linkedinJobsDatePosted: persistedPopupState.linkedinJobsDatePosted || "any_time",
+  linkedinJobsSort: persistedPopupState.linkedinJobsSort || "relevant",
+  linkedinJobsAssisted: persistedPopupState.linkedinJobsAssisted || false,
   careerPageAcceptedLimit: clampNumber(
     persistedPopupState.careerPageAcceptedLimit ?? CAREER_PAGE_DEFAULT_ACCEPTED_LIMIT,
     1,
@@ -578,6 +620,24 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       persistPopupState({ careerPageInspectedCap: value })
       return { careerPageInspectedCap: value }
     }),
+  setLinkedInJobsMaxPages: (maxPages) =>
+    set(() => {
+      const value = clampNumber(maxPages, 1, LINKEDIN_JOBS_MAX_PAGES)
+      persistPopupState({ linkedinJobsMaxPages: value })
+      return { linkedinJobsMaxPages: value }
+    }),
+  setLinkedInJobsDatePosted: (linkedinJobsDatePosted) => {
+    persistPopupState({ linkedinJobsDatePosted })
+    set({ linkedinJobsDatePosted })
+  },
+  setLinkedInJobsSort: (linkedinJobsSort) => {
+    persistPopupState({ linkedinJobsSort })
+    set({ linkedinJobsSort })
+  },
+  setLinkedInJobsAssisted: (linkedinJobsAssisted) => {
+    persistPopupState({ linkedinJobsAssisted })
+    set({ linkedinJobsAssisted })
+  },
   setJobsLane: async (jobsLane) => {
     const laneFilters = opportunityFiltersForLane(jobsLane, { ...get().filters, page: 1 })
     persistPopupState({ filters: laneFilters, selectedJobIds: [], showBulkEmail: false })
@@ -820,7 +880,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         listJobSearchRuns(),
         getOpportunityMetrics(),
         listLinkedInSearchHistory().catch(() => get().searchHistory),
-        listCuratedCareerSources().catch(() => get().curatedCareerSources),
+        listExternalJobSources().catch(() => get().curatedCareerSources),
         getLatestCareerPageRun().catch(() => get().latestCareerPageRun)
       ])
       const currentSelectedCareerSourceKeys = get().selectedCareerSourceKeys
@@ -1126,11 +1186,81 @@ export const usePopupStore = create<PopupState>((set, get) => ({
     }
   },
 
+
+  refreshLinkedInJobsExternalSearch: async () => {
+    try {
+      set({ latestLinkedInJobsExternalRun: await getLatestLinkedInJobsExternalRun() })
+    } catch (error) {
+      set({ error: errorMessage(error, "Could not load LinkedIn Jobs external search state.") })
+    }
+  },
+
+  startLinkedInJobsExternalSearch: async () => {
+    const {
+      keywords,
+      selectedCareerSourceKeys,
+      curatedCareerSources,
+      linkedinJobsMaxPages,
+      linkedinJobsDatePosted,
+      linkedinJobsSort,
+      linkedinJobsAssisted,
+      latestLinkedInJobsExternalRun
+    } = get()
+    if (latestLinkedInJobsExternalRun && CAREER_PAGE_BUSY_STATUSES.has(latestLinkedInJobsExternalRun.status)) {
+      return
+    }
+    set({ loading: true, error: null, linkedinJobsProgress: { status: "opening", message: "Opening LinkedIn Jobs..." } })
+    try {
+      if (selectedCareerSourceKeys.length === 0) {
+        throw new Error("Select at least one external job source before searching LinkedIn Jobs.")
+      }
+      const searchText = keywords.trim()
+      if (searchText) {
+        await updateJobSearchPreference({ search_text: searchText }).catch(() => undefined)
+      }
+      const response = await sendLinkedInJobsExternalRequest({
+        searchText,
+        selectedSourceKeys: selectedCareerSourceKeys,
+        maxPages: linkedinJobsMaxPages,
+        datePosted: linkedinJobsDatePosted,
+        sort: linkedinJobsSort,
+        assistedSearchEnabled: linkedinJobsAssisted,
+        sources: curatedCareerSources.map((source) => ({
+          key: source.key,
+          name: source.name,
+          domain: source.domain,
+          active: source.active
+        }))
+      })
+      if (response.ok === false) {
+        throw new Error(response.error)
+      }
+      set({
+        linkedinJobsProgress: {
+          status: "completed",
+          message: response.result.diagnostics?.safeMessage || "LinkedIn Jobs external search finished.",
+          runId: response.result.runId,
+          sourceTabId: response.result.tabId,
+          diagnostics: response.result.diagnostics
+        }
+      })
+      clearOpportunityPageCache()
+      await get().refreshLinkedInJobsExternalSearch()
+      await get().refreshData()
+    } catch (error) {
+      const message = errorMessage(error, "Could not run LinkedIn Jobs external search.")
+      set({ error: message, linkedinJobsProgress: { status: "failed", message } })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
   refreshCareerPageSearch: async () => {
     try {
-      const [curatedCareerSources, latestCareerPageRun] = await Promise.all([
-        listCuratedCareerSources(),
-        getLatestCareerPageRun()
+      const [curatedCareerSources, latestCareerPageRun, latestLinkedInJobsExternalRun] = await Promise.all([
+        listExternalJobSources(),
+        getLatestCareerPageRun(),
+        getLatestLinkedInJobsExternalRun()
       ])
       const currentSelectedCareerSourceKeys =
         get().selectedCareerSourceKeys.length > 0
@@ -1142,7 +1272,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         ? Array.from(activeCareerSourceKeys)
         : currentSelectedCareerSourceKeys.filter((key) => activeCareerSourceKeys.has(key))
       persistPopupState({ selectedCareerSourceKeys })
-      set({ curatedCareerSources, selectedCareerSourceKeys, latestCareerPageRun })
+      set({ curatedCareerSources, selectedCareerSourceKeys, latestCareerPageRun, latestLinkedInJobsExternalRun })
     } catch (error) {
       set({ error: errorMessage(error, "Could not load career-page search state.") })
     }

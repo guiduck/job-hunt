@@ -2,6 +2,10 @@ import {
   MAX_SAVED_SEARCH_KEYWORDS,
   appendKeywordToSearchText,
   buildLinkedInContentSearchUrl,
+  buildLinkedInJobsSearchUrl,
+  canonicalizeExternalApplicationUrl,
+  decodeLinkedInSafetyRedirect,
+  matchCuratedExternalSource,
   mergeSavedSearchKeywords,
   normalizeSearchKeywords
 } from "./linkedin"
@@ -58,4 +62,57 @@ const capped = mergeSavedSearchKeywords(
 )
 if (capped.length !== MAX_SAVED_SEARCH_KEYWORDS || capped.at(-1) !== "react" || capped.includes("typescript")) {
   throw new Error("Saved keyword merge should keep existing order and cap at 30 badges.")
+}
+
+const defaultJobsUrl = new URL(buildLinkedInJobsSearchUrl({}))
+if (defaultJobsUrl.hostname !== "www.linkedin.com" || !defaultJobsUrl.pathname.includes("/jobs/search")) {
+  throw new Error("LinkedIn Jobs default browse should use the classic jobs search URL.")
+}
+
+if (defaultJobsUrl.searchParams.has("geoId")) {
+  throw new Error("LinkedIn Jobs default URL must not hardcode geography.")
+}
+
+const keywordJobsUrl = new URL(
+  buildLinkedInJobsSearchUrl({
+    searchText: "typescript remote backend",
+    mode: "classic_keywords",
+    datePosted: "past_week",
+    sort: "most_recent"
+  })
+)
+if (keywordJobsUrl.searchParams.get("keywords") !== "typescript OR remote OR backend") {
+  throw new Error("LinkedIn Jobs keyword URL should preserve OR-style operator intent.")
+}
+if (keywordJobsUrl.searchParams.get("f_TPR") !== "r604800" || keywordJobsUrl.searchParams.get("sortBy") !== "DD") {
+  throw new Error("LinkedIn Jobs classic URL should include date and recency sort facets.")
+}
+
+const redirectUrl = "https://www.linkedin.com/safety/go?url=https%3A%2F%2Fjobs.ashbyhq.com%2Fexample%2Fabc%3Futm_source%3Dlinkedin%26jobId%3D123"
+const decodedApplyUrl = decodeLinkedInSafetyRedirect(redirectUrl)
+if (decodedApplyUrl !== "https://jobs.ashbyhq.com/example/abc?utm_source=linkedin&jobId=123") {
+  throw new Error("LinkedIn safety redirects should decode the official apply URL.")
+}
+
+const canonicalApplyUrl = canonicalizeExternalApplicationUrl(redirectUrl)
+if (canonicalApplyUrl !== "https://jobs.ashbyhq.com/example/abc?jobId=123") {
+  throw new Error("Canonical application URLs should remove tracking parameters and preserve job identity.")
+}
+
+const matchedSource = matchCuratedExternalSource(
+  canonicalApplyUrl,
+  [{ key: "ashby", domain: "jobs.ashbyhq.com", active: true }],
+  ["ashby"]
+)
+if (matchedSource?.key !== "ashby") {
+  throw new Error("Source matching should accept selected curated ATS domains.")
+}
+
+const inactiveSource = matchCuratedExternalSource(
+  "https://jobs.teamtailor.com/example/abc",
+  [{ key: "teamtailor", domain: "jobs.teamtailor.com", active: false }],
+  ["teamtailor"]
+)
+if (inactiveSource) {
+  throw new Error("Inactive optional sources should not match until enabled.")
 }

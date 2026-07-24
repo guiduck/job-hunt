@@ -10,6 +10,7 @@ class JobSearchRunStatus(StrEnum):
     COMPLETED = "completed"
     COMPLETED_NO_RESULTS = "completed_no_results"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class JobCandidateOutcome(StrEnum):
@@ -20,6 +21,11 @@ class JobCandidateOutcome(StrEnum):
     DUPLICATE = "duplicate"
     FAILED_PARSE = "failed_parse"
     FAILED_PROVIDER = "failed_provider"
+    SKIPPED_EASY_APPLY = "skipped_easy_apply"
+    UNSUPPORTED_SOURCE = "unsupported_source"
+    FAILED_DECODE = "failed_decode"
+    MISSING_EXTERNAL_APPLY = "missing_external_apply"
+    INSPECTION_FAILED = "inspection_failed"
     BLOCKED_SOURCE = "blocked_source"
     INACCESSIBLE_SOURCE = "inaccessible_source"
     EMPTY_SOURCE = "empty_source"
@@ -68,6 +74,40 @@ class SearchSortOrder(StrEnum):
 class JobSearchKind(StrEnum):
     LINKEDIN = "linkedin"
     CAREER_PAGE = "career_page"
+    LINKEDIN_JOBS_EXTERNAL = "linkedin_jobs_external"
+
+
+class LinkedInJobsSearchMode(StrEnum):
+    DEFAULT_BROWSE = "default_browse"
+    CLASSIC_KEYWORDS = "classic_keywords"
+    ASSISTED = "assisted"
+
+
+class LinkedInJobsDatePosted(StrEnum):
+    ANY_TIME = "any_time"
+    PAST_MONTH = "past_month"
+    PAST_WEEK = "past_week"
+    PAST_24_HOURS = "past_24_hours"
+
+
+class LinkedInJobsSort(StrEnum):
+    RELEVANT = "relevant"
+    MOST_RECENT = "most_recent"
+
+
+class LinkedInJobsNavigationMethod(StrEnum):
+    DIRECT_URL = "direct_url"
+    DIRECT_URL_WITH_GEO = "direct_url_with_geo"
+    JOBS_CLICK_PATH = "jobs_click_path"
+    ASSISTED_ENTRY = "assisted_entry"
+    UNKNOWN = "unknown"
+
+
+class LinkedInJobsApplyButtonKind(StrEnum):
+    EXTERNAL = "external"
+    EASY_APPLY = "easy_apply"
+    MISSING = "missing"
+    UNKNOWN = "unknown"
 
 
 class JobApplicationKind(StrEnum):
@@ -213,6 +253,68 @@ class JobSearchRunCreate(BaseModel):
     ai_filter_settings: AIFilterSettings = Field(default_factory=AIFilterSettings)
 
 
+class LinkedInJobsExternalRunCreate(BaseModel):
+    search_text: str | None = None
+    search_mode: LinkedInJobsSearchMode = LinkedInJobsSearchMode.DEFAULT_BROWSE
+    query_terms: list[str] = Field(default_factory=list)
+    date_posted: LinkedInJobsDatePosted = LinkedInJobsDatePosted.ANY_TIME
+    sort: LinkedInJobsSort = LinkedInJobsSort.RELEVANT
+    selected_source_keys: list[str] | None = None
+    max_pages: int = Field(default=15, ge=1, le=30)
+    assisted_search_enabled: bool = False
+
+
+class LinkedInJobsExternalProgressUpdate(BaseModel):
+    status: JobSearchRunStatus = JobSearchRunStatus.RUNNING
+    navigation_method: LinkedInJobsNavigationMethod = LinkedInJobsNavigationMethod.UNKNOWN
+    pages_visited: int = Field(default=0, ge=0)
+    jobs_inspected: int = Field(default=0, ge=0)
+    external_links_found: int = Field(default=0, ge=0)
+    accepted: int = Field(default=0, ge=0)
+    skipped_easy_apply: int = Field(default=0, ge=0)
+    unsupported_source: int = Field(default=0, ge=0)
+    duplicates: int = Field(default=0, ge=0)
+    failures: int = Field(default=0, ge=0)
+    safe_message: str | None = None
+
+
+class LinkedInJobsExternalCandidateCreate(BaseModel):
+    linkedin_job_url: str | None = None
+    job_title: str | None = None
+    company_name: str | None = None
+    location_text: str | None = None
+    apply_button_kind: LinkedInJobsApplyButtonKind = LinkedInJobsApplyButtonKind.UNKNOWN
+    raw_apply_href: str | None = None
+    decoded_apply_url: str | None = None
+    canonical_apply_url: str | None = None
+    source_key: str | None = None
+    outcome: JobCandidateOutcome
+    skip_reason: str | None = None
+    page_number: int = Field(default=1, ge=1)
+    position_on_page: int | None = Field(default=None, ge=1)
+
+
+class LinkedInJobsExternalCandidateResult(BaseModel):
+    candidate_id: str
+    outcome: JobCandidateOutcome
+    opportunity_id: str | None = None
+    duplicate_of_opportunity_id: str | None = None
+
+
+class LinkedInJobsExternalComplete(BaseModel):
+    status: JobSearchRunStatus = JobSearchRunStatus.COMPLETED
+    terminal_reason: str
+    pages_visited: int = Field(default=0, ge=0)
+    jobs_inspected: int = Field(default=0, ge=0)
+    external_links_found: int = Field(default=0, ge=0)
+    accepted: int = Field(default=0, ge=0)
+    skipped_easy_apply: int = Field(default=0, ge=0)
+    unsupported_source: int = Field(default=0, ge=0)
+    duplicates: int = Field(default=0, ge=0)
+    failures: int = Field(default=0, ge=0)
+    navigation_method: LinkedInJobsNavigationMethod = LinkedInJobsNavigationMethod.UNKNOWN
+
+
 class CareerPageSearchRunCreate(BaseModel):
     keyword_set_id: str | None = None
     keywords: list[str] | None = None
@@ -230,6 +332,11 @@ class CuratedCareerSource(BaseModel):
     domain: str
     active: bool = True
     search_hint: str | None = None
+    enabled_by_default: bool = True
+
+
+class CuratedExternalSourceResponse(BaseModel):
+    sources: list[CuratedCareerSource]
 
 
 class JobSearchRun(BaseModel):

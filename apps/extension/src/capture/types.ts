@@ -123,3 +123,97 @@ export type ContentCaptureResponse = {
   posts: LinkedInCapturedPost[]
   diagnostics: CaptureDiagnostics
 }
+
+export type LinkedInJobsTerminalReason =
+  | "max_pages_reached"
+  | "no_next_page"
+  | "no_renderable_results"
+  | "linkedin_login_required"
+  | "navigation_failed"
+  | "dom_inspection_failed"
+  | "assisted_entry_unavailable"
+  | "assisted_navigation_failed"
+  | "cancelled"
+
+export type LinkedInJobsExternalRequest = {
+  searchText: string
+  selectedSourceKeys: string[]
+  maxPages: number
+  datePosted: "any_time" | "past_month" | "past_week" | "past_24_hours"
+  sort: "relevant" | "most_recent"
+  assistedSearchEnabled: boolean
+  sources: Array<{ key: string; name: string; domain: string; active: boolean }>
+}
+
+export type LinkedInJobsCounters = {
+  pagesVisited: number
+  jobsInspected: number
+  externalLinksFound: number
+  accepted: number
+  skippedEasyApply: number
+  unsupportedSource: number
+  duplicates: number
+  failures: number
+}
+
+export type LinkedInJobsInspectedCandidate = {
+  linkedinJobUrl: string | null
+  jobTitle: string | null
+  companyName: string | null
+  locationText: string | null
+  applyButtonKind: "external" | "easy_apply" | "missing" | "unknown"
+  rawApplyHref: string | null
+  decodedApplyUrl: string | null
+  canonicalApplyUrl: string | null
+  sourceKey: string | null
+  outcome:
+    | "accepted"
+    | "skipped_easy_apply"
+    | "unsupported_source"
+    | "duplicate"
+    | "failed_decode"
+    | "missing_external_apply"
+    | "inspection_failed"
+  skipReason: string | null
+  pageNumber: number
+  positionOnPage: number | null
+}
+
+export type LinkedInJobsDiagnostics = LinkedInJobsCounters & {
+  startedAt: string
+  pageUrl: string
+  navigationMethod: "direct_url" | "direct_url_with_geo" | "jobs_click_path" | "assisted_entry" | "unknown"
+  terminalReason: LinkedInJobsTerminalReason
+  safeMessage: string
+  samples: Array<{ title: string | null; company: string | null; outcome: string; applyUrl: string | null }>
+}
+
+export type LinkedInJobsExternalResult = {
+  runId?: string
+  tabId: number
+  candidates: LinkedInJobsInspectedCandidate[]
+  diagnostics: LinkedInJobsDiagnostics
+}
+
+export type LinkedInJobsProgress = {
+  status: "idle" | "opening" | "capturing" | "submitting" | "completed" | "failed"
+  message: string
+  runId?: string
+  sourceTabId?: number
+  diagnostics?: LinkedInJobsDiagnostics
+}
+
+export type StartLinkedInJobsExternalMessage = {
+  type: "START_LINKEDIN_JOBS_EXTERNAL_CAPTURE"
+  payload: LinkedInJobsExternalRequest
+}
+
+export type ContentLinkedInJobsCaptureMessage = {
+  type: "CAPTURE_LINKEDIN_JOBS_EXTERNAL"
+  payload: LinkedInJobsExternalRequest
+}
+
+export type ContentLinkedInJobsCaptureResponse = {
+  candidates: LinkedInJobsInspectedCandidate[]
+  diagnostics: LinkedInJobsDiagnostics
+}

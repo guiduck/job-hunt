@@ -14,5 +14,6 @@ alwaysApply: true
 
 <!-- SPECKIT START -->
 For additional context about the active Spec Kit implementation task list, read:
-`specs/017-extension-search-history/tasks.md`
+`specs/018-linkedin-jobs-external-search/tasks.md`
 <!-- SPECKIT END -->
+

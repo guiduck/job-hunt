@@ -98,3 +98,20 @@ const searchHistoryStateContract: Pick<
 > = {} as PopupStoreState
 
 void searchHistoryStateContract
+const linkedinJobsStateContract: Pick<
+  PopupStoreState,
+  | "latestLinkedInJobsExternalRun"
+  | "linkedinJobsProgress"
+  | "linkedinJobsMaxPages"
+  | "linkedinJobsDatePosted"
+  | "linkedinJobsSort"
+  | "linkedinJobsAssisted"
+  | "setLinkedInJobsMaxPages"
+  | "setLinkedInJobsDatePosted"
+  | "setLinkedInJobsSort"
+  | "setLinkedInJobsAssisted"
+  | "startLinkedInJobsExternalSearch"
+  | "refreshLinkedInJobsExternalSearch"
+> = {} as PopupStoreState
+
+void linkedinJobsStateContract

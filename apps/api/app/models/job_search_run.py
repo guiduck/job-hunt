@@ -15,6 +15,7 @@ class JobSearchRunStatus(StrEnum):
     COMPLETED = "completed"
     COMPLETED_NO_RESULTS = "completed_no_results"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class JobCandidateOutcome(StrEnum):
@@ -25,6 +26,11 @@ class JobCandidateOutcome(StrEnum):
     DUPLICATE = "duplicate"
     FAILED_PARSE = "failed_parse"
     FAILED_PROVIDER = "failed_provider"
+    SKIPPED_EASY_APPLY = "skipped_easy_apply"
+    UNSUPPORTED_SOURCE = "unsupported_source"
+    FAILED_DECODE = "failed_decode"
+    MISSING_EXTERNAL_APPLY = "missing_external_apply"
+    INSPECTION_FAILED = "inspection_failed"
     BLOCKED_SOURCE = "blocked_source"
     INACCESSIBLE_SOURCE = "inaccessible_source"
     EMPTY_SOURCE = "empty_source"
@@ -66,6 +72,7 @@ class SearchSortOrder(StrEnum):
 class JobSearchKind(StrEnum):
     LINKEDIN = "linkedin"
     CAREER_PAGE = "career_page"
+    LINKEDIN_JOBS_EXTERNAL = "linkedin_jobs_external"
 
 
 class JobSearchRun(Base):

@@ -212,12 +212,91 @@ export type JobSearchRunCreate = {
   ai_filter_settings?: AIFilterSettings
 }
 
+export type LinkedInJobsSearchMode = "default_browse" | "classic_keywords" | "assisted"
+export type LinkedInJobsDatePosted = "any_time" | "past_month" | "past_week" | "past_24_hours"
+export type LinkedInJobsSort = "relevant" | "most_recent"
+export type LinkedInJobsNavigationMethod = "direct_url" | "direct_url_with_geo" | "jobs_click_path" | "assisted_entry" | "unknown"
+export type LinkedInJobsCandidateOutcome =
+  | "accepted"
+  | "skipped_easy_apply"
+  | "unsupported_source"
+  | "duplicate"
+  | "failed_decode"
+  | "missing_external_apply"
+  | "inspection_failed"
+
 export type CuratedCareerSource = {
   key: string
   name: string
   domain: string
   active: boolean
   search_hint: string | null
+  enabled_by_default?: boolean
+}
+export type CuratedExternalSourceResponse = {
+  sources: CuratedCareerSource[]
+}
+
+export type LinkedInJobsExternalRunCreate = {
+  search_text?: string | null
+  search_mode?: LinkedInJobsSearchMode
+  query_terms?: string[]
+  date_posted?: LinkedInJobsDatePosted
+  sort?: LinkedInJobsSort
+  selected_source_keys?: string[] | null
+  max_pages?: number
+  assisted_search_enabled?: boolean
+}
+
+export type LinkedInJobsExternalProgressUpdate = {
+  status?: JobSearchRunStatus
+  navigation_method?: LinkedInJobsNavigationMethod
+  pages_visited?: number
+  jobs_inspected?: number
+  external_links_found?: number
+  accepted?: number
+  skipped_easy_apply?: number
+  unsupported_source?: number
+  duplicates?: number
+  failures?: number
+  safe_message?: string | null
+}
+
+export type LinkedInJobsExternalCandidateCreate = {
+  linkedin_job_url?: string | null
+  job_title?: string | null
+  company_name?: string | null
+  location_text?: string | null
+  apply_button_kind?: "external" | "easy_apply" | "missing" | "unknown"
+  raw_apply_href?: string | null
+  decoded_apply_url?: string | null
+  canonical_apply_url?: string | null
+  source_key?: string | null
+  outcome: LinkedInJobsCandidateOutcome
+  skip_reason?: string | null
+  page_number?: number
+  position_on_page?: number | null
+}
+
+export type LinkedInJobsExternalCandidateResult = {
+  candidate_id: string
+  outcome: LinkedInJobsCandidateOutcome
+  opportunity_id: string | null
+  duplicate_of_opportunity_id: string | null
+}
+
+export type LinkedInJobsExternalComplete = {
+  status?: JobSearchRunStatus
+  terminal_reason: string
+  pages_visited?: number
+  jobs_inspected?: number
+  external_links_found?: number
+  accepted?: number
+  skipped_easy_apply?: number
+  unsupported_source?: number
+  duplicates?: number
+  failures?: number
+  navigation_method?: LinkedInJobsNavigationMethod
 }
 
 export type CareerPageSearchRunCreate = {

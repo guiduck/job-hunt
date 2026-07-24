@@ -1,30 +1,11 @@
 ## Command
 speckit.specify
 
-## Feature
-Full-time Search History Drilldown
+## Candidate Feature
+Full-time LinkedIn Jobs External Search Manual Validation Follow-up
 
 ## Context
-`017-extension-search-history` now ships a compact Full-time extension `history` tab with the 20 most recent LinkedIn Search runs, nullable raw LinkedIn result counts, and date-independent query/keyword rankings. The next useful slice should deepen evidence inspection without expanding into Freelance or career-page search.
+Spec 018 has its automated implementation complete. The next product/spec decision should be based on manual LinkedIn smoke results: direct Jobs URL behavior without geoId, whether geoId is needed, whether fallback click-path is required, whether assisted entry is reliable, and whether diagnostics/counters match real mixed cards.
 
-## Objective
-Specify a follow-up Full-time extension feature that lets the operator drill into one History run from the `history` tab and inspect the useful evidence already available in the system: run status, safe diagnostics, AI-filter counters/reasons, accepted opportunities, duplicate/rejected candidates, and links/actions that help decide whether a query/keyword is worth repeating.
-
-## Requirements
-1. Keep scope limited to `apps/extension`, `apps/api`, and existing Full-time job-search data.
-2. Do not change `apps/web` Freelance schema, leads, outreach, Email, WhatsApp, provider settings, or Prisma migrations.
-3. Do not introduce automated cleanup, deletion, or destructive retention behavior.
-4. Reuse existing candidates/opportunities/run endpoints where possible; add only additive API fields if needed.
-5. Keep diagnostics safe: no secrets, OAuth tokens, raw provider credentials, or oversized metadata blobs in the extension UI.
-6. Preserve the current History behavior: 20 recent LinkedIn runs plus date-independent keyword/query rankings.
-7. Missing historical raw counts remain unknown, never zero.
-
-## Acceptance Focus
-- From a History row, the operator can open an evidence/detail view for that run.
-- The detail view separates accepted, duplicate, rejected, failed-provider, and AI-filter-rejected outcomes.
-- The detail view surfaces enough source/query/status context to decide whether to retry, refine, or retire that search query.
-- The feature remains compact enough for the Plasmo popup and does not become a marketing/landing page.
-## Freelance app guardrail
-Recent app-web hotfix: lead detail has AI-backed Lovable prompt/commercial message generation and sends from the existing `Commercial message` card through a simple `Send message` modal. Email is disabled when the lead has no email, and WhatsApp phone numbers are normalized before Twilio delivery. Keep the next Full-time Search History Drilldown spec isolated from this Freelance flow and do not alter `apps/web` outreach behavior unless explicitly requested.
-## Field Assistant modal textarea hotfix
-Recent extension hotfix: Field Assistant detection/fill now handles visible textareas inside external-site modals and React/Vue-controlled inputs more reliably. Preserve this behavior when specifying or implementing the next Full-time Search History Drilldown work.
+## Prompt
+Create the next spec only after manual smoke observations are recorded. If LinkedIn Jobs external search works reliably, specify polishing/history drilldown for external runs. If direct URL or DOM inspection is fragile, specify hardening for LinkedIn Jobs navigation selectors, fallback click-path, and operator recovery controls. Keep `apps/web`/Freelance out of scope.

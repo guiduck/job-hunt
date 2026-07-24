@@ -79,6 +79,9 @@ Estado atual:
 - a spec `017-extension-search-history` foi implementada para adicionar uma aba `history` na extensao
   `Full-time`, mostrando 20 runs LinkedIn recentes, agregados por query/keyword e o total bruto de
   resultados capturados no LinkedIn antes de dedupe, mantendo duplicatas como diagnostico separado
+- a spec Full-time priorizada agora existe em `specs/018-linkedin-jobs-external-search/spec.md`: usar a aba Jobs do LinkedIn como fonte deterministica de candidaturas externas, capturando apenas links externos de fontes curadas, sem filtro de qualidade por IA antes de salvar, e reorganizando `/search` em abas para separar `External jobs` de `LinkedIn posts`
+
+- a spec `018-linkedin-jobs-external-search` foi implementada no recorte automatizado em 2026-07-23: API lifecycle `linkedin_jobs_external`, dedupe por URL canonica, fonte curada compartilhada, runtime background/content-script da extensao, Search UI em `External jobs`/`LinkedIn posts`, diagnostics e guards de no-outreach/apps-web. Falta validar manualmente o comportamento real do LinkedIn para direct URL/geoId/click path antes de chamar o runtime de estavel.
 
 Gate restante desta fase:
 
@@ -184,6 +187,7 @@ Estado atual:
   contratos, testes, docs e validacao; a implementacao deve comecar por fundacao + US1 como MVP antes
   de avancar para abas, IA, aplicacao manual e metricas
 
+
 Gate restante desta fase:
 
 - fazer smoke manual real do assistente de campos em formularios de candidatura variados, validando
@@ -260,6 +264,17 @@ nao ha run ativa. O worker tambem passou a pedir resultados dos ultimos 31 dias 
 rejeitar resultados com data explicita mais antiga antes de criar opportunities, para reduzir vagas
 expiradas. Testes focados de API/worker/extensao passam. Falta apenas smoke manual com provider real e
 ajuste de caps apos amostra.
+
+Recorte Full-time priorizado especificado e planejado: `specs/018-linkedin-jobs-external-search/spec.md`. A busca deve viver na
+extensao, junto da aba de vagas externas, e usar LinkedIn Jobs como superficie de garimpo de URLs
+externas oficiais. Diferente da busca por posts e do career-page search com IA, este caminho deve ser
+puramente deterministico: filtros de periodo/ordenacao/keywords quando possiveis, mesma allowlist de
+fontes curadas, exclusao de candidatura simplificada, paginacao com padrao 15 e maximo 30 paginas,
+sem limite de aceites e sem parada precoce por poucos matches.
+`/speckit-plan` definiu que a extensao e dona da navegacao/inspecao usando a sessao LinkedIn do
+operador, enquanto API/worker ficam com persistencia, dedupe, validacao, diagnosticos e utilitarios
+compartilhados. `/speckit-tasks` gerou 95 tarefas; o proximo passo e `/speckit-implement`,
+iniciando por setup/fundacao e US1 como MVP.
 
 ## Fase 4. Prospeccao Freelance
 
@@ -502,6 +517,18 @@ Antes de acelerar para a proxima fase, validar:
 - compatibilidade do schema e dos contratos atuais
 - seguranca de secrets e ownership por usuario
 
+## Hotfix Freelance Offer Pricing Context - 2026-07-22
+
+As configuracoes do vendedor no app web `Freelance` agora tratam preco como referencia de escopo, nao promessa fixa. O formulario inclui preco base de landing page em BRL/USD, ranges para projetos com banco/captura/admin/integracoes e ranges para automacoes como atendimento WhatsApp. Defaults: R$ 2500, US$ 1000, entrega base de 15 dias e parcelamento BR em ate 6x sem juros. A geracao IA deve usar `a partir de`/`starting at`, adaptar moeda/parcelamento ao mercado do lead e explicar que o valor varia conforme necessidades do cliente. URLs de website/portfolio/LinkedIn aceitam entrada sem protocolo e sao normalizadas para `https://...`.
+
+## Hotfix Freelance Seller Contact Context - 2026-07-22
+
+O app web `Freelance` agora espelha as configuracoes comerciais mais uteis da extensao: nome, email, WhatsApp, website da empresa, portfolio/site e LinkedIn. `SellerSettings` ganhou `companyWebsite` e `sellerLinkedinUrl`, com migration Prisma correspondente. A geracao IA de mensagens comerciais usa esses dados como contatos do vendedor e separa explicitamente o telefone do lead como `leadPhoneForOperatorReviewOnly`, para impedir que o modelo assine mensagens com o telefone do prospect. Quando `companyWebsite` ou `portfolioUrl` estiverem configurados, o prompt pede inclusao do link no rodape/assinatura; WhatsApp de assinatura so pode vir de `sellerWhatsapp`.
+
+A extensao `Full-time` ja enviava `portfolio_url`, `linkedin_url` e `whatsapp` no contexto de geracao de email. O prompt fixo foi reforcado para sempre incluir `portfolio_url` no rodape/assinatura quando configurado, mantendo a regra de nao incluir WhatsApp vazio.
+
+Ideia futura para discovery `Freelance`: criar uma spec separada de scraper/provider de Instagram focado em perfis comerciais publicos por nicho/localidade/hashtags/places, extrair bio/nome/categoria/cidade/telefone/email/link-in-bio/site, classificar ausencia ou fraqueza de website e cruzar com verificacao Google/Maps pelo nome + cidade. O score resultante pode priorizar ofertas de site + Google Business Profile/geolocalizacao, com revisao humana antes de contato e preferencia por APIs/providers legais para reduzir risco de ToS, rate-limit e bloqueios.
+
 ## Hotfix Freelance Lead Detail AI Outreach - 2026-07-13
 
 O detalhe de lead do `apps/web` centraliza o fluxo no card amplo `Commercial message`: a IA gera a mensagem usando dados visiveis do lead, review do operador, evidencia de origem, analise de site, campanha, settings do vendedor/prestador e template selecionado apenas como base. O operador edita a mensagem no proprio campo e clica em `Send message`; um modal permite escolher WhatsApp ou Email, desabilitando Email quando o lead nao tem endereco capturado, editar destinatario/mensagem e confirmar `Send`. O backend continua usando as rotas de outreach existentes por tras, mas sem expor conceitos de batch/approve na UX de detalhe. Telefones de WhatsApp sao normalizados para E.164 antes do envio ao Twilio.
@@ -509,3 +536,4 @@ O detalhe de lead do `apps/web` centraliza o fluxo no card amplo `Commercial mes
 ## Hotfix Full-time Field Assistant Modal Textareas - 2026-07-14
 
 A extensao `Full-time` recebeu um ajuste no Field Assistant para lidar melhor com textareas em modais/overlays de aplicacao externa. O detector agora aceita campos visiveis dentro de ancestrais com role de modal/apresentacao mesmo quando algum wrapper usa `aria-hidden=true`, e o preenchimento de input/textarea passou a usar o setter nativo antes de disparar eventos `input`/`change`, melhorando compatibilidade com campos controlados por React/Vue.
+

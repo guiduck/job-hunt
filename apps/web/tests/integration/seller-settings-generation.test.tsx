@@ -30,7 +30,16 @@ describe("seller settings generation context", () => {
       />
     );
 
-    fireEvent.change(screen.getByPlaceholderText("Offer title"), {
+    fireEvent.change(screen.getByPlaceholderText("Portfolio URL"), {
+      target: { value: "www.gfig.space" }
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Base landing page price BRL/i), {
+      target: { value: "2500" }
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Base landing page price USD/i), {
+      target: { value: "1000" }
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Offer title/i), {
       target: { value: "Landing page sprint" }
     });
     fireEvent.change(screen.getByPlaceholderText(/AI context/i), {
@@ -40,6 +49,9 @@ describe("seller settings generation context", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain("Landing page sprint");
+    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain("https://www.gfig.space");
+    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain("2500");
+    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain("1000");
     expect(String(fetchMock.mock.calls[0][1]?.body)).toContain("portfolio proof");
     expect(screen.getByText("Outreach channel readiness")).toBeInTheDocument();
   });

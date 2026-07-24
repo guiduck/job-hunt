@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 import re
+from urllib.parse import parse_qs, unquote, urlparse, urlunparse
 
 from app.services.career_page_search_provider import CareerPageProviderResult
 from app.services.job_review_analyzer import analyze_candidate
@@ -9,6 +10,60 @@ from app.services.job_review_analyzer import analyze_candidate
 EMAIL_RE = re.compile(r"(?<![\w.+-])[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}(?![\w.-])")
 STALE_RE = re.compile(r"\b(encerrad[ao]|closed|expired|vaga encerrada|no longer accepting)\b", re.IGNORECASE)
 
+
+TRACKING_QUERY_PREFIXES = ("utm_",)
+TRACKING_QUERY_KEYS = {"trk", "ref", "refid", "src", "source", "li_fat_id", "lipi"}
+LINKEDIN_REDIRECT_HOSTS = {"www.linkedin.com", "linkedin.com"}
+
+
+def decode_linkedin_safety_redirect(url: str) -> str | None:
+    try:
+        parsed = urlparse(url.strip())
+    except ValueError:
+        return None
+    host = (parsed.hostname or "").lower()
+    if host not in LINKEDIN_REDIRECT_HOSTS:
+        return url.strip() or None
+    if not any(part in parsed.path.lower() for part in ("/safety/", "/redir/", "/comm/jobs/view/")):
+        return url.strip() or None
+    query = parse_qs(parsed.query)
+    for key in ("url", "target", "u"):
+        values = query.get(key)
+        if values:
+            decoded = unquote(values[0]).strip()
+            if decoded.startswith(("http://", "https://")):
+                return decoded
+    return None
+
+
+def canonicalize_external_application_url(url: str) -> str | None:
+    decoded = decode_linkedin_safety_redirect(url)
+    if not decoded:
+        return None
+    try:
+        parsed = urlparse(decoded.strip())
+    except ValueError:
+        return None
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return None
+    query_pairs = parse_qs(parsed.query, keep_blank_values=True)
+    kept_pairs: list[tuple[str, str]] = []
+    for key in sorted(query_pairs):
+        lower_key = key.lower()
+        if lower_key in TRACKING_QUERY_KEYS or any(lower_key.startswith(prefix) for prefix in TRACKING_QUERY_PREFIXES):
+            continue
+        for value in query_pairs[key]:
+            kept_pairs.append((key, value))
+    query = "&".join(f"{key}={value}" for key, value in kept_pairs)
+    path = parsed.path.rstrip("/") or "/"
+    return urlunparse((parsed.scheme.lower(), parsed.netloc.lower(), path, "", query, ""))
+
+
+def match_external_job_source(url: str, selected_source_keys: list[str] | None = None) -> str | None:
+    from app.services.career_page_sources import match_curated_source
+
+    source = match_curated_source(url, selected_source_keys)
+    return source.key if source else None
 
 def extract_email(text: str) -> str | None:
     match = EMAIL_RE.search(text)

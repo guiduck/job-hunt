@@ -51,7 +51,7 @@ function buildLeadContext({
       region: lead.region,
       country: lead.country,
       address: lead.address,
-      phone: lead.phone,
+      leadPhoneForOperatorReviewOnly: lead.phone,
       websiteUrl: lead.websiteUrl,
       socialUrl: lead.socialUrl,
       googleRating: lead.googleRating,
@@ -114,9 +114,15 @@ function buildLeadContext({
           sellerWhatsapp: settings.sellerWhatsapp,
           companyWebsite: settings.companyWebsite,
           portfolioUrl: settings.portfolioUrl,
+          sellerLinkedinUrl: settings.sellerLinkedinUrl,
           offerTitle: settings.offerTitle,
           offerDescription: settings.offerDescription,
           landingPagePrice: settings.landingPagePrice,
+          landingPagePriceUsd: settings.landingPagePriceUsd,
+          advancedPriceRangeBrl: settings.advancedPriceRangeBrl,
+          advancedPriceRangeUsd: settings.advancedPriceRangeUsd,
+          automationPriceRangeBrl: settings.automationPriceRangeBrl,
+          automationPriceRangeUsd: settings.automationPriceRangeUsd,
           installments: settings.installments,
           deliveryTime: settings.deliveryTime,
           extraContext: settings.extraContext
@@ -285,11 +291,11 @@ export async function buildAiCommercialDraft({
     fallback,
     context,
     system:
-      "You write honest, concise outreach for a freelance web/landing-page offer. You use only supplied evidence and never invent website audits, guarantees, discounts, testimonials, or private data.",
+      "You write honest, concise outreach for a freelance web/landing-page offer. You use only supplied evidence and never invent website audits, guarantees, discounts, testimonials, or private data. Treat business.leadPhoneForOperatorReviewOnly as the prospect phone for operator review only. Never use it as the sender phone or signature contact. Sender contact details may come only from seller.sellerWhatsapp, seller.sellerEmail, seller.companyWebsite, seller.portfolioUrl, and seller.sellerLinkedinUrl. Pricing is variable and depends on the client scope. The base landing-page offer starts at seller.landingPagePrice for BRL/Brazil or seller.landingPagePriceUsd for USD/international. Use 'a partir de'/'starting at' language for initial outreach. If the client needs database, lead capture, admin editing, integrations, or automations such as WhatsApp support, price increases into the configured advanced/automation ranges. Base delivery time is an estimate, not a fixed promise.",
     instruction:
       targetLanguage === "pt-BR"
-        ? `Gere uma mensagem de ${channel === "whatsapp" ? "WhatsApp" : "email"} em portugues do Brasil para primeiro contato comercial. Use tom humano, direto e consultivo. Mencione a oportunidade real do lead, o contexto do negocio, oferta, prazo/preco se existirem, e termine com uma pergunta simples. Nao use placeholders.`
-        : `Generate a ${channel === "whatsapp" ? "WhatsApp" : "email"} first-contact commercial outreach message in English. Use a human, concise, consultative tone. Mention the lead's real opportunity, business context, offer, timeline/price if present, and end with one simple question. Do not use placeholders.`
+        ? `Gere uma mensagem de ${channel === "whatsapp" ? "WhatsApp" : "email"} em portugues do Brasil para primeiro contato comercial. Use tom humano, direto e consultivo. Mencione a oportunidade real do lead, o contexto do negocio, oferta, prazo/preco se existirem, e termine com uma pergunta simples. Quando mencionar preco, use linguagem "a partir de" e deixe claro que varia conforme escopo. Use parcelas sem juros somente para leads brasileiros. Se seller.companyWebsite ou seller.portfolioUrl existir, inclua esse link no rodape/assinatura. Se seller.sellerLinkedinUrl existir, voce pode incluir tambem. Nunca use o telefone do lead na assinatura; telefone de assinatura somente se seller.sellerWhatsapp existir. Nao use placeholders.`
+        : `Generate a ${channel === "whatsapp" ? "WhatsApp" : "email"} first-contact commercial outreach message in English. Use a human, concise, consultative tone. Mention the lead's real opportunity, business context, offer, timeline/price if present, and end with one simple question. When mentioning price, use "starting at" language and make clear it varies by scope. Do not mention Brazilian installment terms to international leads. If seller.companyWebsite or seller.portfolioUrl exists, include that link in the footer/signature. If seller.sellerLinkedinUrl exists, you may include it too. Never use the lead phone in the signature; signature phone only if seller.sellerWhatsapp exists. Do not use placeholders.`
   });
 
   if (channel === "email") {
