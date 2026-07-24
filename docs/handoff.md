@@ -844,3 +844,7 @@ O popup de `Search > External jobs > LinkedIn Jobs` ficava preso em `opening` po
 ## Hotfix LinkedIn Jobs Runtime Stabilization - 2026-07-23
 
 A validacao manual mostrou que o LinkedIn Jobs assistido precisa abrir `https://www.linkedin.com/jobs/` e clicar em `Exibir todas` na secao `Vagas com base nas suas preferencias`; a URL direta fica apenas para o modo nao assistido. A extensao tambem passou a ouvir `LINKEDIN_JOBS_EXTERNAL_PROGRESS`, varrer a lista de resultados por scroll interno com dedupe de URLs vistas, emitir progresso durante a inspecao e finalizar o run como failed em timeout, evitando ficar preso em `pending` quando o DOM do LinkedIn para de responder. Validacao: `apps/extension npm.cmd run typecheck` passed e `apps/extension npm.cmd run build` passed.
+
+## Hotfix LinkedIn Jobs Search Results Card Detection - 2026-07-23
+
+A validacao assistida chegou corretamente em `/jobs/search-results/`, mas alguns layouts do LinkedIn nao expunham os resultados com as classes esperadas (`jobs-search-results__list-item`, `job-card-container` etc.), gerando `completed_no_results` apos olhar zero cards mesmo com vagas visiveis. O detector de cards agora tambem aceita `li.scaffold-layout__list-item`, seletores parciais de `jobs-search-results`/`job-card` e, principalmente, faz fallback por links `a[href*='/jobs/view/']`/`currentJobId`, subindo para o container mais proximo do resultado. Validacao: `apps/extension npm.cmd run typecheck` passed.

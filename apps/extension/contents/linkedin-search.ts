@@ -696,7 +696,10 @@ const JOB_CARD_SELECTORS = [
   "li.jobs-search-results__list-item",
   "div.job-card-container",
   "li[data-occludable-job-id]",
-  "div[data-job-id]"
+  "div[data-job-id]",
+  "li.scaffold-layout__list-item",
+  "li[class*=jobs-search-results]",
+  "div[class*=job-card]"
 ]
 const NEXT_PAGE_LABELS = ["next", "proxima", "próxima", "avancar", "avançar"]
 const ASSISTED_JOBS_SHOW_ALL_LABELS = ["exibir todas", "exibir todos", "mostrar todas", "mostrar todos", "show all", "see all", "view all"]
@@ -784,20 +787,60 @@ function emitLinkedInJobsContentProgress(progress: Partial<LinkedInJobsDiagnosti
   }
   chrome.runtime.sendMessage({ type: "LINKEDIN_JOBS_EXTERNAL_PROGRESS", payload: { status: "capturing", message: progress.safeMessage, diagnostics } }).catch(() => undefined)
 }
+function addJobCard(cards: Element[], seen: Set<Element>, element: Element | null) {
+  if (!element || seen.has(element) || !isVisibleElement(element)) {
+    return
+  }
+  const text = jobText(element)
+  const hasJobLink = Boolean(element.querySelector("a[href*='/jobs/view/'], a[href*='currentJobId=']"))
+  const hasJobText = /(candidat|candidate|remoto|remote|híbrido|hybrid|tempo integral|full.?time|desenvolvedor|developer|engineer|engenheiro)/i.test(text)
+  if (!hasJobLink && !hasJobText) {
+    return
+  }
+  seen.add(element)
+  cards.push(element)
+}
+
+function findJobCardFromAnchor(anchor: HTMLAnchorElement) {
+  const selectors = [
+    "li.jobs-search-results__list-item",
+    "li.scaffold-layout__list-item",
+    "li[data-occludable-job-id]",
+    "div.job-card-container",
+    "div[data-job-id]",
+    "li",
+    "article",
+    "div"
+  ]
+  for (const selector of selectors) {
+    const candidate = anchor.closest(selector)
+    if (candidate && jobText(candidate).length >= 20) {
+      return candidate
+    }
+  }
+  return anchor
+}
+
 function findJobsCards() {
   const seen = new Set<Element>()
   const cards: Element[] = []
   for (const selector of JOB_CARD_SELECTORS) {
     for (const element of Array.from(document.querySelectorAll(selector))) {
-      if (!seen.has(element) && isVisibleElement(element)) {
-        seen.add(element)
-        cards.push(element)
-      }
+      addJobCard(cards, seen, element)
     }
   }
+
+  for (const anchor of Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href*='/jobs/view/'], a[href*='currentJobId=']"))) {
+    addJobCard(cards, seen, findJobCardFromAnchor(anchor))
+  }
+
+  console.info("[Opportunity Desk] LinkedIn Jobs card scan", {
+    cards: cards.length,
+    jobLinks: document.querySelectorAll("a[href*='/jobs/view/'], a[href*='currentJobId=']").length,
+    url: window.location.href
+  })
   return cards
 }
-
 function findJobsScrollTarget(cards: Element[]) {
   const candidates = Array.from(document.querySelectorAll<HTMLElement>("main, [role='main'], .jobs-search-results-list, .scaffold-layout__list, .scaffold-layout__list-container, .jobs-search-results-list__list, div, ul"))
     .filter((element) => {
