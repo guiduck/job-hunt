@@ -864,3 +864,7 @@ A validacao manual mostrou que clicar diretamente no anchor `a[href*='/jobs/view
 ## Hotfix LinkedIn Jobs Left List Scoped Selection - 2026-07-24
 
 Manual validation showed that scanning the whole LinkedIn document could treat right-detail pane elements as result cards and dispatch selection clicks outside the left jobs list, including preference-match UI such as the "Correspondencia de preferencias" modal. The content script now discovers a concrete left results list root, scopes job card detection, dedupe, link counting, and scroll target discovery to that root, and refuses to inspect/click a result when the click target is outside the left jobs list. If no left list root is found, the capture fails closed with no cards instead of clicking arbitrary LinkedIn UI. Validation: `npm.cmd run typecheck` and `npm.cmd run build` passed for `apps/extension`.
+
+## Hotfix LinkedIn Jobs Assisted List Fallback Detection - 2026-07-24
+
+Manual validation showed that the conservative left-list scoping could fail with `no_renderable_results` on LinkedIn assisted jobs pages where visible result cards do not expose the expected `/jobs/view/` anchors or class names. The content script now still refuses to scan the full document, but can identify the left jobs column by visible layout, scrollability, repeated job-card signals, and job-like text. Card detection also includes `data-view-name*=job` and a fallback scan inside the already-confirmed left list only. Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed.

@@ -699,7 +699,9 @@ const JOB_CARD_SELECTORS = [
   "div[data-job-id]",
   "li.scaffold-layout__list-item",
   "li[class*=jobs-search-results]",
-  "div[class*=job-card]"
+  "div[class*=job-card]",
+  "li[data-view-name*=job]",
+  "div[data-view-name*=job]"
 ]
 const NEXT_PAGE_LABELS = ["next", "proxima", "pr\u00f3xima", "avancar", "avan\u00e7ar"]
 const ASSISTED_JOBS_SHOW_ALL_LABELS = ["exibir todas", "exibir todos", "mostrar todas", "mostrar todos", "show all", "see all", "view all"]
@@ -788,19 +790,49 @@ function emitLinkedInJobsContentProgress(progress: Partial<LinkedInJobsDiagnosti
   chrome.runtime.sendMessage({ type: "LINKEDIN_JOBS_EXTERNAL_PROGRESS", payload: { status: "capturing", message: progress.safeMessage, diagnostics } }).catch(() => undefined)
 }
 
+function hasLinkedInJobResultSignal(element: Element) {
+  const text = jobText(element)
+  const hasJobLink = Boolean(element.querySelector("a[href*='/jobs/view/'], a[href*='currentJobId=']"))
+  const explicitCards = JOB_CARD_SELECTORS.reduce((count, selector) => count + element.querySelectorAll(selector).length, 0)
+  const textLooksLikeJobs = /(candidat|candidate|remoto|remote|h\u00edbrido|hybrid|tempo integral|full.?time|desenvolvedor|developer|engineer|engenheiro|software|frontend|front-end|fullstack|full-stack)/i.test(text)
+  return hasJobLink || explicitCards >= 2 || (textLooksLikeJobs && text.length >= 80)
+}
+
 function findJobsListRoot(): Element | null {
   const selectors = [
     ".jobs-search-results-list",
     ".scaffold-layout__list",
     ".scaffold-layout__list-container",
     ".jobs-search-results-list__list",
-    "ul.jobs-search-results__list"
+    "ul.jobs-search-results__list",
+    "[class*='jobs-search-results-list']",
+    "[class*='scaffold-layout__list']"
   ]
 
-  return selectors.map((selector) => document.querySelector(selector)).find((element) => {
+  const explicitRoot = selectors.map((selector) => document.querySelector(selector)).find((element) => {
     if (!element || !isVisibleElement(element)) return false
-    return Boolean(element.querySelector("a[href*='/jobs/view/'], a[href*='currentJobId=']"))
-  }) || null
+    return hasLinkedInJobResultSignal(element)
+  })
+  if (explicitRoot) return explicitRoot
+
+  const candidates = Array.from(document.querySelectorAll<HTMLElement>("main, section, div, ul"))
+    .filter((element) => {
+      if (!isVisibleElement(element) || !hasLinkedInJobResultSignal(element)) return false
+      const rect = element.getBoundingClientRect()
+      if (rect.height < 240 || rect.width < 240) return false
+      if (rect.left > window.innerWidth * 0.55) return false
+      if (rect.width > window.innerWidth * 0.65) return false
+      return element.scrollHeight > element.clientHeight + 24 || element.querySelectorAll("li, article, div[data-job-id], div.job-card-container").length >= 2
+    })
+    .map((element) => {
+      const rect = element.getBoundingClientRect()
+      const scrollScore = Math.max(0, element.scrollHeight - element.clientHeight)
+      const jobSignalScore = JOB_CARD_SELECTORS.reduce((count, selector) => count + element.querySelectorAll(selector).length, 0)
+      return { element, score: scrollScore + jobSignalScore * 150 + Math.max(0, 700 - rect.width) }
+    })
+    .sort((left, right) => right.score - left.score)
+
+  return candidates[0]?.element || null
 }
 
 function isInsideJobResultsList(element: Element) {
@@ -813,8 +845,8 @@ function addJobCard(cards: Element[], seen: Set<Element>, element: Element | nul
   }
   const text = jobText(element)
   const hasJobLink = Boolean(element.querySelector("a[href*='/jobs/view/'], a[href*='currentJobId=']"))
-  const hasJobText = /(candidat|candidate|remoto|remote|h\u00edbrido|hybrid|tempo integral|full.?time|desenvolvedor|developer|engineer|engenheiro)/i.test(text)
-  if (!hasJobLink && !hasJobText) {
+  const hasJobText = /(candidat|candidate|remoto|remote|h\u00edbrido|hybrid|tempo integral|full.?time|desenvolvedor|developer|engineer|engenheiro|software|frontend|front-end|fullstack|full-stack)/i.test(text)
+  if (text.length > 1800 || (!hasJobLink && !hasJobText)) {
     return
   }
   seen.add(element)
@@ -858,6 +890,12 @@ function findJobsCards() {
 
   for (const anchor of Array.from(root.querySelectorAll<HTMLAnchorElement>("a[href*='/jobs/view/'], a[href*='currentJobId=']"))) {
     addJobCard(cards, seen, findJobCardFromAnchor(anchor))
+  }
+
+  if (cards.length === 0) {
+    for (const element of Array.from(root.querySelectorAll("li, article, div[data-job-id], div[data-view-name*=job], div.job-card-container, div[class*=job-card]"))) {
+      addJobCard(cards, seen, element)
+    }
   }
 
   console.info("[Opportunity Desk] LinkedIn Jobs card scan", {
