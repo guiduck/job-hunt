@@ -884,3 +884,10 @@ Manual validation showed stable card clicking, but 40/40 inspected jobs were cla
 ## Hotfix LinkedIn Jobs Text-Based Apply Link Detection - 2026-07-24
 
 Manual validation after a 15-page run showed visible external `Candidatar-se` buttons with no accepted or external links captured. The apply-link detector was simplified to scan all page anchors by string/aria-label and href semantics: `Candidatar-se no site da empresa`, `Acessar site da empresa`, `company site`, generic `Candidatar-se`/`Apply`, and LinkedIn safety/redir hrefs are treated as external apply candidates unless they are internal `/jobs/view/` or `Candidatura simplificada`. Each inspected job now logs `outcome`, `rawApplyHref`, `canonicalApplyUrl`, `sourceKey`, and `skipReason` to the LinkedIn tab console for debugging source matching. Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed.
+
+## 2026-07-24 - Hotfix LinkedIn Jobs Long Run Completion Status
+
+- Increased the LinkedIn Jobs content-script response timeout from 3 minutes to 45 minutes so 15-30 page assisted searches can finish submitting inspected candidates instead of leaving the backend run pending after the tab keeps scrolling.
+- Emitted a local `submitting` progress event when the LinkedIn Jobs inspection reaches a terminal diagnostics state, making the popup reflect that the DOM scan ended and backend candidate submission is underway.
+- Updated the LinkedIn Jobs diagnostics panel to prefer the latest local progress status over a stale persisted `pending` run status while the popup is receiving live progress.
+- Validation: `npm.cmd run typecheck` and `npm.cmd run build` passed in `apps/extension`; build only reported the existing Plasmo/htmlnano warnings.

@@ -256,6 +256,7 @@ function LinkedInJobsDiagnosticsPanel() {
   const progress = usePopupStore((state) => state.linkedinJobsProgress)
   const diagnostics = progress.diagnostics
   const latestRun = usePopupStore((state) => state.latestLinkedInJobsExternalRun)
+  const displayedStatus = progress.status !== "idle" ? progress.status : latestRun?.status || progress.status
   if (!diagnostics && !latestRun && progress.status === "idle") return null
   return (
     <div className="debug-panel">
@@ -263,7 +264,7 @@ function LinkedInJobsDiagnosticsPanel() {
       <p className={`message ${progress.status === "failed" ? "message--error" : ""}`}>{progress.message}</p>
       <dl className="debug-list">
         <div><dt>Run</dt><dd>{progress.runId || latestRun?.id || "-"}</dd></div>
-        <div><dt>Status</dt><dd>{latestRun?.status || progress.status}</dd></div>
+        <div><dt>Status</dt><dd>{displayedStatus}</dd></div>
         <div><dt>Pages</dt><dd>{diagnostics?.pagesVisited ?? "-"}</dd></div>
         <div><dt>Inspected</dt><dd>{diagnostics?.jobsInspected ?? latestRun?.inspected_count ?? "-"}</dd></div>
         <div><dt>Accepted</dt><dd>{diagnostics?.accepted ?? latestRun?.accepted_count ?? "-"}</dd></div>

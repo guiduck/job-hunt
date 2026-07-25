@@ -54,7 +54,7 @@ let latestLinkedInJobsProgress: LinkedInJobsProgress = {
 
 const RUN_VERIFICATION_MAX_ATTEMPTS = 300
 const RUN_VERIFICATION_POLL_INTERVAL_MS = 2000
-const LINKEDIN_JOBS_CAPTURE_TIMEOUT_MS = 180000
+const LINKEDIN_JOBS_CAPTURE_TIMEOUT_MS = 45 * 60 * 1000
 
 function setProgress(progress: CaptureProgress) {
   latestProgress = progress

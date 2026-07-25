@@ -1,5 +1,5 @@
 import { canonicalizeExternalApplicationUrl, decodeLinkedInSafetyRedirect, matchCuratedExternalSource } from "../src/capture/linkedin"
-import type { CaptureDiagnostics, ContentCaptureMessage, ContentCaptureResponse, ContentLinkedInJobsCaptureMessage, ContentLinkedInJobsCaptureResponse, LinkedInCapturedPost, LinkedInJobsCounters, LinkedInJobsDiagnostics, LinkedInJobsInspectedCandidate } from "../src/capture/types"
+import type { CaptureDiagnostics, ContentCaptureMessage, ContentCaptureResponse, ContentLinkedInJobsCaptureMessage, ContentLinkedInJobsCaptureResponse, LinkedInCapturedPost, LinkedInJobsCounters, LinkedInJobsDiagnostics, LinkedInJobsInspectedCandidate, LinkedInJobsProgress } from "../src/capture/types"
 
 export const config = {
   matches: ["https://www.linkedin.com/search/results/content/*", "https://www.linkedin.com/jobs/*"]
@@ -772,7 +772,13 @@ async function navigateViaAssistedJobsEntry() {
   return { ok: false, clicked: false, message: "Could not find the LinkedIn 'Exibir todas' assisted jobs entry." }
 }
 
-function emitLinkedInJobsContentProgress(progress: Partial<LinkedInJobsDiagnostics> & { safeMessage: string; terminalReason?: LinkedInJobsDiagnostics["terminalReason"] }) {
+function emitLinkedInJobsContentProgress(
+  progress: Partial<LinkedInJobsDiagnostics> & {
+    safeMessage: string
+    status?: LinkedInJobsProgress["status"]
+    terminalReason?: LinkedInJobsDiagnostics["terminalReason"]
+  }
+) {
   const diagnostics: LinkedInJobsDiagnostics = {
     startedAt: progress.startedAt || new Date().toISOString(),
     pageUrl: progress.pageUrl || window.location.href,
@@ -789,7 +795,7 @@ function emitLinkedInJobsContentProgress(progress: Partial<LinkedInJobsDiagnosti
     failures: progress.failures || 0,
     samples: progress.samples || []
   }
-  chrome.runtime.sendMessage({ type: "LINKEDIN_JOBS_EXTERNAL_PROGRESS", payload: { status: "capturing", message: progress.safeMessage, diagnostics } }).catch(() => undefined)
+  chrome.runtime.sendMessage({ type: "LINKEDIN_JOBS_EXTERNAL_PROGRESS", payload: { status: progress.status || "capturing", message: progress.safeMessage, diagnostics } }).catch(() => undefined)
 }
 
 function hasLinkedInJobResultSignal(element: Element) {
@@ -1461,6 +1467,11 @@ async function captureLinkedInJobs(payload: ContentLinkedInJobsCaptureMessage["p
     ...counters,
     samples: buildLinkedInJobsDiagnosticSamples(candidates)
   }
+  emitLinkedInJobsContentProgress({
+    ...diagnostics,
+    status: "submitting",
+    safeMessage: `Submitting ${diagnostics.accepted} accepted LinkedIn Jobs candidates.`
+  })
   return { candidates, diagnostics }
 }
 
