@@ -608,7 +608,17 @@ async function startLinkedInJobsExternalCapture(payload: LinkedInJobsExternalReq
   let accepted = 0
   let duplicates = 0
   let failures = captured.diagnostics.failures
-  for (const candidate of captured.candidates) {
+  const submittableCandidates = captured.candidates.filter((candidate) => candidate.outcome === "accepted")
+  setJobsProgress({
+    status: "submitting",
+    message: `Submitting ${submittableCandidates.length} accepted LinkedIn Jobs candidates...`,
+    runId: run.id,
+    sourceTabId: tab.id,
+    diagnostics: captured.diagnostics
+  })
+
+  for (let index = 0; index < submittableCandidates.length; index += 1) {
+    const candidate = submittableCandidates[index]
     try {
       const result = await submitLinkedInJobsExternalCandidate(run.id, toApiCandidate(candidate))
       if (result.outcome === "accepted") accepted += 1
@@ -616,6 +626,21 @@ async function startLinkedInJobsExternalCapture(payload: LinkedInJobsExternalReq
     } catch (error) {
       failures += 1
       console.error("[Opportunity Desk] LinkedIn Jobs candidate submit failed", { error, candidate })
+    }
+
+    if ((index + 1) % 5 === 0 || index + 1 === submittableCandidates.length) {
+      setJobsProgress({
+        status: "submitting",
+        message: `Submitted ${index + 1}/${submittableCandidates.length} accepted LinkedIn Jobs candidates...`,
+        runId: run.id,
+        sourceTabId: tab.id,
+        diagnostics: {
+          ...captured.diagnostics,
+          accepted,
+          duplicates,
+          failures
+        }
+      })
     }
   }
 
@@ -626,7 +651,7 @@ async function startLinkedInJobsExternalCapture(payload: LinkedInJobsExternalReq
     failures
   }
   await updateLinkedInJobsExternalRun(run.id, toApiProgress(diagnostics))
-  const terminalStatus = failures > 0 && captured.candidates.length === 0 ? "failed" : accepted > 0 ? "completed" : "completed_no_results"
+  const terminalStatus = failures > 0 && submittableCandidates.length === 0 ? "failed" : accepted > 0 ? "completed" : "completed_no_results"
   const completed = await completeLinkedInJobsExternalRun(run.id, {
     status: terminalStatus,
     terminal_reason: diagnostics.terminalReason,

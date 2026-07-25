@@ -891,3 +891,10 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - Emitted a local `submitting` progress event when the LinkedIn Jobs inspection reaches a terminal diagnostics state, making the popup reflect that the DOM scan ended and backend candidate submission is underway.
 - Updated the LinkedIn Jobs diagnostics panel to prefer the latest local progress status over a stale persisted `pending` run status while the popup is receiving live progress.
 - Validation: `npm.cmd run typecheck` and `npm.cmd run build` passed in `apps/extension`; build only reported the existing Plasmo/htmlnano warnings.
+
+## 2026-07-25 - Hotfix LinkedIn Jobs Submit Only Accepted Candidates
+
+- Changed LinkedIn Jobs external submission to send only deterministic `accepted` candidates to the API; Easy Apply and unsupported-source cards remain represented in diagnostics counters but no longer generate rejected candidate POSTs.
+- Added `submitting` progress updates from the background while accepted LinkedIn Jobs candidates are being persisted, including every 5 submitted candidates and the final submitted count.
+- This avoids long `submitting` pauses when a scan finds zero accepted candidates but dozens of skipped cards, and makes accepted persistence easier to monitor from the popup.
+- Validation: `npm.cmd run typecheck` and `npm.cmd run build` passed in `apps/extension`; build only reported existing Plasmo/htmlnano warnings.
