@@ -69,7 +69,12 @@ describe("whatsapp provider", () => {
         message: "Hello",
         metadata: { userId: "user_1", batchId: "batch_1", itemId: "item_1", leadId: "lead_1" }
       })
-    ).resolves.toMatchObject({ status: "sent", providerMessageId: "SM123" });
+    ).resolves.toMatchObject({
+      status: "sent",
+      providerMessageId: "SM123",
+      providerStatus: "queued",
+      diagnosticCode: "twilio_delivery_pending"
+    });
     await expect(
       provider.send({
         to: "+15555550123",

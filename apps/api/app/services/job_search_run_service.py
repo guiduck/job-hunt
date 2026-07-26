@@ -381,8 +381,8 @@ def complete_linkedin_jobs_external_run(
         raise ValueError("Run is not a LinkedIn Jobs external search")
     diagnostics = _linkedin_jobs_diagnostics_from_payload(payload)
     _merge_run_diagnostics(run, diagnostics)
-    _apply_linkedin_jobs_counters(run, diagnostics)
     reconcile_run_counters(run)
+    _apply_linkedin_jobs_counters(run, diagnostics)
     run.stop_reason = payload.terminal_reason
     run.completed_at = datetime.now(UTC)
     if payload.status == JobSearchRunStatus.FAILED:

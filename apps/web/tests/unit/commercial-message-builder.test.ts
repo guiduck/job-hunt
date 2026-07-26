@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildCommercialMessage,
   detectLeadMessageLanguage,
-  findTemplateVariables
+  findTemplateVariables,
+  formatCommercialMessageForChannel
 } from "@/lib/generation/commercial-message-builder";
 
 describe("commercial message builder", () => {
@@ -80,6 +81,19 @@ describe("commercial message builder", () => {
 
     expect(detectLeadMessageLanguage(lead)).toBe("en");
     expect(message).toBe("Hi Example Clinic, I reviewed your current online presence.");
+  });
+
+  it("formats AI output as plain WhatsApp text", () => {
+    const message = formatCommercialMessageForChannel(
+      "Guilherme\n[www.gfig.space](https://www.gfig.space)\n[LinkedIn](https://linkedin.com/in/guilherme)\nVoce pode me contatar pelo WhatsApp ou responder aqui mesmo!",
+      "whatsapp"
+    );
+
+    expect(message).toContain("https://www.gfig.space");
+    expect(message).toContain("LinkedIn: https://linkedin.com/in/guilherme");
+    expect(message).toContain("Pode responder por aqui mesmo.");
+    expect(message).not.toContain("](http");
+    expect(message).not.toMatch(/contatar pelo WhatsApp/i);
   });
 
   it("detects variables in templates", () => {

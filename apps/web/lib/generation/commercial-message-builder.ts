@@ -126,6 +126,28 @@ export function buildCommercialMessage({
   return text.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+export function formatCommercialMessageForChannel(text: string, channel: OutreachChannel) {
+  const normalized = text.replace(/\n{3,}/g, "\n\n").trim();
+  if (channel !== "whatsapp") {
+    return normalized;
+  }
+
+  return normalized
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (_match, label: string, url: string) => {
+      const cleanLabel = label.trim();
+      const cleanUrl = url.trim();
+      const comparableLabel = cleanLabel.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+      const comparableUrl = cleanUrl.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+      return comparableLabel === comparableUrl ? cleanUrl : `${cleanLabel}: ${cleanUrl}`;
+    })
+    .replace(/voc? pode me contatar pelo whatsapp ou responder aqui mesmo[.!]?/gi, "Pode responder por aqui mesmo.")
+    .replace(/voce pode me contatar pelo whatsapp ou responder aqui mesmo[.!]?/gi, "Pode responder por aqui mesmo.")
+    .replace(/pode me chamar pelo whatsapp ou responder por aqui[.!]?/gi, "Pode responder por aqui mesmo.")
+    .replace(/you can contact me on whatsapp or reply here[.!]?/gi, "You can reply here.")
+    .replace(/you can message me on whatsapp or reply here[.!]?/gi, "You can reply here.")
+    .trim();
+}
+
 export function buildBulkCommercialDraft({
   lead,
   template,
@@ -138,7 +160,10 @@ export function buildBulkCommercialDraft({
   channel: OutreachChannel;
 }) {
   const targetLanguage = detectLeadMessageLanguage(lead);
-  const message = buildCommercialMessage({ lead, template, settings });
+  const message = formatCommercialMessageForChannel(
+    buildCommercialMessage({ lead, template, settings }),
+    channel
+  );
   if (channel === "whatsapp") {
     return {
       message,

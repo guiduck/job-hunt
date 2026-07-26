@@ -19,6 +19,17 @@ function withWhatsappPrefix(value: string) {
   return value.startsWith("whatsapp:") ? value : `whatsapp:${value}`;
 }
 
+function twilioAcceptedDiagnostic(providerStatus: string) {
+  if (["delivered"].includes(providerStatus.toLowerCase())) {
+    return {};
+  }
+
+  return {
+    diagnosticCode: "twilio_delivery_pending",
+    diagnosticMessage: `Twilio accepted the WhatsApp message with provider status ${providerStatus}. Delivery can still fail asynchronously; check the Twilio message log or configure a status callback to confirm final delivery.`
+  };
+}
+
 function normalizeTwilioFailure(status: number, payload: Record<string, unknown>): DeliveryResult {
   const code = String(payload.code ?? (status === 429 ? "provider_rate_limited" : "provider_error"));
   const message =
@@ -74,12 +85,13 @@ export function createTwilioWhatsAppProvider(
         if (!response.ok) {
           return normalizeTwilioFailure(response.status, payload);
         }
-
+        const providerStatus = String(payload.status ?? response.status);
         return {
           status: "sent",
           providerName: "twilio",
           providerMessageId: typeof payload.sid === "string" ? payload.sid : undefined,
-          providerStatus: String(payload.status ?? response.status),
+          providerStatus,
+          ...twilioAcceptedDiagnostic(providerStatus),
           safePayload: scrubProviderPayload(payload)
         };
       } catch (error) {

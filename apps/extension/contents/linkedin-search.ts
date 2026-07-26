@@ -712,6 +712,8 @@ const JOBS_INITIAL_TIMEOUT_MS = 15000
 const ASSISTED_JOBS_ENTRY_TIMEOUT_MS = 20000
 const JOBS_PAGE_DELAY_MS = 1500
 const JOBS_CARD_INSPECTION_DELAY_MS = 450
+const JOBS_APPLY_STATE_TIMEOUT_MS = 6000
+const JOBS_APPLY_STATE_POLL_MS = 250
 const JOBS_MAX_SCROLLS_PER_PAGE = 24
 const JOBS_MAX_NO_PROGRESS_SCROLLS = 4
 
@@ -1028,16 +1030,18 @@ function findJobAnchor(card: Element) {
   return Array.from(card.querySelectorAll<HTMLAnchorElement>("a[href*='/jobs/view/'], a[href*='currentJobId=']"))[0] || null
 }
 
-function findJobDetailPane() {
+function findJobDetailPane(options: { fallbackToBody?: boolean } = {}) {
   const selectors = [
     ".jobs-search__job-details--container",
     ".jobs-search__right-rail",
     ".jobs-details",
     ".jobs-details__main-content",
     ".scaffold-layout__detail",
-    "main"
+    "[data-testid=\"job-details\"]",
+    "[componentkey*=\"job-details\"]"
   ]
-  return selectors.map((selector) => document.querySelector(selector)).find(Boolean) || document.body
+  const pane = selectors.map((selector) => document.querySelector(selector)).find(Boolean)
+  return pane || (options.fallbackToBody ? document.body : null)
 }
 
 async function waitForJobDetailSelection(title: string | null, linkedinJobUrl: string | null) {
@@ -1047,7 +1051,7 @@ async function waitForJobDetailSelection(title: string | null, linkedinJobUrl: s
   const jobId = jobIdMatch?.[1] || jobIdMatch?.[2] || ""
 
   while (Date.now() - startedAt < 5000) {
-    const paneText = cleanText(findJobDetailPane().textContent || "").toLowerCase()
+    const paneText = cleanText(findJobDetailPane({ fallbackToBody: true })?.textContent || "").toLowerCase()
     const href = window.location.href
     const titleMatches = normalizedTitle.length > 0 && paneText.includes(normalizedTitle)
     const urlMatches = jobId.length > 0 && href.includes(jobId)
@@ -1098,45 +1102,50 @@ function isLinkedInInternalHref(href: string) {
 }
 
 function findExternalApplyHref() {
-  const anchors = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]"))
-  const candidates = anchors.map((anchor) => {
-    const label = cleanText(`${anchor.textContent || ""} ${anchor.getAttribute("aria-label") || ""}`).toLowerCase()
-    const href = anchor.href || anchor.getAttribute("href") || ""
-    const decoded = decodeLinkedInSafetyRedirect(href)
-    const decodedHost = decoded ? (() => {
-      try {
-        return new URL(decoded).hostname.toLowerCase().replace(/^www\./, "")
-      } catch {
-        return ""
-      }
-    })() : ""
-    return { anchor, label, href, decodedHost }
-  })
+  const roots = [findJobDetailPane(), document.body].filter(Boolean) as Element[]
+  const seenHrefs = new Set<string>()
 
-  const exact = candidates.find(({ label, href }) => {
-    if (!href || href.includes("/jobs/view/")) return false
-    if (isLinkedInInternalHref(href)) return false
-    if (label.includes("candidatura simplificada")) return false
-    return label.includes("candidatar-se no site da empresa") || label.includes("acessar site da empresa") || label.includes("company site") || label.includes("company website")
-  })
-  if (exact?.href) return exact.href
+  for (const root of roots) {
+    const anchors = Array.from(root.querySelectorAll<HTMLAnchorElement>("a[href]"))
+    const candidates = anchors.map((anchor) => {
+      const label = cleanText(`${anchor.textContent || ""} ${anchor.getAttribute("aria-label") || ""}`).toLowerCase()
+      const href = anchor.href || anchor.getAttribute("href") || ""
+      return { anchor, label, href }
+    })
 
-  const applyButton = candidates.find(({ label, href, decodedHost }) => {
-    if (!href || href.includes("/jobs/view/")) return false
-    if (isLinkedInInternalHref(href)) return false
-    if (label.includes("candidatura simplificada")) return false
-    const hasApplyText = label.includes("candidatar-se") || label.includes("candidate-se") || label.includes("apply") || label.includes("inscrever")
-    const hasExternalRedirect = href.includes("linkedin.com/safety/go/") || href.includes("linkedin.com/redir/") || Boolean(decodedHost && decodedHost !== "linkedin.com")
-    return hasApplyText || hasExternalRedirect
-  })
+    const applyLink = candidates.find(({ anchor, label, href }) => {
+      if (!href || seenHrefs.has(href) || href.includes("/jobs/view/")) return false
+      seenHrefs.add(href)
+      if (isLinkedInInternalHref(href)) return false
+      if (label.includes("candidatura simplificada") || label.includes("easy apply")) return false
+      if (anchor.closest("footer, nav, header, aside")) return false
+      const hasCompanySiteText = label.includes("candidatar-se no site da empresa") || label.includes("acessar site da empresa") || label.includes("company site") || label.includes("company website")
+      const hasApplyText = label.includes("candidatar-se") || label.includes("candidate-se") || label.includes("apply") || label.includes("inscrever")
+      return hasCompanySiteText || hasApplyText
+    })
 
-  return applyButton?.href || null
+    if (applyLink?.href) return applyLink.href
+  }
+
+  return null
 }
 
 function hasEasyApplySignal() {
   const pane = findJobDetailPane()
+  if (!pane) return false
   const text = cleanText(pane.textContent || "").toLowerCase()
   return text.includes("easy apply") || text.includes("candidatura simplificada") || text.includes("candidatar-se facilmente")
+}
+
+async function waitForJobApplyState() {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < JOBS_APPLY_STATE_TIMEOUT_MS) {
+    const rawApplyHref = findExternalApplyHref()
+    if (rawApplyHref) return { rawApplyHref, easyApply: false }
+    if (hasEasyApplySignal()) return { rawApplyHref: null, easyApply: true }
+    await delay(JOBS_APPLY_STATE_POLL_MS)
+  }
+  return { rawApplyHref: findExternalApplyHref(), easyApply: hasEasyApplySignal() }
 }
 
 async function waitForJobsCards() {
@@ -1219,9 +1228,9 @@ async function inspectJobCard(card: Element, pageNumber: number, positionOnPage:
         positionOnPage
       }
     }
-    await delay(500)
-    const rawApplyHref = findExternalApplyHref()
-    if (!rawApplyHref && hasEasyApplySignal()) {
+    const applyState = await waitForJobApplyState()
+    const rawApplyHref = applyState.rawApplyHref
+    if (!rawApplyHref && applyState.easyApply) {
       return {
         linkedinJobUrl,
         jobTitle: title,

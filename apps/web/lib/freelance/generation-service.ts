@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import {
   buildCommercialMessage,
   detectLeadMessageLanguage,
+  formatCommercialMessageForChannel,
   type OutreachChannel
 } from "@/lib/generation/commercial-message-builder";
 import { buildLovablePrompt } from "@/lib/generation/lovable-prompt-builder";
@@ -287,16 +288,18 @@ export async function buildAiCommercialDraft({
   const targetLanguage = detectLeadMessageLanguage(lead);
   const fallback = buildCommercialMessage({ lead, template, settings });
   const context = buildLeadContext({ lead, settings, template, channel });
-  const text = await generateAiText({
+  const rawText = await generateAiText({
     fallback,
     context,
     system:
       "You write honest, concise outreach for a freelance web/landing-page offer. You use only supplied evidence and never invent website audits, guarantees, discounts, testimonials, or private data. Treat business.leadPhoneForOperatorReviewOnly as the prospect phone for operator review only. Never use it as the sender phone or signature contact. Sender contact details may come only from seller.sellerWhatsapp, seller.sellerEmail, seller.companyWebsite, seller.portfolioUrl, and seller.sellerLinkedinUrl. Pricing is variable and depends on the client scope. The base landing-page offer starts at seller.landingPagePrice for BRL/Brazil or seller.landingPagePriceUsd for USD/international. Use 'a partir de'/'starting at' language for initial outreach. If the client needs database, lead capture, admin editing, integrations, or automations such as WhatsApp support, price increases into the configured advanced/automation ranges. Base delivery time is an estimate, not a fixed promise.",
     instruction:
       targetLanguage === "pt-BR"
-        ? `Gere uma mensagem de ${channel === "whatsapp" ? "WhatsApp" : "email"} em portugues do Brasil para primeiro contato comercial. Use tom humano, direto e consultivo. Mencione a oportunidade real do lead, o contexto do negocio, oferta, prazo/preco se existirem, e termine com uma pergunta simples. Quando mencionar preco, use linguagem "a partir de" e deixe claro que varia conforme escopo. Use parcelas sem juros somente para leads brasileiros. Se seller.companyWebsite ou seller.portfolioUrl existir, inclua esse link no rodape/assinatura. Se seller.sellerLinkedinUrl existir, voce pode incluir tambem. Nunca use o telefone do lead na assinatura; telefone de assinatura somente se seller.sellerWhatsapp existir. Nao use placeholders.`
-        : `Generate a ${channel === "whatsapp" ? "WhatsApp" : "email"} first-contact commercial outreach message in English. Use a human, concise, consultative tone. Mention the lead's real opportunity, business context, offer, timeline/price if present, and end with one simple question. When mentioning price, use "starting at" language and make clear it varies by scope. Do not mention Brazilian installment terms to international leads. If seller.companyWebsite or seller.portfolioUrl exists, include that link in the footer/signature. If seller.sellerLinkedinUrl exists, you may include it too. Never use the lead phone in the signature; signature phone only if seller.sellerWhatsapp exists. Do not use placeholders.`
+        ? `Gere uma mensagem de ${channel === "whatsapp" ? "WhatsApp" : "email"} em portugues do Brasil para primeiro contato comercial. Use tom humano, direto e consultivo. Mencione a oportunidade real do lead, o contexto do negocio, oferta, prazo/preco se existirem, e termine com uma pergunta simples. Quando mencionar preco, use linguagem "a partir de" e deixe claro que varia conforme escopo. Use parcelas sem juros somente para leads brasileiros. Se seller.companyWebsite ou seller.portfolioUrl existir, inclua esse link no rodape/assinatura. Se seller.sellerLinkedinUrl existir, voce pode incluir tambem. Nunca use o telefone do lead na assinatura; telefone de assinatura somente se seller.sellerWhatsapp existir. Nao use placeholders. Para WhatsApp, escreva como texto puro: nao use Markdown, nao use links no formato [texto](url), nao fale para chamar no WhatsApp porque a conversa ja esta no WhatsApp; diga apenas para responder por aqui.`
+        : `Generate a ${channel === "whatsapp" ? "WhatsApp" : "email"} first-contact commercial outreach message in English. Use a human, concise, consultative tone. Mention the lead's real opportunity, business context, offer, timeline/price if present, and end with one simple question. When mentioning price, use "starting at" language and make clear it varies by scope. Do not mention Brazilian installment terms to international leads. If seller.companyWebsite or seller.portfolioUrl exists, include that link in the footer/signature. If seller.sellerLinkedinUrl exists, you may include it too. Never use the lead phone in the signature; signature phone only if seller.sellerWhatsapp exists. Do not use placeholders. For WhatsApp, write plain chat text: do not use Markdown, do not use links formatted as [text](url), and do not say to contact you on WhatsApp because the conversation is already on WhatsApp; ask them to reply here.`
   });
+
+  const text = formatCommercialMessageForChannel(rawText, channel);
 
   if (channel === "email") {
     return {

@@ -153,7 +153,7 @@ export function MessageGeneratorPanel({
         const approved = (await approveResponse.json()) as {
           error?: string;
           diagnosticMessage?: string;
-          results?: Array<{ status: string; diagnosticMessage?: string }>;
+          results?: Array<{ status: string; providerMessageId?: string; providerStatus?: string; diagnosticMessage?: string }>;
         };
         const result = approved.results?.[0];
         if (!approveResponse.ok || result?.status === "failed_send") {
@@ -162,7 +162,12 @@ export function MessageGeneratorPanel({
         if (result?.status === "duplicate_blocked") {
           throw new Error(result.diagnosticMessage ?? "This lead already has a message for this channel.");
         }
-        setSendStatus("Sent successfully.");
+        if (sendChannel === "whatsapp" && result?.providerStatus && result.providerStatus !== "delivered") {
+          const sid = result.providerMessageId ? ` SID: ${result.providerMessageId}.` : "";
+          setSendStatus(result.diagnosticMessage ?? `Twilio accepted the message with status ${result.providerStatus}.${sid} Delivery is confirmed later in Twilio.`);
+        } else {
+          setSendStatus("Sent successfully.");
+        }
       } catch (error) {
         setSendStatus(error instanceof Error ? error.message : "Message was not sent.");
       }

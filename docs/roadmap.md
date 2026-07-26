@@ -517,6 +517,14 @@ Antes de acelerar para a proxima fase, validar:
 - compatibilidade do schema e dos contratos atuais
 - seguranca de secrets e ownership por usuario
 
+## Hotfix Freelance Twilio Delivery Status - 2026-07-25
+
+O envio WhatsApp via Twilio no app web `Freelance` agora diferencia aceite da API de entrega final. Quando a Twilio retorna um SID com status inicial como `queued`, o provider ainda registra o item como enviado para manter compatibilidade, mas devolve `providerStatus` e diagnostico `twilio_delivery_pending`; a UI informa que a mensagem foi aceita pela Twilio e que a entrega deve ser confirmada pelos logs/status callback. Isso evita tratar HTTP 200/201 como prova de recebimento no WhatsApp do destinatario.
+
+## Hotfix Freelance WhatsApp Plain Text - 2026-07-25
+
+Mensagens comerciais geradas para o canal WhatsApp no app web `Freelance` agora devem sair como texto puro de chat. O prompt instrui a IA a nao usar Markdown, nao criar links `[texto](url)` e nao pedir para o lead chamar no WhatsApp quando a conversa ja esta nesse canal; a confirmacao correta e pedir para responder por ali. A camada de formatacao tambem converte links Markdown remanescentes para texto simples antes de salvar ou enviar.
+
 ## Hotfix Freelance Offer Pricing Context - 2026-07-22
 
 As configuracoes do vendedor no app web `Freelance` agora tratam preco como referencia de escopo, nao promessa fixa. O formulario inclui preco base de landing page em BRL/USD, ranges para projetos com banco/captura/admin/integracoes e ranges para automacoes como atendimento WhatsApp. Defaults: R$ 2500, US$ 1000, entrega base de 15 dias e parcelamento BR em ate 6x sem juros. A geracao IA deve usar `a partir de`/`starting at`, adaptar moeda/parcelamento ao mercado do lead e explicar que o valor varia conforme necessidades do cliente. URLs de website/portfolio/LinkedIn aceitam entrada sem protocolo e sao normalizadas para `https://...`.
