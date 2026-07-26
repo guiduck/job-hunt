@@ -21,3 +21,9 @@ Recent extension hotfix: visible `Candidatar-se` CTAs can expose internal `linke
 
 ## LinkedIn Jobs Button CTA Note
 Recent extension hotfix: LinkedIn can render `Candidatar-se` as `BUTTON.jobs-apply-button` with `href=null`. Future LinkedIn Jobs specs must treat button/role-button apply CTAs as first-class, not only `a[href]`, and preserve resolver logs (`LinkedIn apply resolver clicking CTA`, `opened external tab`, `result`) for manual debugging.
+
+## LinkedIn Jobs Share Profile Modal Note
+Recent extension hotfix: `Candidatar-se` can open LinkedIn's share-profile confirmation modal before the external ATS URL. Future LinkedIn Jobs specs must preserve the resolver step that clicks `Continuar`/`Continue`, captures the non-LinkedIn tab URL, and closes the modal on timeout.
+
+## LinkedIn Jobs Share Profile Modal Correction
+Correction: do not click `Continuar`/`Continue` in LinkedIn's share-profile modal. Treat it as an unexpected blocker, close it, and use resolver logs (`tag`, `className`, `label`, `outerHTML`) to refine CTA targeting. Future specs must avoid automatic profile sharing.

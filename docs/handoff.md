@@ -922,3 +922,17 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - The content script now treats `a[href]`, `button`, and `[role='button']` with application intent text/aria as apply CTA candidates. Candidates without href are passed to the background resolver instead of being classified as missing/Easy Apply.
 - The background resolver now searches/clicks `a[href]`, `button`, and `[role='button']`, logs the selected CTA (`tag`, `label`, `href`), observes the opened external tab, logs the resolved result, and returns the external URL for source matching.
 - Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.
+
+## 2026-07-26 - Hotfix LinkedIn Jobs Share Profile Intermediate Modal
+
+- Manual validation showed that clicking a `BUTTON.jobs-apply-button` can open LinkedIn's intermediate "Gostaria de compartilhar seu perfil?" modal before the external ATS tab is opened.
+- The background apply resolver now treats that dialog as part of the external-apply flow: after clicking `Candidatar-se`, it waits briefly for the share-profile modal, clicks `Continuar`/`Continue`, then captures the resulting non-LinkedIn tab URL for source matching.
+- If no external URL resolves, the resolver attempts to close the share-profile modal so it does not block subsequent card inspections. Resolver logs now include CTA click, modal continuation, and final result.
+- Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.
+
+## 2026-07-26 - Correction LinkedIn Jobs Share Profile Modal Handling
+
+- Manual feedback clarified that the share-profile modal is not the expected user path for the visible external apply CTA. The resolver must not click `Continuar` automatically because that can share profile data and may indicate the automation selected an ambiguous/wrong CTA.
+- The background resolver now treats `Gostaria de compartilhar seu perfil?` / `Share your profile` as an unexpected blocker: it logs the exact clicked CTA (`tag`, `className`, `label`, `outerHTML`), closes the modal when possible, and returns no resolved URL instead of continuing.
+- This keeps the run from being stuck behind the modal while preserving enough evidence to tighten CTA selection based on the actual element clicked.
+- Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.

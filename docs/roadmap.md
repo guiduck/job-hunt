@@ -553,3 +553,11 @@ A extensao `Full-time` agora resolve botoes `Candidatar-se` do LinkedIn Jobs que
 ## Hotfix Full-time LinkedIn Jobs Button CTA Without Href - 2026-07-26
 
 A extensao `Full-time` agora tambem considera `BUTTON.jobs-apply-button` e `[role='button']` com texto/aria de `Candidatar-se` como CTA de candidatura externa, mesmo sem `href`. O background clica o CTA, observa a aba externa aberta e registra logs de `LinkedIn apply resolver` para diagnosticar label/href/tag/URL resolvida em validacoes futuras.
+
+## Hotfix Full-time LinkedIn Jobs Share Profile Modal - 2026-07-26
+
+A extensao `Full-time` agora trata o modal intermediario do LinkedIn `Gostaria de compartilhar seu perfil?` como parte do fluxo de apply externo. O resolvedor clica `Continuar`, captura a URL externa aberta e fecha o modal se a resolucao falhar, evitando que o modal bloqueie a varredura dos proximos cards.
+
+## Correction Full-time LinkedIn Jobs Share Profile Modal - 2026-07-26
+
+A extensao `Full-time` nao deve avancar automaticamente o modal `Gostaria de compartilhar seu perfil?`. Esse modal agora e tratado como bloqueio inesperado/diagnostico: a extensao registra o CTA exato clicado, fecha o modal se possivel e segue sem compartilhar perfil, permitindo ajustar o alvo correto sem travar a captura.

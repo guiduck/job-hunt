@@ -701,7 +701,30 @@ function isExternalApplyTabUrl(url: string | undefined | null) {
   }
 }
 
-function clickLinkedInApplyButtonInPage(expectedHref?: string | null, expectedLabel?: string) {
+function waitInPage(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function findLinkedInShareProfileDialog(cleanText: (text: string) => string, isVisible: (element: Element) => boolean) {
+  const dialogs = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], .artdeco-modal, .jobs-s-apply'))
+  return dialogs.find((dialog) => {
+    if (!isVisible(dialog)) return false
+    const text = cleanText(dialog.textContent || "").toLowerCase()
+    return text.includes("compartilhar seu perfil") || text.includes("share your profile") || text.includes("aumente as chances") || text.includes("increase your chances")
+  }) || null
+}
+
+function closeLinkedInShareProfileDialog(cleanText: (text: string) => string, dialog: HTMLElement | null) {
+  if (!dialog) return false
+  const closeButton = Array.from(dialog.querySelectorAll<HTMLElement>("button, [role='button']")).find((element) => {
+    const label = cleanText(`${element.textContent || ""} ${element.getAttribute("aria-label") || ""} ${element.getAttribute("title") || ""}`).toLowerCase()
+    return label.includes("fechar") || label.includes("close") || label === "x"
+  })
+  closeButton?.click()
+  return Boolean(closeButton)
+}
+
+async function clickLinkedInApplyButtonInPage(expectedHref?: string | null, expectedLabel?: string) {
   const cleanText = (text: string) => text.replace(/\s+/g, " ").trim()
   const isVisible = (element: Element) => {
     const rect = element.getBoundingClientRect()
@@ -745,15 +768,48 @@ function clickLinkedInApplyButtonInPage(expectedHref?: string | null, expectedLa
   candidates.sort((a, b) => b.score - a.score)
   const selected = candidates[0]
   if (!selected) {
-    return { clicked: false, href: null, label: null }
+    console.info("[Opportunity Desk] LinkedIn apply resolver found no CTA candidate")
+    return { clicked: false, href: null, label: null, blockedByShareProfileDialog: false }
   }
 
   if (selected.element instanceof HTMLAnchorElement) {
     selected.element.setAttribute("target", "_blank")
     selected.element.setAttribute("rel", "noopener")
   }
+  console.info("[Opportunity Desk] LinkedIn apply resolver clicking CTA", {
+    href: selected.href,
+    label: selected.label,
+    tag: selected.element.tagName,
+    className: selected.element.className,
+    outerHTML: selected.element.outerHTML.slice(0, 700)
+  })
   selected.element.click()
-  return { clicked: true, href: selected.href, label: selected.label }
+
+  let blockedByShareProfileDialog = false
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    await waitInPage(250)
+    const dialog = findLinkedInShareProfileDialog(cleanText, isVisible)
+    if (!dialog) continue
+    blockedByShareProfileDialog = true
+    const closed = closeLinkedInShareProfileDialog(cleanText, dialog)
+    console.info("[Opportunity Desk] LinkedIn apply resolver blocked by unexpected share-profile dialog", {
+      closed,
+      clickedHref: selected.href,
+      clickedLabel: selected.label
+    })
+    break
+  }
+
+  return { clicked: true, href: selected.href, label: selected.label, blockedByShareProfileDialog }
+}
+
+function closeLinkedInApplyDialogInPage() {
+  const cleanText = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase()
+  const isVisible = (element: Element) => {
+    const rect = element.getBoundingClientRect()
+    return rect.width > 0 && rect.height > 0
+  }
+  closeLinkedInShareProfileDialog(cleanText, findLinkedInShareProfileDialog(cleanText, isVisible))
 }
 async function resolveLinkedInApplyButtonUrl(sourceTabId: number | undefined, expectedHref?: string | null, expectedLabel?: string): Promise<ResolvedLinkedInApplyUrl> {
   if (sourceTabId === undefined) {
