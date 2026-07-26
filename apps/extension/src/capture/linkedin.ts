@@ -194,7 +194,7 @@ export function decodeLinkedInSafetyRedirect(url: string) {
       return url.trim() || null
     }
     if (!parsed.pathname.includes("/safety/") && !parsed.pathname.includes("/redir/")) {
-      return url.trim() || null
+      return null
     }
     const target = parsed.searchParams.get("url") || parsed.searchParams.get("target") || parsed.searchParams.get("u")
     return target?.startsWith("http") ? decodeURIComponent(target) : null

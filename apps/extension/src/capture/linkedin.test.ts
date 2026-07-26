@@ -99,6 +99,11 @@ if (canonicalApplyUrl !== "https://jobs.ashbyhq.com/example/abc?jobId=123") {
   throw new Error("Canonical application URLs should remove tracking parameters and preserve job identity.")
 }
 
+const canonicalLinkedInJobUrl = canonicalizeExternalApplicationUrl("https://www.linkedin.com/jobs/view/4445390558/?eBP=NOT_ELIGIBLE_FOR_CHARGING&refId=abc")
+if (canonicalLinkedInJobUrl !== null) {
+  throw new Error("LinkedIn internal jobs/view URLs should not be treated as external application URLs.")
+}
+
 const matchedSource = matchCuratedExternalSource(
   canonicalApplyUrl,
   [{ key: "ashby", domain: "jobs.ashbyhq.com", active: true }],

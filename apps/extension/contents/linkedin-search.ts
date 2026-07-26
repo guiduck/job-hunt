@@ -1101,7 +1101,12 @@ function isLinkedInInternalHref(href: string) {
   }
 }
 
-function findExternalApplyHref() {
+type ApplyHrefCandidate = {
+  href: string
+  label: string
+}
+
+function findApplyHrefCandidate(): ApplyHrefCandidate | null {
   const roots = [findJobDetailPane(), document.body].filter(Boolean) as Element[]
   const seenHrefs = new Set<string>()
 
@@ -1114,9 +1119,8 @@ function findExternalApplyHref() {
     })
 
     const applyLink = candidates.find(({ anchor, label, href }) => {
-      if (!href || seenHrefs.has(href) || href.includes("/jobs/view/")) return false
+      if (!href || seenHrefs.has(href)) return false
       seenHrefs.add(href)
-      if (isLinkedInInternalHref(href)) return false
       if (label.includes("candidatura simplificada") || label.includes("easy apply")) return false
       if (anchor.closest("footer, nav, header, aside")) return false
       const hasCompanySiteText = label.includes("candidatar-se no site da empresa") || label.includes("acessar site da empresa") || label.includes("company site") || label.includes("company website")
@@ -1124,12 +1128,30 @@ function findExternalApplyHref() {
       return hasCompanySiteText || hasApplyText
     })
 
-    if (applyLink?.href) return applyLink.href
+    if (applyLink?.href) return { href: applyLink.href, label: applyLink.label }
   }
 
   return null
 }
 
+async function resolveLinkedInApplyHref(candidate: ApplyHrefCandidate | null) {
+  if (!candidate?.href) return null
+  if (canonicalizeExternalApplicationUrl(candidate.href)) {
+    return candidate.href
+  }
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: "RESOLVE_LINKEDIN_APPLY_BUTTON_URL",
+      payload: { expectedHref: candidate.href, expectedLabel: candidate.label }
+    })
+    const resolvedUrl = typeof response?.url === "string" ? response.url : null
+    return resolvedUrl && canonicalizeExternalApplicationUrl(resolvedUrl) ? resolvedUrl : candidate.href
+  } catch (error) {
+    console.info("[Opportunity Desk] LinkedIn apply button click resolution failed", { error, candidate })
+    return candidate.href
+  }
+}
 function hasEasyApplySignal() {
   const pane = findJobDetailPane()
   if (!pane) return false
@@ -1140,12 +1162,12 @@ function hasEasyApplySignal() {
 async function waitForJobApplyState() {
   const startedAt = Date.now()
   while (Date.now() - startedAt < JOBS_APPLY_STATE_TIMEOUT_MS) {
-    const rawApplyHref = findExternalApplyHref()
+    const rawApplyHref = await resolveLinkedInApplyHref(findApplyHrefCandidate())
     if (rawApplyHref) return { rawApplyHref, easyApply: false }
     if (hasEasyApplySignal()) return { rawApplyHref: null, easyApply: true }
     await delay(JOBS_APPLY_STATE_POLL_MS)
   }
-  return { rawApplyHref: findExternalApplyHref(), easyApply: hasEasyApplySignal() }
+  return { rawApplyHref: await resolveLinkedInApplyHref(findApplyHrefCandidate()), easyApply: hasEasyApplySignal() }
 }
 
 async function waitForJobsCards() {

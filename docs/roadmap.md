@@ -545,3 +545,7 @@ O detalhe de lead do `apps/web` centraliza o fluxo no card amplo `Commercial mes
 
 A extensao `Full-time` recebeu um ajuste no Field Assistant para lidar melhor com textareas em modais/overlays de aplicacao externa. O detector agora aceita campos visiveis dentro de ancestrais com role de modal/apresentacao mesmo quando algum wrapper usa `aria-hidden=true`, e o preenchimento de input/textarea passou a usar o setter nativo antes de disparar eventos `input`/`change`, melhorando compatibilidade com campos controlados por React/Vue.
 
+
+## Hotfix Full-time LinkedIn Jobs Apply CTA Redirect Resolution - 2026-07-26
+
+A extensao `Full-time` agora resolve botoes `Candidatar-se` do LinkedIn Jobs que parecem externos na UI, mas expoem `href` interno `linkedin.com/jobs/view/...` no DOM. URLs internas `/jobs/view` deixam de ser aceitas como application URL canonica; quando o CTA nao decodifica diretamente, o background clica no botao em uma aba auxiliar, observa a URL externa final, fecha a aba auxiliar e devolve o ATS real para matching/dedupe. Isso preserva a regra de pular Easy Apply, mas evita perder vagas externas so porque o LinkedIn usa redirect/tracking intermediario.

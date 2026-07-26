@@ -681,6 +681,136 @@ async function startLinkedInJobsExternalCapture(payload: LinkedInJobsExternalReq
     diagnostics
   }
 }
+
+type ResolvedLinkedInApplyUrl = {
+  url: string | null
+  clickedHref?: string | null
+  clickedLabel?: string | null
+  reason: "resolved_tab" | "click_failed" | "timeout" | "missing_tab"
+}
+
+function isExternalApplyTabUrl(url: string | undefined | null) {
+  if (!url) return false
+  try {
+    const parsed = new URL(url)
+    if (!["http:", "https:"].includes(parsed.protocol)) return false
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, "")
+    return host !== "linkedin.com"
+  } catch {
+    return false
+  }
+}
+
+function clickLinkedInApplyButtonInPage(expectedHref?: string, expectedLabel?: string) {
+  const cleanText = (text: string) => text.replace(/\s+/g, " ").trim()
+  const isVisible = (element: Element) => {
+    const rect = element.getBoundingClientRect()
+    return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight
+  }
+  const paneSelectors = [
+    ".jobs-search__job-details--container",
+    ".jobs-details",
+    ".jobs-search__job-details",
+    "[data-job-id]",
+    "[data-view-name*='job-detail']",
+    "[componentkey*='job-details']"
+  ]
+  const roots = paneSelectors.map((selector) => document.querySelector(selector)).filter(Boolean) as Element[]
+  roots.push(document.body)
+
+  const candidates: Array<{ anchor: HTMLAnchorElement; href: string; label: string; score: number }> = []
+  const seen = new Set<string>()
+  for (const root of roots) {
+    for (const anchor of Array.from(root.querySelectorAll<HTMLAnchorElement>("a[href]"))) {
+      const href = anchor.href || anchor.getAttribute("href") || ""
+      if (!href || seen.has(href) || anchor.closest("footer, nav, header, aside") || !isVisible(anchor)) continue
+      seen.add(href)
+      const label = cleanText(`${anchor.textContent || ""} ${anchor.getAttribute("aria-label") || ""} ${anchor.getAttribute("title") || ""}`).toLowerCase()
+      if (label.includes("candidatura simplificada") || label.includes("easy apply")) continue
+      const hasCompanySiteText = label.includes("candidatar-se no site da empresa") || label.includes("acessar site da empresa") || label.includes("company site") || label.includes("company website")
+      const hasApplyText = label.includes("candidatar-se") || label.includes("candidate-se") || label.includes("apply") || label.includes("inscrever")
+      if (!hasCompanySiteText && !hasApplyText) continue
+
+      let score = 10
+      if (hasCompanySiteText) score += 50
+      if (href === expectedHref) score += 40
+      if (expectedLabel && label.includes(expectedLabel.toLowerCase())) score += 20
+      if (/\/safety\/|\/redir\/|\/jobs\/view\//i.test(href)) score += 10
+      candidates.push({ anchor, href, label, score })
+    }
+    if (candidates.length > 0) break
+  }
+
+  candidates.sort((a, b) => b.score - a.score)
+  const selected = candidates[0]
+  if (!selected) {
+    return { clicked: false, href: null, label: null }
+  }
+
+  selected.anchor.setAttribute("target", "_blank")
+  selected.anchor.setAttribute("rel", "noopener")
+  selected.anchor.click()
+  return { clicked: true, href: selected.href, label: selected.label }
+}
+
+async function resolveLinkedInApplyButtonUrl(sourceTabId: number | undefined, expectedHref?: string, expectedLabel?: string): Promise<ResolvedLinkedInApplyUrl> {
+  if (sourceTabId === undefined) {
+    return { url: null, reason: "missing_tab" }
+  }
+
+  let openedTabId: number | null = null
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  let finish: (result: ResolvedLinkedInApplyUrl) => void = () => undefined
+
+  const cleanup = () => {
+    if (timeoutId) clearTimeout(timeoutId)
+    chrome.tabs.onCreated.removeListener(onCreated)
+    chrome.tabs.onUpdated.removeListener(onUpdated)
+  }
+  const complete = (result: ResolvedLinkedInApplyUrl) => {
+    cleanup()
+    finish(result)
+  }
+  const onCreated = (tab: chrome.tabs.Tab) => {
+    if (tab.openerTabId !== sourceTabId) return
+    openedTabId = tab.id ?? null
+    const url = tab.url || tab.pendingUrl
+    if (isExternalApplyTabUrl(url)) {
+      complete({ url: url || null, reason: "resolved_tab" })
+    }
+  }
+  const onUpdated = (tabId: number, changeInfo: { url?: string }, tab: chrome.tabs.Tab) => {
+    if (tabId !== openedTabId) return
+    const url = changeInfo.url || tab.url || tab.pendingUrl
+    if (isExternalApplyTabUrl(url)) {
+      complete({ url: url || null, reason: "resolved_tab" })
+    }
+  }
+
+  const resolved = new Promise<ResolvedLinkedInApplyUrl>((resolve) => {
+    finish = resolve
+    timeoutId = setTimeout(() => complete({ url: null, reason: "timeout" }), 7000)
+    chrome.tabs.onCreated.addListener(onCreated)
+    chrome.tabs.onUpdated.addListener(onUpdated)
+  })
+
+  const [execution] = await chrome.scripting.executeScript({
+    target: { tabId: sourceTabId },
+    func: clickLinkedInApplyButtonInPage,
+    args: [expectedHref, expectedLabel]
+  })
+  const clickResult = execution?.result as { clicked?: boolean; href?: string | null; label?: string | null } | undefined
+  if (!clickResult?.clicked) {
+    cleanup()
+    return { url: null, clickedHref: clickResult?.href || null, clickedLabel: clickResult?.label || null, reason: "click_failed" }
+  }
+
+  const result = await resolved
+  if (openedTabId !== null && result.url) {
+    chrome.tabs.remove(openedTabId).catch(() => undefined)
+  }
+  return { ...result, clickedHref: clickResult.href || null, clickedLabel: clickResult.label || null }
+}
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "request failed"
 }
@@ -696,6 +826,12 @@ chrome.runtime.onMessage.addListener((message: StartCaptureMessage | StartLinked
     return false
   }
 
+  if (message.type === "RESOLVE_LINKEDIN_APPLY_BUTTON_URL") {
+    resolveLinkedInApplyButtonUrl(sender.tab?.id, message.payload?.expectedHref, message.payload?.expectedLabel)
+      .then((result) => sendResponse(result))
+      .catch((error: Error) => sendResponse({ url: null, reason: "click_failed", error: error.message }))
+    return true
+  }
   if (message.type === FIELD_ASSISTANT_MESSAGE_TYPES.getPageStatus) {
     getFieldAssistantPageStatus(message.payload?.url || sender.tab?.url)
       .then((status) => sendResponse({ ok: true, status }))

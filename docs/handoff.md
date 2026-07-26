@@ -908,3 +908,10 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - Added a bounded wait for the job apply state after card selection and made Easy Apply detection read only a real job-detail pane, preventing left-list `Candidatura simplificada` text from being interpreted as the selected job's button while the right pane is still loading.
 - Backend LinkedIn Jobs completion now reapplies final diagnostics counters after candidate reconciliation so runs can preserve inspected/rejected counts even when only accepted candidates are persisted.
 - Validation: `apps/extension npm.cmd run typecheck`, `apps/extension npm.cmd run build`, and `python -m compileall apps/api/app/services/job_search_run_service.py` passed. Local Docker API contract test could not run because Docker Desktop was not active.
+
+## 2026-07-26 - Hotfix LinkedIn Jobs Apply CTA Redirect Resolution
+
+- Manual validation still showed visible blue `Candidatar-se` buttons with external-link UI, but LinkedIn rendered the anchor `href` as an internal `/jobs/view/...` tracking URL instead of the final ATS URL.
+- The extension now treats `linkedin.com/jobs/view/...` as non-canonical for external applications, preserving `/safety/` and `/redir/` decoding only when those redirects point to a real external URL.
+- When the apply CTA has application intent but its `href` cannot be canonicalized, the content script asks the background to click the selected CTA in a controlled `_blank` context, watch the newly opened tab until it resolves to a non-LinkedIn URL, close that auxiliary tab, and continue source matching with the resolved ATS URL.
+- Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.

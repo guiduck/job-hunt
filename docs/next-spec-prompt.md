@@ -15,3 +15,6 @@ Recent web hotfix: generated `Freelance` commercial messages for WhatsApp must b
 
 ## Freelance Twilio Delivery Status Note
 Recent web hotfix: Twilio WhatsApp HTTP success means provider acceptance, not guaranteed delivery. Preserve `providerStatus` visibility and avoid UI copy that implies final WhatsApp delivery unless Twilio status callback/logs confirm delivered.
+
+## LinkedIn Jobs CTA Redirect Resolution Note
+Recent extension hotfix: visible `Candidatar-se` CTAs can expose internal `linkedin.com/jobs/view/...` hrefs before resolving to the external ATS. Future spec work should preserve the controlled background resolution flow: click the apply CTA in `_blank`, observe the opened tab until the URL leaves LinkedIn, close the auxiliary tab, then source-match/dedupe the resolved external URL. Keep this scoped to the Full-time extension; do not involve `apps/web`/Freelance.
