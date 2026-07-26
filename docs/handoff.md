@@ -915,3 +915,10 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - The extension now treats `linkedin.com/jobs/view/...` as non-canonical for external applications, preserving `/safety/` and `/redir/` decoding only when those redirects point to a real external URL.
 - When the apply CTA has application intent but its `href` cannot be canonicalized, the content script asks the background to click the selected CTA in a controlled `_blank` context, watch the newly opened tab until it resolves to a non-LinkedIn URL, close that auxiliary tab, and continue source matching with the resolved ATS URL.
 - Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.
+
+## 2026-07-26 - Hotfix LinkedIn Jobs Button Apply CTA Without Href
+
+- Manual DevTools inspection showed current LinkedIn Jobs detail panes can render the visible external `Candidatar-se` CTA as `BUTTON.jobs-apply-button` with `href=null`; earlier detection only scanned `a[href]`, so these jobs were invisible to the apply-link resolver even though the button text/aria was present.
+- The content script now treats `a[href]`, `button`, and `[role='button']` with application intent text/aria as apply CTA candidates. Candidates without href are passed to the background resolver instead of being classified as missing/Easy Apply.
+- The background resolver now searches/clicks `a[href]`, `button`, and `[role='button']`, logs the selected CTA (`tag`, `label`, `href`), observes the opened external tab, logs the resolved result, and returns the external URL for source matching.
+- Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.

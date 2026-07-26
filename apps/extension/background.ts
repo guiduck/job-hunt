@@ -701,7 +701,7 @@ function isExternalApplyTabUrl(url: string | undefined | null) {
   }
 }
 
-function clickLinkedInApplyButtonInPage(expectedHref?: string, expectedLabel?: string) {
+function clickLinkedInApplyButtonInPage(expectedHref?: string | null, expectedLabel?: string) {
   const cleanText = (text: string) => text.replace(/\s+/g, " ").trim()
   const isVisible = (element: Element) => {
     const rect = element.getBoundingClientRect()
@@ -718,14 +718,15 @@ function clickLinkedInApplyButtonInPage(expectedHref?: string, expectedLabel?: s
   const roots = paneSelectors.map((selector) => document.querySelector(selector)).filter(Boolean) as Element[]
   roots.push(document.body)
 
-  const candidates: Array<{ anchor: HTMLAnchorElement; href: string; label: string; score: number }> = []
+  const candidates: Array<{ element: HTMLElement; href: string | null; label: string; score: number }> = []
   const seen = new Set<string>()
   for (const root of roots) {
-    for (const anchor of Array.from(root.querySelectorAll<HTMLAnchorElement>("a[href]"))) {
-      const href = anchor.href || anchor.getAttribute("href") || ""
-      if (!href || seen.has(href) || anchor.closest("footer, nav, header, aside") || !isVisible(anchor)) continue
-      seen.add(href)
-      const label = cleanText(`${anchor.textContent || ""} ${anchor.getAttribute("aria-label") || ""} ${anchor.getAttribute("title") || ""}`).toLowerCase()
+    for (const element of Array.from(root.querySelectorAll<HTMLElement>("a[href], button, [role='button']"))) {
+      const href = element instanceof HTMLAnchorElement ? element.href || element.getAttribute("href") || null : null
+      const label = cleanText(`${element.textContent || ""} ${element.getAttribute("aria-label") || ""} ${element.getAttribute("title") || ""}`).toLowerCase()
+      const dedupeKey = href || `${element.tagName}:${label}`
+      if (!dedupeKey || seen.has(dedupeKey) || element.closest("footer, nav, header, aside") || !isVisible(element)) continue
+      seen.add(dedupeKey)
       if (label.includes("candidatura simplificada") || label.includes("easy apply")) continue
       const hasCompanySiteText = label.includes("candidatar-se no site da empresa") || label.includes("acessar site da empresa") || label.includes("company site") || label.includes("company website")
       const hasApplyText = label.includes("candidatar-se") || label.includes("candidate-se") || label.includes("apply") || label.includes("inscrever")
@@ -733,10 +734,10 @@ function clickLinkedInApplyButtonInPage(expectedHref?: string, expectedLabel?: s
 
       let score = 10
       if (hasCompanySiteText) score += 50
-      if (href === expectedHref) score += 40
+      if (href && href === expectedHref) score += 40
       if (expectedLabel && label.includes(expectedLabel.toLowerCase())) score += 20
-      if (/\/safety\/|\/redir\/|\/jobs\/view\//i.test(href)) score += 10
-      candidates.push({ anchor, href, label, score })
+      if (href && /\/safety\/|\/redir\/|\/jobs\/view\//i.test(href)) score += 10
+      candidates.push({ element, href, label, score })
     }
     if (candidates.length > 0) break
   }
@@ -747,13 +748,14 @@ function clickLinkedInApplyButtonInPage(expectedHref?: string, expectedLabel?: s
     return { clicked: false, href: null, label: null }
   }
 
-  selected.anchor.setAttribute("target", "_blank")
-  selected.anchor.setAttribute("rel", "noopener")
-  selected.anchor.click()
+  if (selected.element instanceof HTMLAnchorElement) {
+    selected.element.setAttribute("target", "_blank")
+    selected.element.setAttribute("rel", "noopener")
+  }
+  selected.element.click()
   return { clicked: true, href: selected.href, label: selected.label }
 }
-
-async function resolveLinkedInApplyButtonUrl(sourceTabId: number | undefined, expectedHref?: string, expectedLabel?: string): Promise<ResolvedLinkedInApplyUrl> {
+async function resolveLinkedInApplyButtonUrl(sourceTabId: number | undefined, expectedHref?: string | null, expectedLabel?: string): Promise<ResolvedLinkedInApplyUrl> {
   if (sourceTabId === undefined) {
     return { url: null, reason: "missing_tab" }
   }

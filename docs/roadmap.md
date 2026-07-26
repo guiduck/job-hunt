@@ -549,3 +549,7 @@ A extensao `Full-time` recebeu um ajuste no Field Assistant para lidar melhor co
 ## Hotfix Full-time LinkedIn Jobs Apply CTA Redirect Resolution - 2026-07-26
 
 A extensao `Full-time` agora resolve botoes `Candidatar-se` do LinkedIn Jobs que parecem externos na UI, mas expoem `href` interno `linkedin.com/jobs/view/...` no DOM. URLs internas `/jobs/view` deixam de ser aceitas como application URL canonica; quando o CTA nao decodifica diretamente, o background clica no botao em uma aba auxiliar, observa a URL externa final, fecha a aba auxiliar e devolve o ATS real para matching/dedupe. Isso preserva a regra de pular Easy Apply, mas evita perder vagas externas so porque o LinkedIn usa redirect/tracking intermediario.
+
+## Hotfix Full-time LinkedIn Jobs Button CTA Without Href - 2026-07-26
+
+A extensao `Full-time` agora tambem considera `BUTTON.jobs-apply-button` e `[role='button']` com texto/aria de `Candidatar-se` como CTA de candidatura externa, mesmo sem `href`. O background clica o CTA, observa a aba externa aberta e registra logs de `LinkedIn apply resolver` para diagnosticar label/href/tag/URL resolvida em validacoes futuras.

@@ -1102,41 +1102,42 @@ function isLinkedInInternalHref(href: string) {
 }
 
 type ApplyHrefCandidate = {
-  href: string
+  href: string | null
   label: string
 }
 
 function findApplyHrefCandidate(): ApplyHrefCandidate | null {
   const roots = [findJobDetailPane(), document.body].filter(Boolean) as Element[]
-  const seenHrefs = new Set<string>()
+  const seen = new Set<string>()
 
   for (const root of roots) {
-    const anchors = Array.from(root.querySelectorAll<HTMLAnchorElement>("a[href]"))
-    const candidates = anchors.map((anchor) => {
-      const label = cleanText(`${anchor.textContent || ""} ${anchor.getAttribute("aria-label") || ""}`).toLowerCase()
-      const href = anchor.href || anchor.getAttribute("href") || ""
-      return { anchor, label, href }
+    const elements = Array.from(root.querySelectorAll<HTMLElement>("a[href], button, [role='button']"))
+    const candidates = elements.map((element) => {
+      const label = cleanText(`${element.textContent || ""} ${element.getAttribute("aria-label") || ""} ${element.getAttribute("title") || ""}`).toLowerCase()
+      const href = element instanceof HTMLAnchorElement ? element.href || element.getAttribute("href") || null : null
+      return { element, label, href }
     })
 
-    const applyLink = candidates.find(({ anchor, label, href }) => {
-      if (!href || seenHrefs.has(href)) return false
-      seenHrefs.add(href)
+    const applyLink = candidates.find(({ element, label, href }) => {
+      const dedupeKey = href || `${element.tagName}:${label}`
+      if (!dedupeKey || seen.has(dedupeKey)) return false
+      seen.add(dedupeKey)
       if (label.includes("candidatura simplificada") || label.includes("easy apply")) return false
-      if (anchor.closest("footer, nav, header, aside")) return false
+      if (element.closest("footer, nav, header, aside")) return false
       const hasCompanySiteText = label.includes("candidatar-se no site da empresa") || label.includes("acessar site da empresa") || label.includes("company site") || label.includes("company website")
       const hasApplyText = label.includes("candidatar-se") || label.includes("candidate-se") || label.includes("apply") || label.includes("inscrever")
       return hasCompanySiteText || hasApplyText
     })
 
-    if (applyLink?.href) return { href: applyLink.href, label: applyLink.label }
+    if (applyLink) return { href: applyLink.href, label: applyLink.label }
   }
 
   return null
 }
 
 async function resolveLinkedInApplyHref(candidate: ApplyHrefCandidate | null) {
-  if (!candidate?.href) return null
-  if (canonicalizeExternalApplicationUrl(candidate.href)) {
+  if (!candidate) return null
+  if (candidate.href && canonicalizeExternalApplicationUrl(candidate.href)) {
     return candidate.href
   }
 
