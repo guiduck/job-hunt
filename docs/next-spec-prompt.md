@@ -33,3 +33,12 @@ Recent extension hotfix: do not click `BUTTON.jobs-apply-button` with `href=null
 
 ## LinkedIn Jobs Passive Hrefless CTA Diagnostics
 Recent extension diagnostic: hrefless `Candidatar-se` buttons log `currentJobId`, CTA dataset/html, parent chain, recent `/voyager/` resources, and JSON signals. Use those logs to design the next deterministic resolver without clicking profile-share flows.
+
+## LinkedIn Jobs Hrefless CTA Resolver Follow-up
+Manual diagnostics on 2026-07-27 showed `BUTTON.jobs-apply-button[data-live-test-job-apply-button]` has no `href`, and passive `/voyager/` resources are too noisy or scoped to unrelated job IDs. Do not keep guessing selectors. Specify a safe resolver that duplicates the current job/search URL into a disposable tab, clicks only the verified apply CTA there, captures the first non-LinkedIn URL if one appears, closes any LinkedIn share-profile modal/tab without clicking `Continuar`, and returns diagnostics to the main run. Keep this scoped to `apps/extension`; no `apps/web`/Freelance changes.
+
+## LinkedIn Jobs Disposable Resolver Validation
+The extension now resolves hrefless LinkedIn Jobs apply CTAs through a disposable background tab. Next spec should be created only after manual smoke validates: external ATS URL captured, disposable tab closed, no main-tab feed redirect, no automatic `Continuar` click on share-profile modal, and diagnostics distinguish `resolved_tab`, `timeout`, `click_failed`, and `share_profile_blocked`.
+
+## Freelance Outreach Retry Note
+Recent hotfix: duplicate first-contact checks should use the latest outreach event. `failed_send` must allow a retry, while pending/sent events still block duplicates. Preserve this behavior in future Twilio delivery-status and outreach-history specs.

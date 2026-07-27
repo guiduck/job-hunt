@@ -411,6 +411,10 @@ type LinkedInJobsExternalResponse =
   | { ok: true; result: { runId: string; tabId: number; diagnostics?: LinkedInJobsProgress["diagnostics"] } }
   | { ok: false; error: string }
 
+function isLinkedInJobsExternalSuccess(response: LinkedInJobsExternalResponse | undefined): response is Extract<LinkedInJobsExternalResponse, { ok: true }> {
+  return Boolean(response?.ok && response.result)
+}
+
 function isLinkedInJobsAlreadyRunningError(message: string) {
   return /linkedin jobs external search is already pending or running/i.test(message)
 }
@@ -1258,14 +1262,14 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         }))
       }
       let response = await sendLinkedInJobsExternalRequest(requestPayload)
-      if (response.ok === false && isLinkedInJobsAlreadyRunningError(response.error)) {
+      if (response?.ok === false && isLinkedInJobsAlreadyRunningError(response.error)) {
         const recovered = await recoverInterruptedLinkedInJobsExternalRun()
         if (recovered) {
           response = await sendLinkedInJobsExternalRequest(requestPayload)
         }
       }
-      if (response.ok === false) {
-        throw new Error(response.error)
+      if (!isLinkedInJobsExternalSuccess(response)) {
+        throw new Error(response?.error || "LinkedIn Jobs external search returned an empty response.")
       }
       set({
         linkedinJobsProgress: {

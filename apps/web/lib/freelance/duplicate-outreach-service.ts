@@ -1,4 +1,4 @@
-import type { OutreachChannel, TemplateStage } from "@prisma/client";
+import type { OutreachChannel, OutreachEvent, TemplateStage } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { OwnerScope } from "./repositories";
 import { requireOwnerScope } from "./repositories";
@@ -10,12 +10,23 @@ export type DuplicateOutreachLookup = {
   stage?: TemplateStage;
 };
 
+function isBlockingOutreachEvent(event: OutreachEvent) {
+  if (event.eventType === "failed_send" || event.status === "failed_send") {
+    return false;
+  }
+  return (
+    event.eventType === "queued_send" ||
+    event.eventType === "sent" ||
+    ["queued", "sending", "sent"].includes(event.status)
+  );
+}
+
 export async function findDuplicateFirstContactOutreach(
   scope: OwnerScope,
   lookup: DuplicateOutreachLookup
 ) {
   requireOwnerScope(scope);
-  return prisma.outreachEvent.findFirst({
+  const events = await prisma.outreachEvent.findMany({
     where: {
       userId: scope.userId,
       leadId: lookup.leadId,
@@ -23,11 +34,15 @@ export async function findDuplicateFirstContactOutreach(
       channel: lookup.channel,
       stage: lookup.stage ?? "first_contact",
       OR: [
-        { eventType: "queued_send" },
-        { eventType: "sent" },
-        { status: { in: ["queued", "sending", "sent"] } }
+        { eventType: { in: ["queued_send", "sent", "failed_send"] } },
+        { status: { in: ["queued", "sending", "sent", "failed_send"] } }
       ]
     },
-    orderBy: { occurredAt: "desc" }
+    orderBy: { occurredAt: "desc" },
+    take: 5
   });
+  const latestRelevantEvent = events[0];
+  return latestRelevantEvent && isBlockingOutreachEvent(latestRelevantEvent)
+    ? latestRelevantEvent
+    : null;
 }

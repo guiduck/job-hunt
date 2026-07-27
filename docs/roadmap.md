@@ -569,3 +569,11 @@ A extensao `Full-time` nao clica mais automaticamente em CTA `Candidatar-se` sem
 ## Diagnostic Full-time LinkedIn Jobs Hrefless Apply CTA - 2026-07-27
 
 A extensao `Full-time` agora registra diagnostico passivo para `BUTTON`/`role=link` de `Candidatar-se` sem `href`: job id atual, dataset/html do CTA, cadeia de pais, resources `/voyager/`/`/jobs/` e sinais JSON. O objetivo e descobrir a origem do apply URL sem clique automatico nem modal de compartilhar perfil.
+
+Atualizacao operacional 2026-07-27: no recorte `018-linkedin-jobs-external-search`, CTAs externos sem `href` continuam sem URL deterministica antes do clique. O runtime agora evita crash de progresso sem `diagnostics`, reduz ruido de resource logs e bloqueia/restaura navegação acidental para fora de `/jobs/search`. Proximo hardening recomendado: resolver `BUTTON.jobs-apply-button` sem `href` em uma aba descartavel/isolada, capturando somente a primeira URL externa e fechando a aba/modal sem afetar a busca principal.
+
+Atualizacao operacional 2026-07-27: o hardening de `018-linkedin-jobs-external-search` agora inclui resolver de CTA externo em aba descartavel para `BUTTON.jobs-apply-button` sem `href`. A coleta principal nao deve mais clicar no apply da vaga ativa; qualquer clique de resolucao acontece em aba auxiliar fechada automaticamente. Gate restante: validar manualmente se o LinkedIn entrega o ATS externo nessa aba inativa ou se bloqueia em `share_profile_blocked`.
+
+Atualizacao operacional 2026-07-27: o resolver descartavel do LinkedIn Jobs agora aguarda o CTA renderizar na aba auxiliar antes do clique, reduzindo falsos `click_failed` em paginas que abrem primeiro como skeleton. Validacao manual ainda deve confirmar se a aba auxiliar chega ao ATS externo ou se fica bloqueada pelo estado do LinkedIn.
+
+Atualizacao operacional 2026-07-27: no `Freelance`, o bloqueio de duplicidade de outreach agora permite retry quando a ultima tentativa terminou em `failed_send`. Duplicidade continua bloqueada para envio pendente ou ja enviado, mas falha de provider nao deve impedir nova tentativa manual.

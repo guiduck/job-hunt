@@ -686,7 +686,14 @@ type ResolvedLinkedInApplyUrl = {
   url: string | null
   clickedHref?: string | null
   clickedLabel?: string | null
-  reason: "resolved_tab" | "click_failed" | "timeout" | "missing_tab"
+  reason: "resolved_tab" | "click_failed" | "timeout" | "missing_tab" | "share_profile_blocked"
+  diagnostic?: Record<string, unknown>
+}
+
+type ResolveLinkedInApplyPayload = {
+  pageUrl?: string | null
+  expectedHref?: string | null
+  expectedLabel?: string | null
 }
 
 function isExternalApplyTabUrl(url: string | undefined | null) {
@@ -705,30 +712,16 @@ function waitInPage(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function findLinkedInShareProfileDialog(cleanText: (text: string) => string, isVisible: (element: Element) => boolean) {
-  const dialogs = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], .artdeco-modal, .jobs-s-apply'))
-  return dialogs.find((dialog) => {
-    if (!isVisible(dialog)) return false
-    const text = cleanText(dialog.textContent || "").toLowerCase()
-    return text.includes("compartilhar seu perfil") || text.includes("share your profile") || text.includes("aumente as chances") || text.includes("increase your chances")
-  }) || null
-}
-
-function closeLinkedInShareProfileDialog(cleanText: (text: string) => string, dialog: HTMLElement | null) {
-  if (!dialog) return false
-  const closeButton = Array.from(dialog.querySelectorAll<HTMLElement>("button, [role='button']")).find((element) => {
-    const label = cleanText(`${element.textContent || ""} ${element.getAttribute("aria-label") || ""} ${element.getAttribute("title") || ""}`).toLowerCase()
-    return label.includes("fechar") || label.includes("close") || label === "x"
-  })
-  closeButton?.click()
-  return Boolean(closeButton)
-}
-
-async function clickLinkedInApplyButtonInPage(expectedHref?: string | null, expectedLabel?: string) {
+async function clickLinkedInApplyButtonInDisposablePage(expectedHref?: string | null, expectedLabel?: string | null) {
   const cleanText = (text: string) => text.replace(/\s+/g, " ").trim()
   const isVisible = (element: Element) => {
     const rect = element.getBoundingClientRect()
     return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight
+  }
+  const isShareProfileDialog = (element: Element) => {
+    if (!isVisible(element)) return false
+    const text = cleanText(element.textContent || "").toLowerCase()
+    return text.includes("compartilhar seu perfil") || text.includes("share your profile") || text.includes("aumente as chances") || text.includes("increase your chances")
   }
   const paneSelectors = [
     ".jobs-search__job-details--container",
@@ -738,45 +731,61 @@ async function clickLinkedInApplyButtonInPage(expectedHref?: string | null, expe
     "[data-view-name*='job-detail']",
     "[componentkey*='job-details']"
   ]
-  const roots = paneSelectors.map((selector) => document.querySelector(selector)).filter(Boolean) as Element[]
-  roots.push(document.body)
+  const expected = cleanText(expectedLabel || "").toLowerCase()
+  const collectCandidates = () => {
+    const candidates: Array<{ element: HTMLElement; href: string | null; label: string; score: number }> = []
+    const seen = new Set<string>()
+    const roots = paneSelectors.map((selector) => document.querySelector(selector)).filter(Boolean) as Element[]
+    roots.push(document.body)
 
-  const candidates: Array<{ element: HTMLElement; href: string | null; label: string; score: number }> = []
-  const seen = new Set<string>()
-  for (const root of roots) {
-    for (const element of Array.from(root.querySelectorAll<HTMLElement>("a[href], button, [role='button']"))) {
-      const href = element instanceof HTMLAnchorElement ? element.href || element.getAttribute("href") || null : null
-      const label = cleanText(`${element.textContent || ""} ${element.getAttribute("aria-label") || ""} ${element.getAttribute("title") || ""}`).toLowerCase()
-      const dedupeKey = href || `${element.tagName}:${label}`
-      if (!dedupeKey || seen.has(dedupeKey) || element.closest("footer, nav, header, aside") || !isVisible(element)) continue
-      seen.add(dedupeKey)
-      if (label.includes("candidatura simplificada") || label.includes("easy apply")) continue
-      const hasCompanySiteText = label.includes("candidatar-se no site da empresa") || label.includes("acessar site da empresa") || label.includes("company site") || label.includes("company website")
-      const hasApplyText = label.includes("candidatar-se") || label.includes("candidate-se") || label.includes("apply") || label.includes("inscrever")
-      if (!hasCompanySiteText && !hasApplyText) continue
+    for (const root of roots) {
+      for (const element of Array.from(root.querySelectorAll<HTMLElement>("a[href], button, [role='button'], [role='link']"))) {
+        const href = element instanceof HTMLAnchorElement ? element.href || element.getAttribute("href") || null : element.getAttribute("href")
+        const label = cleanText(`${element.textContent || ""} ${element.getAttribute("aria-label") || ""} ${element.getAttribute("title") || ""}`).toLowerCase()
+        const dedupeKey = href || `${element.tagName}:${label}`
+        if (!dedupeKey || seen.has(dedupeKey) || element.closest("footer, nav, header, aside") || !isVisible(element)) continue
+        seen.add(dedupeKey)
+        if (label.includes("candidatura simplificada") || label.includes("easy apply")) continue
+        const hasCompanySiteText = label.includes("candidatar-se no site da empresa") || label.includes("acessar site da empresa") || label.includes("company site") || label.includes("company website")
+        const hasApplyText = label.includes("candidatar-se") || label.includes("candidate-se") || label.includes("apply") || label.includes("inscrever")
+        const hasLinkedInApplyDataset = "liveTestJobApplyButton" in element.dataset
+        if (!hasCompanySiteText && !hasApplyText && !hasLinkedInApplyDataset) continue
 
-      let score = 10
-      if (hasCompanySiteText) score += 50
-      if (href && href === expectedHref) score += 40
-      if (expectedLabel && label.includes(expectedLabel.toLowerCase())) score += 20
-      if (href && /\/safety\/|\/redir\/|\/jobs\/view\//i.test(href)) score += 10
-      candidates.push({ element, href, label, score })
+        let score = 10
+        if (hasCompanySiteText) score += 60
+        if (hasLinkedInApplyDataset) score += 30
+        if (href && expectedHref && href === expectedHref) score += 50
+        if (expected && label.includes(expected)) score += 25
+        if (href && /\/safety\/|\/redir\/|\/jobs\/view\//i.test(href)) score += 10
+        candidates.push({ element, href, label, score })
+      }
+      if (candidates.length > 0) break
     }
-    if (candidates.length > 0) break
+
+    candidates.sort((a, b) => b.score - a.score)
+    return candidates
   }
 
-  candidates.sort((a, b) => b.score - a.score)
+  let candidates: Array<{ element: HTMLElement; href: string | null; label: string; score: number }> = []
+  for (let attempt = 0; attempt < 32; attempt += 1) {
+    candidates = collectCandidates()
+    if (candidates.length > 0) break
+    await waitInPage(250)
+  }
+
   const selected = candidates[0]
   if (!selected) {
-    console.info("[Opportunity Desk] LinkedIn apply resolver found no CTA candidate")
-    return { clicked: false, href: null, label: null, blockedByShareProfileDialog: false }
+    const bodyText = cleanText(document.body.textContent || "").slice(0, 700)
+    console.info("[Opportunity Desk] LinkedIn disposable apply resolver found no CTA candidate", { url: window.location.href, bodyText })
+    return { clicked: false, href: null, label: null, blockedByShareProfileDialog: false, diagnostic: { candidateCount: 0, pageUrl: window.location.href, bodyText } }
   }
 
   if (selected.element instanceof HTMLAnchorElement) {
     selected.element.setAttribute("target", "_blank")
     selected.element.setAttribute("rel", "noopener")
   }
-  console.info("[Opportunity Desk] LinkedIn apply resolver clicking CTA", {
+
+  console.info("[Opportunity Desk] LinkedIn disposable apply resolver clicking CTA", {
     href: selected.href,
     label: selected.label,
     tag: selected.element.tagName,
@@ -785,56 +794,52 @@ async function clickLinkedInApplyButtonInPage(expectedHref?: string | null, expe
   })
   selected.element.click()
 
-  let blockedByShareProfileDialog = false
-  for (let attempt = 0; attempt < 8; attempt += 1) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
     await waitInPage(250)
-    const dialog = findLinkedInShareProfileDialog(cleanText, isVisible)
-    if (!dialog) continue
-    blockedByShareProfileDialog = true
-    const closed = closeLinkedInShareProfileDialog(cleanText, dialog)
-    console.info("[Opportunity Desk] LinkedIn apply resolver blocked by unexpected share-profile dialog", {
-      closed,
-      clickedHref: selected.href,
-      clickedLabel: selected.label
-    })
-    break
+    const dialog = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], .artdeco-modal, .jobs-s-apply')).find(isShareProfileDialog)
+    if (dialog) {
+      console.info("[Opportunity Desk] LinkedIn disposable apply resolver stopped at share-profile dialog", {
+        clickedHref: selected.href,
+        clickedLabel: selected.label
+      })
+      return { clicked: true, href: selected.href, label: selected.label, blockedByShareProfileDialog: true, diagnostic: { dialogText: cleanText(dialog.textContent || "").slice(0, 500) } }
+    }
   }
 
-  return { clicked: true, href: selected.href, label: selected.label, blockedByShareProfileDialog }
+  return { clicked: true, href: selected.href, label: selected.label, blockedByShareProfileDialog: false, diagnostic: { candidateCount: candidates.length } }
 }
 
-function closeLinkedInApplyDialogInPage() {
-  const cleanText = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase()
-  const isVisible = (element: Element) => {
-    const rect = element.getBoundingClientRect()
-    return rect.width > 0 && rect.height > 0
-  }
-  closeLinkedInShareProfileDialog(cleanText, findLinkedInShareProfileDialog(cleanText, isVisible))
+async function closeTabs(tabIds: Array<number | null | undefined>) {
+  await Promise.all(
+    Array.from(new Set(tabIds.filter((tabId): tabId is number => typeof tabId === "number"))).map((tabId) => chrome.tabs.remove(tabId).catch(() => undefined))
+  )
 }
-async function resolveLinkedInApplyButtonUrl(sourceTabId: number | undefined, expectedHref?: string | null, expectedLabel?: string): Promise<ResolvedLinkedInApplyUrl> {
-  if (sourceTabId === undefined) {
-    return { url: null, reason: "missing_tab" }
+
+async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayload): Promise<ResolvedLinkedInApplyUrl> {
+  if (!payload.pageUrl) {
+    return { url: null, reason: "missing_tab", diagnostic: { message: "Missing LinkedIn job page URL." } }
   }
-  if (!expectedHref) {
-    console.info("[Opportunity Desk] LinkedIn apply resolver refused hrefless CTA to avoid share-profile modal", { expectedLabel })
-    return { url: null, clickedHref: null, clickedLabel: expectedLabel || null, reason: "click_failed" }
+
+  const disposableTab = await chrome.tabs.create({ active: false, url: payload.pageUrl })
+  if (disposableTab.id === undefined) {
+    return { url: null, reason: "missing_tab", diagnostic: { message: "Chrome did not create disposable LinkedIn tab." } }
   }
 
   let openedTabId: number | null = null
   let timeoutId: ReturnType<typeof setTimeout> | undefined
   let finish: (result: ResolvedLinkedInApplyUrl) => void = () => undefined
 
-  const cleanup = () => {
+  const cleanupListeners = () => {
     if (timeoutId) clearTimeout(timeoutId)
     chrome.tabs.onCreated.removeListener(onCreated)
     chrome.tabs.onUpdated.removeListener(onUpdated)
   }
   const complete = (result: ResolvedLinkedInApplyUrl) => {
-    cleanup()
+    cleanupListeners()
     finish(result)
   }
   const onCreated = (tab: chrome.tabs.Tab) => {
-    if (tab.openerTabId !== sourceTabId) return
+    if (tab.openerTabId !== disposableTab.id) return
     openedTabId = tab.id ?? null
     const url = tab.url || tab.pendingUrl
     if (isExternalApplyTabUrl(url)) {
@@ -842,36 +847,48 @@ async function resolveLinkedInApplyButtonUrl(sourceTabId: number | undefined, ex
     }
   }
   const onUpdated = (tabId: number, changeInfo: { url?: string }, tab: chrome.tabs.Tab) => {
-    if (tabId !== openedTabId) return
+    if (tabId !== openedTabId && tabId !== disposableTab.id) return
     const url = changeInfo.url || tab.url || tab.pendingUrl
     if (isExternalApplyTabUrl(url)) {
+      if (tabId !== disposableTab.id) openedTabId = tabId
       complete({ url: url || null, reason: "resolved_tab" })
     }
   }
 
-  const resolved = new Promise<ResolvedLinkedInApplyUrl>((resolve) => {
-    finish = resolve
-    timeoutId = setTimeout(() => complete({ url: null, reason: "timeout" }), 7000)
-    chrome.tabs.onCreated.addListener(onCreated)
-    chrome.tabs.onUpdated.addListener(onUpdated)
-  })
+  try {
+    await withTimeout(waitForTabComplete(disposableTab.id), 10000, "Disposable LinkedIn apply tab did not finish loading.")
+    await waitInPage(1000)
 
-  const [execution] = await chrome.scripting.executeScript({
-    target: { tabId: sourceTabId },
-    func: clickLinkedInApplyButtonInPage,
-    args: [expectedHref, expectedLabel]
-  })
-  const clickResult = execution?.result as { clicked?: boolean; href?: string | null; label?: string | null } | undefined
-  if (!clickResult?.clicked) {
-    cleanup()
-    return { url: null, clickedHref: clickResult?.href || null, clickedLabel: clickResult?.label || null, reason: "click_failed" }
-  }
+    const resolved = new Promise<ResolvedLinkedInApplyUrl>((resolve) => {
+      finish = resolve
+      timeoutId = setTimeout(() => complete({ url: null, reason: "timeout" }), 9000)
+      chrome.tabs.onCreated.addListener(onCreated)
+      chrome.tabs.onUpdated.addListener(onUpdated)
+    })
 
-  const result = await resolved
-  if (openedTabId !== null && result.url) {
-    chrome.tabs.remove(openedTabId).catch(() => undefined)
+    const [execution] = await chrome.scripting.executeScript({
+      target: { tabId: disposableTab.id },
+      func: clickLinkedInApplyButtonInDisposablePage,
+      args: [payload.expectedHref, payload.expectedLabel]
+    })
+    const clickResult = execution?.result as { clicked?: boolean; href?: string | null; label?: string | null; blockedByShareProfileDialog?: boolean; diagnostic?: Record<string, unknown> } | undefined
+    if (!clickResult?.clicked || clickResult.blockedByShareProfileDialog) {
+      cleanupListeners()
+      return {
+        url: null,
+        clickedHref: clickResult?.href || null,
+        clickedLabel: clickResult?.label || null,
+        reason: clickResult?.blockedByShareProfileDialog ? "share_profile_blocked" : "click_failed",
+        diagnostic: clickResult?.diagnostic
+      }
+    }
+
+    const result = await resolved
+    return { ...result, clickedHref: clickResult.href || null, clickedLabel: clickResult.label || null, diagnostic: clickResult.diagnostic }
+  } finally {
+    cleanupListeners()
+    await closeTabs([openedTabId, disposableTab.id])
   }
-  return { ...result, clickedHref: clickResult.href || null, clickedLabel: clickResult.label || null }
 }
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "request failed"
@@ -889,7 +906,7 @@ chrome.runtime.onMessage.addListener((message: StartCaptureMessage | StartLinked
   }
 
   if (message.type === "RESOLVE_LINKEDIN_APPLY_BUTTON_URL") {
-    resolveLinkedInApplyButtonUrl(sender.tab?.id, message.payload?.expectedHref, message.payload?.expectedLabel)
+    resolveLinkedInApplyButtonUrl(message.payload || {})
       .then((result) => sendResponse(result))
       .catch((error: Error) => sendResponse({ url: null, reason: "click_failed", error: error.message }))
     return true

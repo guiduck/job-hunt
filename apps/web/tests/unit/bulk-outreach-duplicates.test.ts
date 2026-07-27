@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const findFirstMock = vi.fn();
+const findManyMock = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     outreachEvent: {
-      findFirst: findFirstMock
+      findMany: findManyMock
     }
   }
 }));
@@ -16,11 +16,11 @@ const { findDuplicateFirstContactOutreach } = await import(
 
 describe("bulk outreach duplicate blocking", () => {
   beforeEach(() => {
-    findFirstMock.mockReset();
+    findManyMock.mockReset();
   });
 
-  it("looks up first-contact duplicates by lead, campaign, channel, and stage", async () => {
-    findFirstMock.mockResolvedValue({ id: "event_1", status: "sent" });
+  it("blocks when the latest first-contact event is sent", async () => {
+    findManyMock.mockResolvedValue([{ id: "event_1", eventType: "sent", status: "sent" }]);
 
     await expect(
       findDuplicateFirstContactOutreach(
@@ -34,7 +34,7 @@ describe("bulk outreach duplicate blocking", () => {
       )
     ).resolves.toMatchObject({ id: "event_1" });
 
-    expect(findFirstMock).toHaveBeenCalledWith(
+    expect(findManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           userId: "user_1",
@@ -42,8 +42,45 @@ describe("bulk outreach duplicate blocking", () => {
           campaignId: "campaign_1",
           channel: "email",
           stage: "first_contact"
-        })
+        }),
+        orderBy: { occurredAt: "desc" },
+        take: 5
       })
     );
+  });
+
+  it("blocks when the latest first-contact event is still pending", async () => {
+    findManyMock.mockResolvedValue([{ id: "event_queued", eventType: "queued_send", status: "sending" }]);
+
+    await expect(
+      findDuplicateFirstContactOutreach(
+        { userId: "user_1" },
+        {
+          leadId: "lead_1",
+          campaignId: "campaign_1",
+          channel: "whatsapp",
+          stage: "first_contact"
+        }
+      )
+    ).resolves.toMatchObject({ id: "event_queued" });
+  });
+
+  it("allows retry when the latest first-contact delivery failed", async () => {
+    findManyMock.mockResolvedValue([
+      { id: "event_failed", eventType: "failed_send", status: "failed_send" },
+      { id: "event_queued", eventType: "queued_send", status: "sending" }
+    ]);
+
+    await expect(
+      findDuplicateFirstContactOutreach(
+        { userId: "user_1" },
+        {
+          leadId: "lead_1",
+          campaignId: "campaign_1",
+          channel: "whatsapp",
+          stage: "first_contact"
+        }
+      )
+    ).resolves.toBeNull();
   });
 });

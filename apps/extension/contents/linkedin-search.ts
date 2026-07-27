@@ -1026,6 +1026,16 @@ async function clickLinkedInJobCardTarget(target: HTMLElement) {
 function isLinkedInFullJobView() {
   return /\/jobs\/view\//i.test(window.location.pathname)
 }
+
+function isLinkedInJobsSearchSurface() {
+  return /^\/jobs\/search\/?$/i.test(window.location.pathname)
+}
+
+async function restoreLinkedInJobsSearchUrl(beforeUrl: string) {
+  if (window.location.href === beforeUrl) return
+  window.location.assign(beforeUrl)
+  await delay(1200)
+}
 function findJobAnchor(card: Element) {
   return Array.from(card.querySelectorAll<HTMLAnchorElement>("a[href*='/jobs/view/'], a[href*='currentJobId=']"))[0] || null
 }
@@ -1135,14 +1145,21 @@ function buildApplyCandidateDiagnostic(element: HTMLElement, label: string, href
     })
   }
 
-  const resourceUrls = performance
+  const allResourceUrls = performance
     .getEntriesByType("resource")
     .map((entry) => entry.name)
+  const resourceUrls = allResourceUrls
     .filter((url) => {
       const lower = url.toLowerCase()
-      return lower.includes("/voyager/") || lower.includes("/jobs/") || (currentJobId ? lower.includes(currentJobId) : false)
+      if (!currentJobId) return false
+      return (
+        lower.includes(`currentjobid=${currentJobId}`) ||
+        lower.includes(`/jobs/view/${currentJobId}`) ||
+        lower.includes(`jobposting%3a${currentJobId}`) ||
+        lower.includes(`jobposting:${currentJobId}`)
+      )
     })
-    .slice(-40)
+    .slice(-12)
 
   const jsonSignals = Array.from(document.querySelectorAll("code, script[type='application/json'], script[type='application/ld+json']"))
     .map((script) => cleanText(script.textContent || ""))
@@ -1163,6 +1180,7 @@ function buildApplyCandidateDiagnostic(element: HTMLElement, label: string, href
     html: element.outerHTML.slice(0, 2000),
     parents: parentChain,
     resourceUrls,
+    resourceUrlNote: resourceUrls.length > 0 ? "Only URLs scoped to the current LinkedIn job id are included." : "No resource URL was scoped to the current LinkedIn job id.",
     jsonSignals
   }
 }
@@ -1203,17 +1221,19 @@ async function resolveLinkedInApplyHref(candidate: ApplyHrefCandidate | null) {
   }
 
   if (!candidate.href) {
-    console.info("[Opportunity Desk] LinkedIn apply CTA has no href; passive diagnostic snapshot", candidate.diagnostic)
-    return null
+    console.info("[Opportunity Desk] LinkedIn apply CTA has no href; resolving in disposable tab", candidate.diagnostic)
   }
 
   try {
+    const pageUrl = typeof candidate.diagnostic.pageUrl === "string" ? candidate.diagnostic.pageUrl : window.location.href
     const response = await chrome.runtime.sendMessage({
       type: "RESOLVE_LINKEDIN_APPLY_BUTTON_URL",
-      payload: { expectedHref: candidate.href, expectedLabel: candidate.label }
+      payload: { pageUrl, expectedHref: candidate.href, expectedLabel: candidate.label }
     })
     const resolvedUrl = typeof response?.url === "string" ? response.url : null
-    return resolvedUrl && canonicalizeExternalApplicationUrl(resolvedUrl) ? resolvedUrl : candidate.href
+    if (resolvedUrl && canonicalizeExternalApplicationUrl(resolvedUrl)) return resolvedUrl
+    console.info("[Opportunity Desk] LinkedIn disposable apply resolver did not resolve external URL", { response, candidate })
+    return candidate.href
   } catch (error) {
     console.info("[Opportunity Desk] LinkedIn apply button click resolution failed", { error, candidate })
     return candidate.href
@@ -1292,6 +1312,25 @@ async function inspectJobCard(card: Element, pageNumber: number, positionOnPage:
           sourceKey: null,
           outcome: "inspection_failed",
           skipReason: `LinkedIn navigated away from the results list after clicking this card: ${beforeUrl}`,
+          pageNumber,
+          positionOnPage
+        }
+      }
+      if (!isLinkedInJobsSearchSurface()) {
+        const afterUrl = window.location.href
+        await restoreLinkedInJobsSearchUrl(beforeUrl)
+        return {
+          linkedinJobUrl,
+          jobTitle: title,
+          companyName: company,
+          locationText: location,
+          applyButtonKind: "unknown",
+          rawApplyHref: null,
+          decodedApplyUrl: null,
+          canonicalApplyUrl: null,
+          sourceKey: null,
+          outcome: "inspection_failed",
+          skipReason: `LinkedIn navigated outside the jobs search surface after clicking this result: ${afterUrl}`,
           pageNumber,
           positionOnPage
         }
