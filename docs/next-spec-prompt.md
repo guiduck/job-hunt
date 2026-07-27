@@ -27,3 +27,9 @@ Recent extension hotfix: `Candidatar-se` can open LinkedIn's share-profile confi
 
 ## LinkedIn Jobs Share Profile Modal Correction
 Correction: do not click `Continuar`/`Continue` in LinkedIn's share-profile modal. Treat it as an unexpected blocker, close it, and use resolver logs (`tag`, `className`, `label`, `outerHTML`) to refine CTA targeting. Future specs must avoid automatic profile sharing.
+
+## LinkedIn Jobs Hrefless CTA Diagnostic Note
+Recent extension hotfix: do not click `BUTTON.jobs-apply-button` with `href=null`. Diagnose these buttons by inspecting attributes, dataset, surrounding form/dialog data, scripts, and network behavior without triggering profile-sharing side effects.
+
+## LinkedIn Jobs Passive Hrefless CTA Diagnostics
+Recent extension diagnostic: hrefless `Candidatar-se` buttons log `currentJobId`, CTA dataset/html, parent chain, recent `/voyager/` resources, and JSON signals. Use those logs to design the next deterministic resolver without clicking profile-share flows.

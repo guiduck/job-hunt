@@ -936,3 +936,17 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - The background resolver now treats `Gostaria de compartilhar seu perfil?` / `Share your profile` as an unexpected blocker: it logs the exact clicked CTA (`tag`, `className`, `label`, `outerHTML`), closes the modal when possible, and returns no resolved URL instead of continuing.
 - This keeps the run from being stuck behind the modal while preserving enough evidence to tighten CTA selection based on the actual element clicked.
 - Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.
+
+## 2026-07-26 - Hotfix LinkedIn Jobs Stop Hrefless Apply Button Clicks
+
+- Manual validation showed the extension still opened LinkedIn's share-profile modal while resolving `BUTTON.jobs-apply-button` candidates without `href`.
+- To stop destructive/ambiguous behavior, the content script now refuses click-based resolution for apply CTA candidates with `href=null`; it logs the hrefless CTA and returns no URL instead of clicking. The background resolver also has a guard that refuses hrefless CTA requests.
+- This prevents automatic profile-sharing modals while preserving deterministic handling for anchors/redirect hrefs. The next diagnostic step is to inspect the button's surrounding DOM/dataset/form metadata without clicking to find where LinkedIn stores the external destination.
+- Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.
+
+## 2026-07-27 - LinkedIn Jobs Hrefless Apply CTA Passive Diagnostics
+
+- Manual DOM inspection confirmed current LinkedIn Jobs external apply CTAs can render as `BUTTON` with `role="link"`, `data-live-test-job-apply-button`, visible `Candidatar-se`, and no `href`.
+- The extension now keeps hrefless CTA handling passive: it refuses click-based resolution and logs a diagnostic snapshot with `currentJobId`, CTA attributes/dataset/html, parent chain, recent `/voyager/` and `/jobs/` resource URLs, and JSON/code signals matching the job id.
+- This is intended to identify where LinkedIn stores or fetches the external destination without opening tabs, clicking `Continuar`, or triggering profile-share modals.
+- Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.

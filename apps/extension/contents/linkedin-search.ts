@@ -1104,6 +1104,67 @@ function isLinkedInInternalHref(href: string) {
 type ApplyHrefCandidate = {
   href: string | null
   label: string
+  diagnostic: Record<string, unknown>
+}
+
+function getCurrentLinkedInJobId() {
+  const href = window.location.href
+  const match = href.match(/currentJobId=(\d+)|\/jobs\/view\/(\d+)/)
+  if (match?.[1] || match?.[2]) return match[1] || match[2]
+  const detail = findJobDetailPane({ fallbackToBody: true })
+  const idElement = detail?.querySelector<HTMLElement>("[data-job-id], [data-occludable-job-id]")
+  return idElement?.dataset.jobId || idElement?.dataset.occludableJobId || null
+}
+
+function buildApplyCandidateDiagnostic(element: HTMLElement, label: string, href: string | null) {
+  const currentJobId = getCurrentLinkedInJobId()
+  const parentChain: Array<Record<string, unknown>> = []
+  let node: HTMLElement | null = element
+  for (let depth = 0; node && depth < 8; depth += 1, node = node.parentElement) {
+    parentChain.push({
+      tag: node.tagName,
+      id: node.id || null,
+      className: typeof node.className === "string" ? node.className : String(node.className || ""),
+      role: node.getAttribute("role"),
+      href: node instanceof HTMLAnchorElement ? node.href || node.getAttribute("href") : node.getAttribute("href"),
+      action: node.getAttribute("action"),
+      aria: node.getAttribute("aria-label"),
+      data: { ...node.dataset },
+      text: cleanText(node.textContent || "").slice(0, 500),
+      html: node.outerHTML.slice(0, 1200)
+    })
+  }
+
+  const resourceUrls = performance
+    .getEntriesByType("resource")
+    .map((entry) => entry.name)
+    .filter((url) => {
+      const lower = url.toLowerCase()
+      return lower.includes("/voyager/") || lower.includes("/jobs/") || (currentJobId ? lower.includes(currentJobId) : false)
+    })
+    .slice(-40)
+
+  const jsonSignals = Array.from(document.querySelectorAll("code, script[type='application/json'], script[type='application/ld+json']"))
+    .map((script) => cleanText(script.textContent || ""))
+    .filter((value) => value && (!currentJobId || value.includes(currentJobId)) && /apply|candidat|job|url/i.test(value))
+    .slice(0, 5)
+    .map((value) => value.slice(0, 1500))
+
+  return {
+    pageUrl: window.location.href,
+    currentJobId,
+    label,
+    href,
+    tag: element.tagName,
+    className: typeof element.className === "string" ? element.className : String(element.className || ""),
+    role: element.getAttribute("role"),
+    aria: element.getAttribute("aria-label"),
+    data: { ...element.dataset },
+    html: element.outerHTML.slice(0, 2000),
+    parents: parentChain,
+    resourceUrls,
+    jsonSignals
+  }
 }
 
 function findApplyHrefCandidate(): ApplyHrefCandidate | null {
@@ -1115,7 +1176,7 @@ function findApplyHrefCandidate(): ApplyHrefCandidate | null {
     const candidates = elements.map((element) => {
       const label = cleanText(`${element.textContent || ""} ${element.getAttribute("aria-label") || ""} ${element.getAttribute("title") || ""}`).toLowerCase()
       const href = element instanceof HTMLAnchorElement ? element.href || element.getAttribute("href") || null : null
-      return { element, label, href }
+      return { element, label, href, diagnostic: buildApplyCandidateDiagnostic(element, label, href) }
     })
 
     const applyLink = candidates.find(({ element, label, href }) => {
@@ -1129,7 +1190,7 @@ function findApplyHrefCandidate(): ApplyHrefCandidate | null {
       return hasCompanySiteText || hasApplyText
     })
 
-    if (applyLink) return { href: applyLink.href, label: applyLink.label }
+    if (applyLink) return { href: applyLink.href, label: applyLink.label, diagnostic: applyLink.diagnostic }
   }
 
   return null
@@ -1139,6 +1200,11 @@ async function resolveLinkedInApplyHref(candidate: ApplyHrefCandidate | null) {
   if (!candidate) return null
   if (candidate.href && canonicalizeExternalApplicationUrl(candidate.href)) {
     return candidate.href
+  }
+
+  if (!candidate.href) {
+    console.info("[Opportunity Desk] LinkedIn apply CTA has no href; passive diagnostic snapshot", candidate.diagnostic)
+    return null
   }
 
   try {

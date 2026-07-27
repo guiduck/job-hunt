@@ -561,3 +561,11 @@ A extensao `Full-time` agora trata o modal intermediario do LinkedIn `Gostaria d
 ## Correction Full-time LinkedIn Jobs Share Profile Modal - 2026-07-26
 
 A extensao `Full-time` nao deve avancar automaticamente o modal `Gostaria de compartilhar seu perfil?`. Esse modal agora e tratado como bloqueio inesperado/diagnostico: a extensao registra o CTA exato clicado, fecha o modal se possivel e segue sem compartilhar perfil, permitindo ajustar o alvo correto sem travar a captura.
+
+## Hotfix Full-time LinkedIn Jobs Stop Hrefless CTA Clicks - 2026-07-26
+
+A extensao `Full-time` nao clica mais automaticamente em CTA `Candidatar-se` sem `href`, porque esse caminho abriu o modal de compartilhamento de perfil. O fluxo agora evita side effects, loga o CTA sem href e exige diagnostico DOM sem clique para descobrir a origem real do link externo.
+
+## Diagnostic Full-time LinkedIn Jobs Hrefless Apply CTA - 2026-07-27
+
+A extensao `Full-time` agora registra diagnostico passivo para `BUTTON`/`role=link` de `Candidatar-se` sem `href`: job id atual, dataset/html do CTA, cadeia de pais, resources `/voyager/`/`/jobs/` e sinais JSON. O objetivo e descobrir a origem do apply URL sem clique automatico nem modal de compartilhar perfil.

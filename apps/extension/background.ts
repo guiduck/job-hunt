@@ -815,6 +815,10 @@ async function resolveLinkedInApplyButtonUrl(sourceTabId: number | undefined, ex
   if (sourceTabId === undefined) {
     return { url: null, reason: "missing_tab" }
   }
+  if (!expectedHref) {
+    console.info("[Opportunity Desk] LinkedIn apply resolver refused hrefless CTA to avoid share-profile modal", { expectedLabel })
+    return { url: null, clickedHref: null, clickedLabel: expectedLabel || null, reason: "click_failed" }
+  }
 
   let openedTabId: number | null = null
   let timeoutId: ReturnType<typeof setTimeout> | undefined
