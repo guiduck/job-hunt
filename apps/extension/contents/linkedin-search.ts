@@ -1061,9 +1061,10 @@ async function waitForJobDetailSelection(title: string | null, linkedinJobUrl: s
   const jobId = jobIdMatch?.[1] || jobIdMatch?.[2] || ""
 
   while (Date.now() - startedAt < 5000) {
-    const paneText = cleanText(findJobDetailPane({ fallbackToBody: true })?.textContent || "").toLowerCase()
+    const detailPane = findJobDetailPane()
+    const paneText = cleanText(detailPane?.textContent || "").toLowerCase()
     const href = window.location.href
-    const titleMatches = normalizedTitle.length > 0 && paneText.includes(normalizedTitle)
+    const titleMatches = Boolean(detailPane) && normalizedTitle.length > 0 && paneText.includes(normalizedTitle)
     const urlMatches = jobId.length > 0 && href.includes(jobId)
     if (titleMatches || urlMatches) {
       return true
@@ -1241,9 +1242,10 @@ async function resolveLinkedInApplyHref(candidate: ApplyHrefCandidate | null) {
 
     try {
       const pageUrl = typeof candidate.diagnostic.pageUrl === "string" ? candidate.diagnostic.pageUrl : window.location.href
+      const useCurrentTab = !candidate.href || isLinkedInInternalHref(candidate.href)
       const response = await chrome.runtime.sendMessage({
         type: "RESOLVE_LINKEDIN_APPLY_BUTTON_URL",
-        payload: { pageUrl, expectedHref: candidate.href, expectedLabel: candidate.label, useCurrentTab: !candidate.href }
+        payload: { pageUrl, expectedHref: candidate.href, expectedLabel: candidate.label, useCurrentTab }
       })
       const resolvedUrl = typeof response?.url === "string" ? response.url : null
       if (resolvedUrl && canonicalizeExternalApplicationUrl(resolvedUrl)) return resolvedUrl
@@ -1263,8 +1265,11 @@ async function resolveLinkedInApplyHref(candidate: ApplyHrefCandidate | null) {
 function hasEasyApplySignal() {
   const pane = findJobDetailPane()
   if (!pane) return false
-  const text = cleanText(pane.textContent || "").toLowerCase()
-  return text.includes("easy apply") || text.includes("candidatura simplificada") || text.includes("candidatar-se facilmente")
+  const controls = Array.from(pane.querySelectorAll<HTMLElement>("button, a[href], [role='button']"))
+  return controls.some((control) => {
+    const label = cleanText(`${control.textContent || ""} ${control.getAttribute("aria-label") || ""} ${control.getAttribute("title") || ""}`).toLowerCase()
+    return label.includes("easy apply") || label.includes("candidatura simplificada") || label.includes("candidatar-se facilmente")
+  })
 }
 
 async function waitForJobApplyState() {

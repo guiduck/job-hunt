@@ -587,3 +587,7 @@ Atualizacao operacional 2026-07-27: o resolvedor de candidatura externa do Linke
 Atualizacao operacional 2026-07-27: a captura LinkedIn Jobs agora rastreia abas ATS externas criadas sem `openerTabId` e aceita aliases de dominio como `job-boards.greenhouse.io`. Isso deve corrigir casos em que InHire/Greenhouse abriam visualmente, mas a vaga continuava com `accepted=0`.
 
 Atualizacao operacional 2026-07-27: o matching de fontes externas do LinkedIn Jobs agora e propositalmente simples: se a URL canonica contem a chave/dominio/alias da fonte selecionada, a vaga e aceita para aquela fonte. Isso substitui matching estrito de host para evitar falsos negativos em variantes como `job-boards.greenhouse.io` vs `boards.greenhouse.io`.
+
+Atualizacao operacional 2026-07-27: a captura LinkedIn Jobs agora espera o detalhe real da vaga antes de inspecionar o CTA. A validacao por titulo nao olha mais para o body inteiro, evitando que titulos da lista esquerda confirmem falsamente a selecao e façam o scraper ler o apply URL da vaga anterior.
+
+Atualizacao operacional 2026-07-27: o resolver LinkedIn Jobs agora trata href interno do LinkedIn em botao externo (/jobs/view/...alternateChannel=search) como candidato a resolver na aba atual, pois a aba descartavel nao preserva o estado SPA que abre o ATS real. Easy Apply agora depende de label de controle/botao, nao de texto solto no painel.

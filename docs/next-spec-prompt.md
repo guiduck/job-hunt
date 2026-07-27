@@ -57,3 +57,9 @@ Recent extension hotfix: ATS tabs opened from LinkedIn apply clicks may not expo
 
 ## LinkedIn Jobs Source Substring Match Note
 Recent extension hotfix: source matching for LinkedIn Jobs external ATS URLs should remain substring-based against selected source signals, not strict host equality. A URL should match when it contains the selected source key, configured domain, or known alias; inactive or unselected sources must still be ignored.
+
+## LinkedIn Jobs Detail Pane Selection Note
+Recent extension hotfix: when validating that a LinkedIn Jobs result card selected the right job, do not match job titles against document.body; the left results list contains the same titles. Wait for the real detail pane text or matching job id before inspecting apply CTAs.
+
+## LinkedIn Jobs Internal Href Resolver Note
+Recent extension hotfix: visible external Candidatar-se CTAs may carry an internal LinkedIn /jobs/view/...alternateChannel=search href. Treat those like hrefless CTAs: click the verified CTA in the current LinkedIn Jobs tab, observe the opened non-LinkedIn ATS tab, then source-match the stabilized external URL. Do not classify a job as Easy Apply from arbitrary detail text; require an Easy Apply/Candidatura Simplificada control label.
