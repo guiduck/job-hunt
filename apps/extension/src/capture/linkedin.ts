@@ -230,13 +230,31 @@ export type CuratedSourceMatcher = {
   active?: boolean
 }
 
+const SOURCE_DOMAIN_ALIASES: Record<string, string[]> = {
+  greenhouse: ["boards.greenhouse.io", "job-boards.greenhouse.io"],
+  gupy: ["gupy.io"]
+}
+
+function normalizedSourceSignals(source: CuratedSourceMatcher) {
+  const values = [source.key, source.domain, ...(SOURCE_DOMAIN_ALIASES[source.key] || [])]
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value.toLowerCase().replace(/^www\./, "").trim())
+        .filter(Boolean)
+    )
+  )
+}
 export function matchCuratedExternalSource(url: string, sources: CuratedSourceMatcher[], selectedSourceKeys: string[]) {
   const canonical = canonicalizeExternalApplicationUrl(url)
   if (!canonical) return null
   const selected = new Set(selectedSourceKeys)
-  const host = new URL(canonical).hostname.toLowerCase().replace(/^www\./, "")
+  const searchableUrl = canonical.toLowerCase().replace(/^https?:\/\/(www\.)?/, "")
   return sources.find((source) => {
-    const domain = source.domain.toLowerCase().replace(/^www\./, "")
-    return source.active !== false && selected.has(source.key) && (host === domain || host.endsWith(`.${domain}`))
+    return (
+      source.active !== false &&
+      selected.has(source.key) &&
+      normalizedSourceSignals(source).some((signal) => searchableUrl.includes(signal))
+    )
   }) || null
 }

@@ -113,6 +113,31 @@ if (matchedSource?.key !== "ashby") {
   throw new Error("Source matching should accept selected curated ATS domains.")
 }
 
+const matchedInhireSource = matchCuratedExternalSource(
+  "https://brq.inhire.app/vagas/580e4f06-0ea2-4ef0-8015-423507ee2e96/desenvolvedor-frontend",
+  [{ key: "inhire", domain: "inhire.app", active: true }],
+  ["inhire"]
+)
+if (matchedInhireSource?.key !== "inhire") {
+  throw new Error("Source matching should accept InHire company subdomains.")
+}
+
+const matchedGreenhouseAlias = matchCuratedExternalSource(
+  "https://job-boards.greenhouse.io/interviewengineering/jobs/8651364002",
+  [{ key: "greenhouse", domain: "boards.greenhouse.io", active: true }],
+  ["greenhouse"]
+)
+if (matchedGreenhouseAlias?.key !== "greenhouse") {
+  throw new Error("Source matching should accept Greenhouse job-boards aliases.")
+}
+const matchedGreenhouseByKey = matchCuratedExternalSource(
+  "https://some-random-host.example/jobs/apply?source=greenhouse&job=123",
+  [{ key: "greenhouse", domain: "boards.greenhouse.io", active: true }],
+  ["greenhouse"]
+)
+if (matchedGreenhouseByKey?.key !== "greenhouse") {
+  throw new Error("Source matching should accept selected source keys contained anywhere in the URL.")
+}
 const inactiveSource = matchCuratedExternalSource(
   "https://jobs.teamtailor.com/example/abc",
   [{ key: "teamtailor", domain: "jobs.teamtailor.com", active: false }],

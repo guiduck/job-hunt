@@ -694,6 +694,7 @@ type ResolveLinkedInApplyPayload = {
   pageUrl?: string | null
   expectedHref?: string | null
   expectedLabel?: string | null
+  useCurrentTab?: boolean
 }
 
 function isExternalApplyTabUrl(url: string | undefined | null) {
@@ -815,22 +816,29 @@ async function closeTabs(tabIds: Array<number | null | undefined>) {
   )
 }
 
-async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayload): Promise<ResolvedLinkedInApplyUrl> {
+async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayload, sourceTabId?: number): Promise<ResolvedLinkedInApplyUrl> {
   if (!payload.pageUrl) {
     return { url: null, reason: "missing_tab", diagnostic: { message: "Missing LinkedIn job page URL." } }
   }
 
-  const disposableTab = await chrome.tabs.create({ active: false, url: payload.pageUrl })
-  if (disposableTab.id === undefined) {
-    return { url: null, reason: "missing_tab", diagnostic: { message: "Chrome did not create disposable LinkedIn tab." } }
+  const shouldUseSourceTab = payload.useCurrentTab && typeof sourceTabId === "number"
+  const disposableTab = shouldUseSourceTab ? null : await chrome.tabs.create({ active: false, url: payload.pageUrl })
+  const targetTabId = shouldUseSourceTab ? sourceTabId : disposableTab?.id
+  if (targetTabId === undefined) {
+    return { url: null, reason: "missing_tab", diagnostic: { message: "Chrome did not provide a LinkedIn tab for apply resolution." } }
   }
 
+  const sourceTab = await chrome.tabs.get(targetTabId).catch(() => null)
+  const existingTabIds = new Set((await chrome.tabs.query({})).map((tab) => tab.id).filter((tabId): tabId is number => typeof tabId === "number"))
+  const candidateExternalTabIds = new Set<number>()
   let openedTabId: number | null = null
   let timeoutId: ReturnType<typeof setTimeout> | undefined
+  let resolveDelayId: ReturnType<typeof setTimeout> | undefined
   let finish: (result: ResolvedLinkedInApplyUrl) => void = () => undefined
 
   const cleanupListeners = () => {
     if (timeoutId) clearTimeout(timeoutId)
+    if (resolveDelayId) clearTimeout(resolveDelayId)
     chrome.tabs.onCreated.removeListener(onCreated)
     chrome.tabs.onUpdated.removeListener(onUpdated)
   }
@@ -838,26 +846,49 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
     cleanupListeners()
     finish(result)
   }
+  const scheduleExternalResolution = (tabId: number, observedUrl?: string | null) => {
+    if (tabId !== targetTabId) openedTabId = tabId
+    if (resolveDelayId) clearTimeout(resolveDelayId)
+    resolveDelayId = setTimeout(async () => {
+      const latestTab = await chrome.tabs.get(tabId).catch(() => null)
+      const finalUrl = latestTab?.url || latestTab?.pendingUrl || observedUrl || null
+      if (!isExternalApplyTabUrl(finalUrl)) return
+      complete({
+        url: finalUrl,
+        reason: "resolved_tab",
+        diagnostic: {
+          observedUrl: observedUrl || null,
+          stabilizedUrl: finalUrl,
+          stabilizedDelayMs: 2000
+        }
+      })
+    }, 2000)
+  }
   const onCreated = (tab: chrome.tabs.Tab) => {
-    if (tab.openerTabId !== disposableTab.id) return
-    openedTabId = tab.id ?? null
+    if (tab.id === undefined || existingTabIds.has(tab.id)) return
+    const belongsToApplyClick = tab.openerTabId === targetTabId || tab.windowId === sourceTab?.windowId
+    if (!belongsToApplyClick) return
+    candidateExternalTabIds.add(tab.id)
+    openedTabId = tab.id
     const url = tab.url || tab.pendingUrl
     if (isExternalApplyTabUrl(url)) {
-      complete({ url: url || null, reason: "resolved_tab" })
+      scheduleExternalResolution(tab.id, url)
     }
   }
   const onUpdated = (tabId: number, changeInfo: { url?: string }, tab: chrome.tabs.Tab) => {
-    if (tabId !== openedTabId && tabId !== disposableTab.id) return
+    const isCandidateTab = tabId === openedTabId || tabId === targetTabId || candidateExternalTabIds.has(tabId)
+    if (!isCandidateTab) return
     const url = changeInfo.url || tab.url || tab.pendingUrl
     if (isExternalApplyTabUrl(url)) {
-      if (tabId !== disposableTab.id) openedTabId = tabId
-      complete({ url: url || null, reason: "resolved_tab" })
+      scheduleExternalResolution(tabId, url)
     }
   }
 
   try {
-    await withTimeout(waitForTabComplete(disposableTab.id), 10000, "Disposable LinkedIn apply tab did not finish loading.")
-    await waitInPage(1000)
+    if (!shouldUseSourceTab) {
+      await withTimeout(waitForTabComplete(targetTabId), 10000, "Disposable LinkedIn apply tab did not finish loading.")
+      await waitInPage(1000)
+    }
 
     const resolved = new Promise<ResolvedLinkedInApplyUrl>((resolve) => {
       finish = resolve
@@ -867,7 +898,7 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
     })
 
     const [execution] = await chrome.scripting.executeScript({
-      target: { tabId: disposableTab.id },
+      target: { tabId: targetTabId },
       func: clickLinkedInApplyButtonInDisposablePage,
       args: [payload.expectedHref, payload.expectedLabel]
     })
@@ -887,7 +918,7 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
     return { ...result, clickedHref: clickResult.href || null, clickedLabel: clickResult.label || null, diagnostic: clickResult.diagnostic }
   } finally {
     cleanupListeners()
-    await closeTabs([openedTabId, disposableTab.id])
+    await closeTabs([openedTabId, disposableTab?.id])
   }
 }
 function errorMessage(error: unknown) {
@@ -906,7 +937,7 @@ chrome.runtime.onMessage.addListener((message: StartCaptureMessage | StartLinked
   }
 
   if (message.type === "RESOLVE_LINKEDIN_APPLY_BUTTON_URL") {
-    resolveLinkedInApplyButtonUrl(message.payload || {})
+    resolveLinkedInApplyButtonUrl(message.payload || {}, sender.tab?.id)
       .then((result) => sendResponse(result))
       .catch((error: Error) => sendResponse({ url: null, reason: "click_failed", error: error.message }))
     return true

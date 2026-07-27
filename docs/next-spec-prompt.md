@@ -42,3 +42,18 @@ The extension now resolves hrefless LinkedIn Jobs apply CTAs through a disposabl
 
 ## Freelance Outreach Retry Note
 Recent hotfix: duplicate first-contact checks should use the latest outreach event. `failed_send` must allow a retry, while pending/sent events still block duplicates. Preserve this behavior in future Twilio delivery-status and outreach-history specs.
+
+## LinkedIn Jobs Current Tab Hrefless Resolver Note
+Recent extension hotfix: disposable tabs do not always reproduce the active LinkedIn Jobs SPA state for `BUTTON.jobs-apply-button` without `href`. For hrefless CTAs, the resolver now clicks the verified CTA in the current LinkedIn Jobs tab, watches for the opened non-LinkedIn ATS tab, closes that auxiliary tab, and rejects LinkedIn Jobs/search URLs as unresolved. Future specs should add operator-visible diagnostics for this path and confirm it does not navigate the main search tab.
+
+## LinkedIn Jobs Hrefless Resolver Loop Guard Note
+Recent extension hotfix: hrefless `Candidatar-se` resolution is memoized per job/page/label so polling cannot click/open the same ATS URL repeatedly. Future specs should preserve one-click-per-job behavior and expose retry only as an explicit operator action.
+
+## LinkedIn Jobs External URL Stabilization Note
+Recent extension hotfix: after a non-LinkedIn apply tab appears, wait briefly and read the latest tab URL before closing it, because ATS links may pass through shorteners or tracking redirects. Preserve this stabilization delay in future resolver work.
+
+## LinkedIn Jobs External Tab And Source Alias Note
+Recent extension hotfix: ATS tabs opened from LinkedIn apply clicks may not expose `openerTabId`, so resolver code should track new external tabs in the same window during the resolution window. Source matching must preserve aliases such as `job-boards.greenhouse.io` for Greenhouse and company subdomains under `inhire.app`.
+
+## LinkedIn Jobs Source Substring Match Note
+Recent extension hotfix: source matching for LinkedIn Jobs external ATS URLs should remain substring-based against selected source signals, not strict host equality. A URL should match when it contains the selected source key, configured domain, or known alias; inactive or unselected sources must still be ignored.

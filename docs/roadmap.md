@@ -577,3 +577,13 @@ Atualizacao operacional 2026-07-27: o hardening de `018-linkedin-jobs-external-s
 Atualizacao operacional 2026-07-27: o resolver descartavel do LinkedIn Jobs agora aguarda o CTA renderizar na aba auxiliar antes do clique, reduzindo falsos `click_failed` em paginas que abrem primeiro como skeleton. Validacao manual ainda deve confirmar se a aba auxiliar chega ao ATS externo ou se fica bloqueada pelo estado do LinkedIn.
 
 Atualizacao operacional 2026-07-27: no `Freelance`, o bloqueio de duplicidade de outreach agora permite retry quando a ultima tentativa terminou em `failed_send`. Duplicidade continua bloqueada para envio pendente ou ja enviado, mas falha de provider nao deve impedir nova tentativa manual.
+
+Atualizacao operacional 2026-07-27: o resolver de CTAs `Candidatar-se` sem `href` do LinkedIn Jobs voltou a usar a aba atual como fonte de clique quando necessario, porque a aba descartavel nao preservava o estado SPA real e podia abrir apenas outra pagina LinkedIn Jobs. O objetivo permanece capturar e fechar rapidamente a aba externa ATS, sem aceitar `linkedin.com/jobs/search` como resultado.
+
+Atualizacao operacional 2026-07-27: o resolvedor de CTA sem `href` do LinkedIn Jobs ganhou cache/in-flight por vaga e label para evitar abrir repetidamente a mesma candidatura durante o polling do estado da vaga.
+
+Atualizacao operacional 2026-07-27: o resolvedor de candidatura externa do LinkedIn Jobs agora espera a URL nao-LinkedIn estabilizar por ~1.2s antes de capturar/fechar, reduzindo falsos matches em encurtadores e redirects intermediarios.
+
+Atualizacao operacional 2026-07-27: a captura LinkedIn Jobs agora rastreia abas ATS externas criadas sem `openerTabId` e aceita aliases de dominio como `job-boards.greenhouse.io`. Isso deve corrigir casos em que InHire/Greenhouse abriam visualmente, mas a vaga continuava com `accepted=0`.
+
+Atualizacao operacional 2026-07-27: o matching de fontes externas do LinkedIn Jobs agora e propositalmente simples: se a URL canonica contem a chave/dominio/alias da fonte selecionada, a vaga e aceita para aquela fonte. Isso substitui matching estrito de host para evitar falsos negativos em variantes como `job-boards.greenhouse.io` vs `boards.greenhouse.io`.

@@ -1117,6 +1117,14 @@ type ApplyHrefCandidate = {
   diagnostic: Record<string, unknown>
 }
 
+const applyResolutionCache = new Map<string, Promise<string | null> | string | null>()
+
+function buildApplyResolutionCacheKey(candidate: ApplyHrefCandidate) {
+  const currentJobId = typeof candidate.diagnostic.currentJobId === "string" ? candidate.diagnostic.currentJobId : getCurrentLinkedInJobId() || "unknown-job"
+  const pageUrl = typeof candidate.diagnostic.pageUrl === "string" ? candidate.diagnostic.pageUrl : window.location.href
+  return `${currentJobId}:${pageUrl}:${candidate.href || "hrefless"}:${candidate.label}`
+}
+
 function getCurrentLinkedInJobId() {
   const href = window.location.href
   const match = href.match(/currentJobId=(\d+)|\/jobs\/view\/(\d+)/)
@@ -1220,24 +1228,37 @@ async function resolveLinkedInApplyHref(candidate: ApplyHrefCandidate | null) {
     return candidate.href
   }
 
-  if (!candidate.href) {
-    console.info("[Opportunity Desk] LinkedIn apply CTA has no href; resolving in disposable tab", candidate.diagnostic)
+  const cacheKey = buildApplyResolutionCacheKey(candidate)
+  if (applyResolutionCache.has(cacheKey)) {
+    const cached = applyResolutionCache.get(cacheKey)
+    return typeof cached === "object" && cached && "then" in cached ? await cached : cached ?? null
   }
 
-  try {
-    const pageUrl = typeof candidate.diagnostic.pageUrl === "string" ? candidate.diagnostic.pageUrl : window.location.href
-    const response = await chrome.runtime.sendMessage({
-      type: "RESOLVE_LINKEDIN_APPLY_BUTTON_URL",
-      payload: { pageUrl, expectedHref: candidate.href, expectedLabel: candidate.label }
-    })
-    const resolvedUrl = typeof response?.url === "string" ? response.url : null
-    if (resolvedUrl && canonicalizeExternalApplicationUrl(resolvedUrl)) return resolvedUrl
-    console.info("[Opportunity Desk] LinkedIn disposable apply resolver did not resolve external URL", { response, candidate })
-    return candidate.href
-  } catch (error) {
-    console.info("[Opportunity Desk] LinkedIn apply button click resolution failed", { error, candidate })
-    return candidate.href
-  }
+  const resolveOnce = (async () => {
+    if (!candidate.href) {
+      console.info("[Opportunity Desk] LinkedIn apply CTA has no href; resolving from current tab once", candidate.diagnostic)
+    }
+
+    try {
+      const pageUrl = typeof candidate.diagnostic.pageUrl === "string" ? candidate.diagnostic.pageUrl : window.location.href
+      const response = await chrome.runtime.sendMessage({
+        type: "RESOLVE_LINKEDIN_APPLY_BUTTON_URL",
+        payload: { pageUrl, expectedHref: candidate.href, expectedLabel: candidate.label, useCurrentTab: !candidate.href }
+      })
+      const resolvedUrl = typeof response?.url === "string" ? response.url : null
+      if (resolvedUrl && canonicalizeExternalApplicationUrl(resolvedUrl)) return resolvedUrl
+      console.info("[Opportunity Desk] LinkedIn apply resolver did not resolve external URL", { response, candidate })
+      return candidate.href
+    } catch (error) {
+      console.info("[Opportunity Desk] LinkedIn apply button click resolution failed", { error, candidate })
+      return candidate.href
+    }
+  })()
+
+  applyResolutionCache.set(cacheKey, resolveOnce)
+  const result = await resolveOnce
+  applyResolutionCache.set(cacheKey, result)
+  return result
 }
 function hasEasyApplySignal() {
   const pane = findJobDetailPane()
