@@ -122,6 +122,15 @@ if (matchedInhireSource?.key !== "inhire") {
   throw new Error("Source matching should accept InHire company subdomains.")
 }
 
+const matchedInhireFromSelectedKeyOnly = matchCuratedExternalSource(
+  "https://premiersoft.inhire.app/vagas/76dd15b5-9826-4074-be82-c5c2713d85e3/desenvolvedor-react-senior-or-remoto?source=linkedin",
+  [],
+  ["inhire"]
+)
+if (matchedInhireFromSelectedKeyOnly?.key !== "inhire") {
+  throw new Error("Source matching should accept selected source key aliases even when the source list is incomplete.")
+}
+
 const matchedGreenhouseAlias = matchCuratedExternalSource(
   "https://job-boards.greenhouse.io/interviewengineering/jobs/8651364002",
   [{ key: "greenhouse", domain: "boards.greenhouse.io", active: true }],
@@ -131,7 +140,7 @@ if (matchedGreenhouseAlias?.key !== "greenhouse") {
   throw new Error("Source matching should accept Greenhouse job-boards aliases.")
 }
 const matchedGreenhouseByKey = matchCuratedExternalSource(
-  "https://some-random-host.example/jobs/apply?source=greenhouse&job=123",
+  "https://some-random-host.example/greenhouse/jobs/apply?job=123",
   [{ key: "greenhouse", domain: "boards.greenhouse.io", active: true }],
   ["greenhouse"]
 )

@@ -915,7 +915,23 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
     }
 
     const result = await resolved
-    return { ...result, clickedHref: clickResult.href || null, clickedLabel: clickResult.label || null, diagnostic: clickResult.diagnostic }
+    console.info("[Opportunity Desk] LinkedIn apply resolver result", {
+      url: result.url,
+      reason: result.reason,
+      clickedHref: clickResult.href || null,
+      clickedLabel: clickResult.label || null,
+      diagnostic: result.diagnostic,
+      clickDiagnostic: clickResult.diagnostic
+    })
+    return {
+      ...result,
+      clickedHref: clickResult.href || null,
+      clickedLabel: clickResult.label || null,
+      diagnostic: {
+        ...(result.diagnostic || {}),
+        clickDiagnostic: clickResult.diagnostic || null
+      }
+    }
   } finally {
     cleanupListeners()
     await closeTabs([openedTabId, disposableTab?.id])

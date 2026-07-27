@@ -63,3 +63,6 @@ Recent extension hotfix: when validating that a LinkedIn Jobs result card select
 
 ## LinkedIn Jobs Internal Href Resolver Note
 Recent extension hotfix: visible external Candidatar-se CTAs may carry an internal LinkedIn /jobs/view/...alternateChannel=search href. Treat those like hrefless CTAs: click the verified CTA in the current LinkedIn Jobs tab, observe the opened non-LinkedIn ATS tab, then source-match the stabilized external URL. Do not classify a job as Easy Apply from arbitrary detail text; require an Easy Apply/Candidatura Simplificada control label.
+
+## LinkedIn Jobs Apply CTA Ranking Debug Note
+Recent extension hotfix: the source matcher is substring-based (`canonicalUrl.includes(signal)`), but the content script can fail before matching if it chooses the wrong `Candidatar-se` element. Preserve the ranked CTA selection and debug logs: `selected LinkedIn apply CTA candidate`, `LinkedIn apply resolver result`, and `LinkedIn external source match` with `matchedSignals`. InHire URLs such as `premiersoft.inhire.app` / `brq.inhire.app` and Greenhouse URLs containing `greenhouse` must match selected source strings by includes. No migration is needed for this area.

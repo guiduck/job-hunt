@@ -1,4 +1,4 @@
-import { canonicalizeExternalApplicationUrl, decodeLinkedInSafetyRedirect, matchCuratedExternalSource } from "../src/capture/linkedin"
+import { canonicalizeExternalApplicationUrl, decodeLinkedInSafetyRedirect, diagnoseCuratedExternalSourceMatch } from "../src/capture/linkedin"
 import type { CaptureDiagnostics, ContentCaptureMessage, ContentCaptureResponse, ContentLinkedInJobsCaptureMessage, ContentLinkedInJobsCaptureResponse, LinkedInCapturedPost, LinkedInJobsCounters, LinkedInJobsDiagnostics, LinkedInJobsInspectedCandidate, LinkedInJobsProgress } from "../src/capture/types"
 
 export const config = {
@@ -1194,11 +1194,42 @@ function buildApplyCandidateDiagnostic(element: HTMLElement, label: string, href
   }
 }
 
+function scoreApplyHrefCandidate(element: HTMLElement, label: string, href: string | null, rootIndex: number) {
+  if (label.includes("candidatura simplificada") || label.includes("easy apply")) return -1
+  if (element.closest("footer, nav, header, aside")) return -1
+
+  const hasCompanySiteText =
+    label.includes("candidatar-se no site da empresa") ||
+    label.includes("acessar site da empresa") ||
+    label.includes("company site") ||
+    label.includes("company website")
+  const hasApplyText =
+    label.includes("candidatar-se") ||
+    label.includes("candidate-se") ||
+    label.includes("apply") ||
+    label.includes("inscrever")
+  if (!hasCompanySiteText && !hasApplyText) return -1
+
+  let score = 0
+  const rect = element.getBoundingClientRect()
+  if (isVisibleElement(element)) score += 60
+  if (hasCompanySiteText) score += 45
+  if (hasApplyText) score += 25
+  if (href && canonicalizeExternalApplicationUrl(href)) score += 70
+  if (href && isLinkedInInternalHref(href)) score -= 20
+  if (!href) score += 10
+  if (rootIndex === 0) score += 40
+  if (rect.top >= 0 && rect.top < window.innerHeight * 0.8) score += 15
+
+  return score
+}
+
 function findApplyHrefCandidate(): ApplyHrefCandidate | null {
   const roots = [findJobDetailPane(), document.body].filter(Boolean) as Element[]
   const seen = new Set<string>()
+  let bestCandidate: (ApplyHrefCandidate & { score: number }) | null = null
 
-  for (const root of roots) {
+  roots.forEach((root, rootIndex) => {
     const elements = Array.from(root.querySelectorAll<HTMLElement>("a[href], button, [role='button']"))
     const candidates = elements.map((element) => {
       const label = cleanText(`${element.textContent || ""} ${element.getAttribute("aria-label") || ""} ${element.getAttribute("title") || ""}`).toLowerCase()
@@ -1206,18 +1237,37 @@ function findApplyHrefCandidate(): ApplyHrefCandidate | null {
       return { element, label, href, diagnostic: buildApplyCandidateDiagnostic(element, label, href) }
     })
 
-    const applyLink = candidates.find(({ element, label, href }) => {
+    for (const candidate of candidates) {
+      const { element, label, href } = candidate
       const dedupeKey = href || `${element.tagName}:${label}`
-      if (!dedupeKey || seen.has(dedupeKey)) return false
+      if (!dedupeKey || seen.has(dedupeKey)) continue
       seen.add(dedupeKey)
-      if (label.includes("candidatura simplificada") || label.includes("easy apply")) return false
-      if (element.closest("footer, nav, header, aside")) return false
-      const hasCompanySiteText = label.includes("candidatar-se no site da empresa") || label.includes("acessar site da empresa") || label.includes("company site") || label.includes("company website")
-      const hasApplyText = label.includes("candidatar-se") || label.includes("candidate-se") || label.includes("apply") || label.includes("inscrever")
-      return hasCompanySiteText || hasApplyText
-    })
 
-    if (applyLink) return { href: applyLink.href, label: applyLink.label, diagnostic: applyLink.diagnostic }
+      const score = scoreApplyHrefCandidate(element, label, href, rootIndex)
+      if (score < 0) continue
+      if (!bestCandidate || score > bestCandidate.score) {
+        bestCandidate = {
+          href,
+          label,
+          score,
+          diagnostic: {
+            ...candidate.diagnostic,
+            rootIndex,
+            score
+          }
+        }
+      }
+    }
+  })
+
+  if (bestCandidate) {
+    console.info("[Opportunity Desk] selected LinkedIn apply CTA candidate", {
+      label: bestCandidate.label,
+      href: bestCandidate.href,
+      score: bestCandidate.score,
+      diagnostic: bestCandidate.diagnostic
+    })
+    return { href: bestCandidate.href, label: bestCandidate.label, diagnostic: bestCandidate.diagnostic }
   }
 
   return null
@@ -1437,7 +1487,22 @@ async function inspectJobCard(card: Element, pageNumber: number, positionOnPage:
         positionOnPage
       }
     }
-    const source = matchCuratedExternalSource(canonicalApplyUrl, payload.sources, payload.selectedSourceKeys)
+    const sourceMatch = diagnoseCuratedExternalSourceMatch(canonicalApplyUrl, payload.sources, payload.selectedSourceKeys)
+    const source = sourceMatch.source
+    console.info("[Opportunity Desk] LinkedIn external source match", {
+      url: canonicalApplyUrl,
+      selectedSourceKeys: sourceMatch.selectedSourceKeys,
+      matchedSourceKey: source?.key || null,
+      reason: sourceMatch.reason,
+      checkedSources: sourceMatch.checkedSources
+        .filter((checked) => sourceMatch.selectedSourceKeys.includes(checked.key.toLowerCase()) || checked.matchedSignals.length > 0)
+        .map((checked) => ({
+          key: checked.key,
+          active: checked.active,
+          signals: checked.signals,
+          matchedSignals: checked.matchedSignals
+        }))
+    })
     return {
       linkedinJobUrl,
       jobTitle: title,
@@ -1449,7 +1514,7 @@ async function inspectJobCard(card: Element, pageNumber: number, positionOnPage:
       canonicalApplyUrl,
       sourceKey: source?.key || null,
       outcome: source ? "accepted" : "unsupported_source",
-      skipReason: source ? null : "External apply source is not selected or not curated.",
+      skipReason: source ? null : `External apply source did not match selected source signals (${sourceMatch.reason}).`,
       pageNumber,
       positionOnPage
     }

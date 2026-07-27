@@ -231,12 +231,25 @@ export type CuratedSourceMatcher = {
 }
 
 const SOURCE_DOMAIN_ALIASES: Record<string, string[]> = {
-  greenhouse: ["boards.greenhouse.io", "job-boards.greenhouse.io"],
-  gupy: ["gupy.io"]
+  greenhouse: ["greenhouse", "boards.greenhouse.io", "job-boards.greenhouse.io"],
+  gupy: ["gupy", "gupy.io"],
+  inhire: ["inhire", "inhire.app"]
+}
+
+type SourceMatchCheck = {
+  key: string
+  active?: boolean
+  signals: string[]
+  matchedSignals: string[]
+}
+
+function normalizeSourceKey(value: string) {
+  return value.toLowerCase().trim()
 }
 
 function normalizedSourceSignals(source: CuratedSourceMatcher) {
-  const values = [source.key, source.domain, ...(SOURCE_DOMAIN_ALIASES[source.key] || [])]
+  const sourceKey = normalizeSourceKey(source.key)
+  const values = [sourceKey, source.domain, ...(SOURCE_DOMAIN_ALIASES[sourceKey] || [])]
   return Array.from(
     new Set(
       values
@@ -245,16 +258,54 @@ function normalizedSourceSignals(source: CuratedSourceMatcher) {
     )
   )
 }
+
+function selectedSourceCandidates(sources: CuratedSourceMatcher[], selectedSourceKeys: string[]) {
+  const sourceByKey = new Map(sources.map((source) => [normalizeSourceKey(source.key), source]))
+  return selectedSourceKeys
+    .map((key) => normalizeSourceKey(key))
+    .filter(Boolean)
+    .map((key) => sourceByKey.get(key) || { key, domain: key, active: true })
+}
+
 export function matchCuratedExternalSource(url: string, sources: CuratedSourceMatcher[], selectedSourceKeys: string[]) {
+  return diagnoseCuratedExternalSourceMatch(url, sources, selectedSourceKeys).source
+}
+
+export function diagnoseCuratedExternalSourceMatch(url: string, sources: CuratedSourceMatcher[], selectedSourceKeys: string[]) {
   const canonical = canonicalizeExternalApplicationUrl(url)
-  if (!canonical) return null
-  const selected = new Set(selectedSourceKeys)
+  const selectedCandidates = selectedSourceCandidates(sources, selectedSourceKeys)
+  const selectedKeys = selectedCandidates.map((source) => normalizeSourceKey(source.key))
+  if (!canonical) {
+    return {
+      canonical: null,
+      source: null,
+      selectedSourceKeys: selectedKeys,
+      checkedSources: [] as SourceMatchCheck[],
+      reason: "invalid_external_url"
+    }
+  }
+
   const searchableUrl = canonical.toLowerCase().replace(/^https?:\/\/(www\.)?/, "")
-  return sources.find((source) => {
-    return (
-      source.active !== false &&
-      selected.has(source.key) &&
-      normalizedSourceSignals(source).some((signal) => searchableUrl.includes(signal))
-    )
+  const checkedSources: SourceMatchCheck[] = selectedCandidates.map((source) => {
+    const signals = normalizedSourceSignals(source)
+    return {
+      key: source.key,
+      active: source.active,
+      signals,
+      matchedSignals: signals.filter((signal) => searchableUrl.includes(signal))
+    }
+  })
+
+  const matched = selectedCandidates.find((source) => {
+    if (source.active === false) return false
+    return normalizedSourceSignals(source).some((signal) => searchableUrl.includes(signal))
   }) || null
+
+  return {
+    canonical,
+    source: matched,
+    selectedSourceKeys: selectedKeys,
+    checkedSources,
+    reason: matched ? "matched_selected_source_signal" : "no_selected_source_signal_matched"
+  }
 }
