@@ -65,4 +65,4 @@
 
 ## Implementation note: reusable source keys
 
-The shared curated source registry currently exposes these reusable keys for career-page search and LinkedIn Jobs external matching: `inhire`, `ashby`, `lever`, `greenhouse`, `smartrecruiters`, `trampos`, and `catho`. `teamtailor` is known but inactive by default until explicitly accepted. URL matching is domain/subdomain based and returns no match for inactive or unselected sources.
+The shared curated source registry currently exposes these reusable keys for career-page search and LinkedIn Jobs external matching: `inhire`, `ashby`, `lever`, `greenhouse`, `gupy`, `smartrecruiters`, `trampos`, and `catho`. LinkedIn Jobs external URL matching is intentionally substring-based against the selected source key/domain/aliases so company subdomains and ATS URL variants are accepted when they contain the selected source signal.

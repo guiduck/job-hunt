@@ -83,7 +83,7 @@ Shared source registry used by career-page search and LinkedIn Jobs external sea
 
 ### Fields
 
-- `key`: Stable source key, such as `inhire`, `ashby`, `lever`, `greenhouse`, `smartrecruiters`, `trampos`, `catho`, or `teamtailor` if accepted.
+- `key`: Stable source key, such as `inhire`, `ashby`, `lever`, `greenhouse`, `gupy`, `smartrecruiters`, `trampos`, or `catho`.
 - `label`: Operator-facing source name.
 - `url_patterns`: Domains/path patterns used to match official application URLs.
 - `enabled_by_default`: Whether the source is selected by default in the External jobs tab.

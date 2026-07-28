@@ -147,6 +147,22 @@ const matchedGreenhouseByKey = matchCuratedExternalSource(
 if (matchedGreenhouseByKey?.key !== "greenhouse") {
   throw new Error("Source matching should accept selected source keys contained anywhere in the URL.")
 }
+
+const sourceAliasCases: Array<[string, string, string]> = [
+  ["ashby", "https://jobs.ashbyhq.com/acme/frontend", "Ashby"],
+  ["lever", "https://jobs.lever.co/acme/frontend", "Lever"],
+  ["smartrecruiters", "https://jobs.smartrecruiters.com/Acme/123-frontend", "SmartRecruiters"],
+  ["trampos", "https://trampos.co/oportunidades/frontend", "Trampos"],
+  ["catho", "https://www.catho.com.br/vagas/frontend/123", "Catho"],
+  ["gupy", "https://dwsbrazil.gupy.io/jobs/11679787", "Gupy"]
+]
+
+for (const [key, url, label] of sourceAliasCases) {
+  const matched = matchCuratedExternalSource(url, [], [key])
+  if (matched?.key !== key) {
+    throw new Error(`Source matching should accept ${label} URLs by substring aliases.`)
+  }
+}
 const inactiveSource = matchCuratedExternalSource(
   "https://jobs.teamtailor.com/example/abc",
   [{ key: "teamtailor", domain: "jobs.teamtailor.com", active: false }],

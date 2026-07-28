@@ -231,9 +231,14 @@ export type CuratedSourceMatcher = {
 }
 
 const SOURCE_DOMAIN_ALIASES: Record<string, string[]> = {
-  greenhouse: ["greenhouse", "boards.greenhouse.io", "job-boards.greenhouse.io"],
-  gupy: ["gupy", "gupy.io"],
-  inhire: ["inhire", "inhire.app"]
+  ashby: ["ashby", "ashbyhq", "ashbyhq.com", "jobs.ashbyhq.com"],
+  catho: ["catho", "catho.com.br"],
+  greenhouse: ["greenhouse", "greenhouse.io", "boards.greenhouse.io", "job-boards.greenhouse.io"],
+  gupy: ["gupy", "gupy.io", "portal.gupy.io"],
+  inhire: ["inhire", "inhire.app"],
+  lever: ["lever", "lever.co", "jobs.lever.co"],
+  smartrecruiters: ["smartrecruiters", "smartrecruiters.com", "jobs.smartrecruiters.com"],
+  trampos: ["trampos", "trampos.co"]
 }
 
 type SourceMatchCheck = {
@@ -278,6 +283,7 @@ export function diagnoseCuratedExternalSourceMatch(url: string, sources: Curated
   if (!canonical) {
     return {
       canonical: null,
+      searchableUrl: null,
       source: null,
       selectedSourceKeys: selectedKeys,
       checkedSources: [] as SourceMatchCheck[],
@@ -303,6 +309,7 @@ export function diagnoseCuratedExternalSourceMatch(url: string, sources: Curated
 
   return {
     canonical,
+    searchableUrl,
     source: matched,
     selectedSourceKeys: selectedKeys,
     checkedSources,

@@ -831,6 +831,7 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
   const sourceTab = await chrome.tabs.get(targetTabId).catch(() => null)
   const existingTabIds = new Set((await chrome.tabs.query({})).map((tab) => tab.id).filter((tabId): tabId is number => typeof tabId === "number"))
   const candidateExternalTabIds = new Set<number>()
+  const observedApplyTabs: Array<Record<string, unknown>> = []
   let openedTabId: number | null = null
   let timeoutId: ReturnType<typeof setTimeout> | undefined
   let resolveDelayId: ReturnType<typeof setTimeout> | undefined
@@ -849,9 +850,26 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
   const scheduleExternalResolution = (tabId: number, observedUrl?: string | null) => {
     if (tabId !== targetTabId) openedTabId = tabId
     if (resolveDelayId) clearTimeout(resolveDelayId)
+    console.info("[Opportunity Desk] LinkedIn apply resolver scheduled external tab stabilization", {
+      tabId,
+      targetTabId,
+      openedTabId,
+      observedUrl,
+      candidateExternalTabIds: Array.from(candidateExternalTabIds),
+      observedApplyTabs
+    })
     resolveDelayId = setTimeout(async () => {
       const latestTab = await chrome.tabs.get(tabId).catch(() => null)
       const finalUrl = latestTab?.url || latestTab?.pendingUrl || observedUrl || null
+      console.info("[Opportunity Desk] LinkedIn apply resolver stabilized tab", {
+        tabId,
+        observedUrl: observedUrl || null,
+        latestUrl: latestTab?.url || null,
+        latestPendingUrl: latestTab?.pendingUrl || null,
+        finalUrl,
+        isExternal: isExternalApplyTabUrl(finalUrl),
+        observedApplyTabs
+      })
       if (!isExternalApplyTabUrl(finalUrl)) return
       complete({
         url: finalUrl,
@@ -859,7 +877,8 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
         diagnostic: {
           observedUrl: observedUrl || null,
           stabilizedUrl: finalUrl,
-          stabilizedDelayMs: 2000
+          stabilizedDelayMs: 2000,
+          observedApplyTabs
         }
       })
     }, 2000)
@@ -867,18 +886,47 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
   const onCreated = (tab: chrome.tabs.Tab) => {
     if (tab.id === undefined || existingTabIds.has(tab.id)) return
     const belongsToApplyClick = tab.openerTabId === targetTabId || tab.windowId === sourceTab?.windowId
+    const url = tab.url || tab.pendingUrl || null
+    const event = {
+      event: "created",
+      tabId: tab.id,
+      openerTabId: tab.openerTabId ?? null,
+      targetTabId,
+      windowId: tab.windowId,
+      sourceWindowId: sourceTab?.windowId ?? null,
+      belongsToApplyClick,
+      url,
+      isExternal: isExternalApplyTabUrl(url)
+    }
+    observedApplyTabs.push(event)
+    console.info("[Opportunity Desk] LinkedIn apply resolver observed created tab", event)
     if (!belongsToApplyClick) return
     candidateExternalTabIds.add(tab.id)
     openedTabId = tab.id
-    const url = tab.url || tab.pendingUrl
     if (isExternalApplyTabUrl(url)) {
       scheduleExternalResolution(tab.id, url)
     }
   }
   const onUpdated = (tabId: number, changeInfo: { url?: string }, tab: chrome.tabs.Tab) => {
     const isCandidateTab = tabId === openedTabId || tabId === targetTabId || candidateExternalTabIds.has(tabId)
+    const url = changeInfo.url || tab.url || tab.pendingUrl || null
+    if (isCandidateTab || isExternalApplyTabUrl(url)) {
+      const event = {
+        event: "updated",
+        tabId,
+        openedTabId,
+        targetTabId,
+        isCandidateTab,
+        status: tab.status || null,
+        changeUrl: changeInfo.url || null,
+        url,
+        pendingUrl: tab.pendingUrl || null,
+        isExternal: isExternalApplyTabUrl(url)
+      }
+      observedApplyTabs.push(event)
+      console.info("[Opportunity Desk] LinkedIn apply resolver observed updated tab", event)
+    }
     if (!isCandidateTab) return
-    const url = changeInfo.url || tab.url || tab.pendingUrl
     if (isExternalApplyTabUrl(url)) {
       scheduleExternalResolution(tabId, url)
     }
@@ -892,7 +940,7 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
 
     const resolved = new Promise<ResolvedLinkedInApplyUrl>((resolve) => {
       finish = resolve
-      timeoutId = setTimeout(() => complete({ url: null, reason: "timeout" }), 9000)
+      timeoutId = setTimeout(() => complete({ url: null, reason: "timeout", diagnostic: { observedApplyTabs } }), 9000)
       chrome.tabs.onCreated.addListener(onCreated)
       chrome.tabs.onUpdated.addListener(onUpdated)
     })
@@ -903,6 +951,11 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
       args: [payload.expectedHref, payload.expectedLabel]
     })
     const clickResult = execution?.result as { clicked?: boolean; href?: string | null; label?: string | null; blockedByShareProfileDialog?: boolean; diagnostic?: Record<string, unknown> } | undefined
+    console.info("[Opportunity Desk] LinkedIn apply resolver click result", {
+      targetTabId,
+      clickResult,
+      observedApplyTabs
+    })
     if (!clickResult?.clicked || clickResult.blockedByShareProfileDialog) {
       cleanupListeners()
       return {
@@ -910,7 +963,10 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
         clickedHref: clickResult?.href || null,
         clickedLabel: clickResult?.label || null,
         reason: clickResult?.blockedByShareProfileDialog ? "share_profile_blocked" : "click_failed",
-        diagnostic: clickResult?.diagnostic
+        diagnostic: {
+          ...(clickResult?.diagnostic || {}),
+          observedApplyTabs
+        }
       }
     }
 

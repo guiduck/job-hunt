@@ -8,7 +8,9 @@ def test_list_curated_sources_contract(client: TestClient, auth_headers: dict[st
 
     assert response.status_code == 200
     body = response.json()
-    assert {source["key"] for source in body} >= {"inhire", "ashby", "lever", "greenhouse"}
+    source_keys = {source["key"] for source in body}
+    assert source_keys >= {"inhire", "ashby", "lever", "greenhouse", "gupy"}
+    assert "teamtailor" not in source_keys
     assert all({"key", "name", "domain", "active", "search_hint"} <= set(source) for source in body)
 
 

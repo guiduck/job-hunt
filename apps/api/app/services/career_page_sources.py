@@ -17,10 +17,10 @@ CURATED_CAREER_SOURCES: tuple[CareerPageSource, ...] = (
     CareerPageSource("ashby", "Ashby", "jobs.ashbyhq.com"),
     CareerPageSource("lever", "Lever", "jobs.lever.co"),
     CareerPageSource("greenhouse", "Greenhouse", "boards.greenhouse.io"),
+    CareerPageSource("gupy", "Gupy", "gupy.io"),
     CareerPageSource("smartrecruiters", "SmartRecruiters", "jobs.smartrecruiters.com"),
     CareerPageSource("trampos", "Trampos", "trampos.co"),
     CareerPageSource("catho", "Catho", "catho.com.br"),
-    CareerPageSource("teamtailor", "Teamtailor", "jobs.teamtailor.com", active=False, enabled_by_default=False),
 )
 
 

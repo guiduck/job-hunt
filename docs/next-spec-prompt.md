@@ -66,3 +66,9 @@ Recent extension hotfix: visible external Candidatar-se CTAs may carry an intern
 
 ## LinkedIn Jobs Apply CTA Ranking Debug Note
 Recent extension hotfix: the source matcher is substring-based (`canonicalUrl.includes(signal)`), but the content script can fail before matching if it chooses the wrong `Candidatar-se` element. Preserve the ranked CTA selection and debug logs: `selected LinkedIn apply CTA candidate`, `LinkedIn apply resolver result`, and `LinkedIn external source match` with `matchedSignals`. InHire URLs such as `premiersoft.inhire.app` / `brq.inhire.app` and Greenhouse URLs containing `greenhouse` must match selected source strings by includes. No migration is needed for this area.
+
+Recent extension hotfix: curated ATS sources are now InHire, Ashby, Lever, Greenhouse, Gupy, SmartRecruiters, Trampos, and Catho; Teamtailor was removed. Preserve substring matching by selected source aliases instead of exact host matching. No migration is needed for this area.
+
+
+## LinkedIn Jobs URL-Only Source Debug Note
+Recent extension diagnostic: for LinkedIn Jobs external apply capture, the only source-match decision should be whether the resolved external tab URL contains any alias for the selected ATS sources. Future specs should preserve URL-only diagnostics (`canonicalApplyUrl`, `searchableUrl`, `selectedSourceKeys`, `checkedSources`, `matchedSignals`, `accepted`, `reason`) and avoid noisy page-link/resource snapshots unless explicitly requested. No migration is needed for this area.

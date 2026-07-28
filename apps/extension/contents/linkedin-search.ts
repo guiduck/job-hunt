@@ -1298,7 +1298,16 @@ async function resolveLinkedInApplyHref(candidate: ApplyHrefCandidate | null) {
         payload: { pageUrl, expectedHref: candidate.href, expectedLabel: candidate.label, useCurrentTab }
       })
       const resolvedUrl = typeof response?.url === "string" ? response.url : null
-      if (resolvedUrl && canonicalizeExternalApplicationUrl(resolvedUrl)) return resolvedUrl
+      const canonicalResolvedUrl = resolvedUrl ? canonicalizeExternalApplicationUrl(resolvedUrl) : null
+      console.info("[Opportunity Desk] LinkedIn apply resolver URL result", {
+        candidateLabel: candidate.label,
+        candidateHref: candidate.href,
+        resolvedUrl,
+        canonicalResolvedUrl,
+        responseReason: response?.reason || null,
+        responseDiagnostic: response?.diagnostic || null
+      })
+      if (resolvedUrl && canonicalResolvedUrl) return resolvedUrl
       console.info("[Opportunity Desk] LinkedIn apply resolver did not resolve external URL", { response, candidate })
       return candidate.href
     } catch (error) {
@@ -1433,6 +1442,14 @@ async function inspectJobCard(card: Element, pageNumber: number, positionOnPage:
       }
     }
     const applyState = await waitForJobApplyState()
+    console.info("[Opportunity Desk] LinkedIn apply state after selecting job", {
+      title,
+      company,
+      linkedinJobUrl,
+      pageNumber,
+      positionOnPage,
+      applyState
+    })
     const rawApplyHref = applyState.rawApplyHref
     if (!rawApplyHref && applyState.easyApply) {
       return {
@@ -1489,19 +1506,26 @@ async function inspectJobCard(card: Element, pageNumber: number, positionOnPage:
     }
     const sourceMatch = diagnoseCuratedExternalSourceMatch(canonicalApplyUrl, payload.sources, payload.selectedSourceKeys)
     const source = sourceMatch.source
-    console.info("[Opportunity Desk] LinkedIn external source match", {
-      url: canonicalApplyUrl,
+    console.info("[Opportunity Desk] LinkedIn external source URL decision", {
+      rawApplyHref,
+      decodedApplyUrl,
+      canonicalApplyUrl,
+      searchableUrl: sourceMatch.searchableUrl,
       selectedSourceKeys: sourceMatch.selectedSourceKeys,
       matchedSourceKey: source?.key || null,
+      accepted: Boolean(source),
       reason: sourceMatch.reason,
-      checkedSources: sourceMatch.checkedSources
-        .filter((checked) => sourceMatch.selectedSourceKeys.includes(checked.key.toLowerCase()) || checked.matchedSignals.length > 0)
-        .map((checked) => ({
-          key: checked.key,
-          active: checked.active,
-          signals: checked.signals,
-          matchedSignals: checked.matchedSignals
-        }))
+      checkedSources: sourceMatch.checkedSources.map((checked) => ({
+        key: checked.key,
+        active: checked.active,
+        signals: checked.signals,
+        matchedSignals: checked.matchedSignals,
+        rejectedBecause: checked.active === false
+          ? "source_disabled"
+          : checked.matchedSignals.length > 0
+            ? null
+            : "url_does_not_include_any_signal"
+      }))
     })
     return {
       linkedinJobUrl,
@@ -1583,6 +1607,13 @@ async function captureLinkedInJobs(payload: ContentLinkedInJobsCaptureMessage["p
   let terminalReason: LinkedInJobsDiagnostics["terminalReason"] = "max_pages_reached"
   let safeMessage = "Reached the configured LinkedIn Jobs page limit."
   const navigationMethod: LinkedInJobsDiagnostics["navigationMethod"] = payload.assistedSearchEnabled ? "jobs_click_path" : "direct_url"
+  console.info("[Opportunity Desk] LinkedIn Jobs capture configuration", {
+    pageUrl: window.location.href,
+    selectedSourceKeys: payload.selectedSourceKeys,
+    sources: payload.sources,
+    maxPages: payload.maxPages,
+    assistedSearchEnabled: payload.assistedSearchEnabled
+  })
 
   if (payload.assistedSearchEnabled) {
     emitLinkedInJobsContentProgress({ startedAt, pageUrl: window.location.href, navigationMethod, safeMessage: "Looking for LinkedIn assisted jobs entry." })

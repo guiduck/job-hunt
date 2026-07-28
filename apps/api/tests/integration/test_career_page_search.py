@@ -65,6 +65,7 @@ def test_career_page_source_defaults_and_validation(client: TestClient, auth_hea
         "ashby",
         "lever",
         "greenhouse",
+        "gupy",
         "smartrecruiters",
         "trampos",
         "catho",
