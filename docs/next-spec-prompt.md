@@ -72,3 +72,6 @@ Recent extension hotfix: curated ATS sources are now InHire, Ashby, Lever, Green
 
 ## LinkedIn Jobs URL-Only Source Debug Note
 Recent extension diagnostic: for LinkedIn Jobs external apply capture, the only source-match decision should be whether the resolved external tab URL contains any alias for the selected ATS sources. Future specs should preserve URL-only diagnostics (`canonicalApplyUrl`, `searchableUrl`, `selectedSourceKeys`, `checkedSources`, `matchedSignals`, `accepted`, `reason`) and avoid noisy page-link/resource snapshots unless explicitly requested. No migration is needed for this area.
+
+## LinkedIn Jobs Observed External URL Fallback Note
+Recent extension hotfix: if the apply resolver observes any external tab URL during the click window, that URL must be treated as the resolved apply URL even if the script click result is empty or the stabilized resolver later returns null. Future specs must prevent false `missing_external_apply` when `observedApplyTabs` already contains `isExternal: true`. No migration is needed for this area.

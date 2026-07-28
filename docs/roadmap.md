@@ -598,3 +598,5 @@ Atualizacao operacional 2026-07-27: a lista de fontes de LinkedIn Jobs External 
 
 
 Atualizacao operacional 2026-07-27: a depuracao da captura LinkedIn Jobs External Search foi reduzida ao essencial: registrar a URL final da aba externa aberta e explicar, fonte por fonte, se a URL contem algum alias selecionado. O proximo teste manual deve copiar o objeto `LinkedIn external source URL decision` do console quando uma URL InHire/Gupy/Greenhouse abrir e ainda nao for aceita. Sem migration.
+
+Atualizacao operacional 2026-07-28: o resolver de LinkedIn Jobs External Search agora usa como resultado a URL externa ja observada pela aba aberta, mesmo quando o retorno do script de clique chega vazio/ambíguo. Isso corrige falsos `missing_external_apply` para vagas cujo `observedApplyTabs` ja continha URL externa. Sem migration.

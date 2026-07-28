@@ -833,6 +833,7 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
   const candidateExternalTabIds = new Set<number>()
   const observedApplyTabs: Array<Record<string, unknown>> = []
   let openedTabId: number | null = null
+  let observedExternalUrl: string | null = null
   let timeoutId: ReturnType<typeof setTimeout> | undefined
   let resolveDelayId: ReturnType<typeof setTimeout> | undefined
   let finish: (result: ResolvedLinkedInApplyUrl) => void = () => undefined
@@ -846,6 +847,26 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
   const complete = (result: ResolvedLinkedInApplyUrl) => {
     cleanupListeners()
     finish(result)
+  }
+  const externalUrlFromObservedTabs = () => observedExternalUrl || observedApplyTabs
+    .map((event) => {
+      const url = typeof event.url === "string" ? event.url : typeof event.changeUrl === "string" ? event.changeUrl : typeof event.pendingUrl === "string" ? event.pendingUrl : null
+      return isExternalApplyTabUrl(url) ? url : null
+    })
+    .find((url): url is string => Boolean(url)) || null
+  const observedExternalResult = (reason: ResolvedLinkedInApplyUrl["reason"]): ResolvedLinkedInApplyUrl | null => {
+    const url = externalUrlFromObservedTabs()
+    if (!url) return null
+    return {
+      url,
+      reason,
+      diagnostic: {
+        observedUrl: url,
+        stabilizedUrl: url,
+        observedApplyTabs,
+        fallback: "observed_external_url"
+      }
+    }
   }
   const scheduleExternalResolution = (tabId: number, observedUrl?: string | null) => {
     if (tabId !== targetTabId) openedTabId = tabId
@@ -904,6 +925,7 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
     candidateExternalTabIds.add(tab.id)
     openedTabId = tab.id
     if (isExternalApplyTabUrl(url)) {
+      observedExternalUrl = url
       scheduleExternalResolution(tab.id, url)
     }
   }
@@ -928,6 +950,7 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
     }
     if (!isCandidateTab) return
     if (isExternalApplyTabUrl(url)) {
+      observedExternalUrl = url
       scheduleExternalResolution(tabId, url)
     }
   }
@@ -957,6 +980,33 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
       observedApplyTabs
     })
     if (!clickResult?.clicked || clickResult.blockedByShareProfileDialog) {
+      const withClickContext = (result: ResolvedLinkedInApplyUrl): ResolvedLinkedInApplyUrl => ({
+        ...result,
+        clickedHref: clickResult?.href || null,
+        clickedLabel: clickResult?.label || null,
+        diagnostic: {
+          ...(result.diagnostic || {}),
+          clickDiagnostic: clickResult?.diagnostic || null
+        }
+      })
+      const observedResult = observedExternalResult("resolved_tab")
+      if (observedResult) {
+        return withClickContext(observedResult)
+      }
+      if (!clickResult?.clicked) {
+        const graceResult = await Promise.race([
+          resolved,
+          new Promise<ResolvedLinkedInApplyUrl>((resolve) => {
+            setTimeout(() => {
+              resolve({ url: null, reason: "click_failed", diagnostic: { observedApplyTabs, graceWaitMs: 2500 } })
+            }, 2500)
+          })
+        ])
+        const recoveredResult = graceResult.url ? graceResult : observedExternalResult("resolved_tab")
+        if (recoveredResult?.url) {
+          return withClickContext(recoveredResult)
+        }
+      }
       cleanupListeners()
       return {
         url: null,
@@ -970,7 +1020,8 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
       }
     }
 
-    const result = await resolved
+    const resolvedResult = await resolved
+    const result = resolvedResult.url ? resolvedResult : observedExternalResult("resolved_tab") || resolvedResult
     console.info("[Opportunity Desk] LinkedIn apply resolver result", {
       url: result.url,
       reason: result.reason,
@@ -1102,3 +1153,4 @@ chrome.runtime.onMessage.addListener((message: StartCaptureMessage | StartLinked
 
   return true
 })
+
