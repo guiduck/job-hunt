@@ -130,6 +130,7 @@ export type LinkedInJobsTerminalReason =
   | "no_renderable_results"
   | "linkedin_login_required"
   | "navigation_failed"
+  | "pagination_stalled"
   | "dom_inspection_failed"
   | "assisted_entry_unavailable"
   | "assisted_navigation_failed"

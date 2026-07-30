@@ -54,7 +54,9 @@ let latestLinkedInJobsProgress: LinkedInJobsProgress = {
 
 const RUN_VERIFICATION_MAX_ATTEMPTS = 300
 const RUN_VERIFICATION_POLL_INTERVAL_MS = 2000
-const LINKEDIN_JOBS_CAPTURE_TIMEOUT_MS = 45 * 60 * 1000
+const LINKEDIN_JOBS_CAPTURE_TIMEOUT_PER_PAGE_MS = 8 * 60 * 1000
+const LINKEDIN_JOBS_CAPTURE_MIN_TIMEOUT_MS = 15 * 60 * 1000
+const LINKEDIN_JOBS_CAPTURE_MAX_TIMEOUT_MS = 3 * 60 * 60 * 1000
 
 function setProgress(progress: CaptureProgress) {
   latestProgress = progress
@@ -77,6 +79,14 @@ function waitForTabComplete(tabId: number) {
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function getLinkedInJobsCaptureTimeoutMs(maxPages: number) {
+  const safeMaxPages = Number.isFinite(maxPages) && maxPages > 0 ? Math.ceil(maxPages) : 1
+  return Math.min(
+    LINKEDIN_JOBS_CAPTURE_MAX_TIMEOUT_MS,
+    Math.max(LINKEDIN_JOBS_CAPTURE_MIN_TIMEOUT_MS, safeMaxPages * LINKEDIN_JOBS_CAPTURE_TIMEOUT_PER_PAGE_MS)
+  )
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
@@ -558,7 +568,7 @@ async function startLinkedInJobsExternalCapture(payload: LinkedInJobsExternalReq
     assisted_search_enabled: payload.assistedSearchEnabled
   })
 
-  setJobsProgress({ status: "opening", message: payload.assistedSearchEnabled ? "Opening LinkedIn Jobs home for assisted search..." : "Opening LinkedIn Jobs search...", runId: run.id })
+  setJobsProgress({ status: "opening", message: payload.assistedSearchEnabled ? "Opening LinkedIn assisted jobs results..." : "Opening LinkedIn Jobs search...", runId: run.id })
   const directUrl = buildLinkedInJobsSearchUrl({
     searchText: payload.searchText,
     queryTerms,
@@ -566,7 +576,7 @@ async function startLinkedInJobsExternalCapture(payload: LinkedInJobsExternalReq
     datePosted: payload.datePosted,
     sort: payload.sort
   })
-  const url = payload.assistedSearchEnabled ? "https://www.linkedin.com/jobs/" : directUrl
+  const url = payload.assistedSearchEnabled ? "https://www.linkedin.com/jobs/search-results/" : directUrl
   const tab = await chrome.tabs.create({ active: true, url })
   if (tab.id === undefined) {
     throw new Error("Chrome did not return a tab id for the LinkedIn Jobs search.")
@@ -576,15 +586,24 @@ async function startLinkedInJobsExternalCapture(payload: LinkedInJobsExternalReq
   await updateLinkedInJobsExternalRun(run.id, {
     status: "running",
     navigation_method: payload.assistedSearchEnabled ? "jobs_click_path" : "direct_url",
-    safe_message: payload.assistedSearchEnabled ? "LinkedIn Jobs home opened; looking for the assisted search entry." : "LinkedIn Jobs tab opened; inspecting rendered job cards."
+    safe_message: payload.assistedSearchEnabled ? "LinkedIn assisted jobs results opened; inspecting rendered job cards." : "LinkedIn Jobs tab opened; inspecting rendered job cards."
   })
 
-  setJobsProgress({ status: "capturing", message: payload.assistedSearchEnabled ? "Clicking LinkedIn assisted jobs entry and inspecting cards..." : "Inspecting LinkedIn Jobs cards...", runId: run.id, sourceTabId: tab.id })
+  setJobsProgress({ status: "capturing", message: payload.assistedSearchEnabled ? "Inspecting LinkedIn assisted jobs cards..." : "Inspecting LinkedIn Jobs cards...", runId: run.id, sourceTabId: tab.id })
   let captured: ContentLinkedInJobsCaptureResponse
   try {
+    const captureTimeoutMs = getLinkedInJobsCaptureTimeoutMs(payload.maxPages)
+    console.info("[Opportunity Desk] LinkedIn Jobs capture timeout", {
+      maxPages: payload.maxPages,
+      timeoutPerPageMs: LINKEDIN_JOBS_CAPTURE_TIMEOUT_PER_PAGE_MS,
+      minTimeoutMs: LINKEDIN_JOBS_CAPTURE_MIN_TIMEOUT_MS,
+      maxTimeoutMs: LINKEDIN_JOBS_CAPTURE_MAX_TIMEOUT_MS,
+      captureTimeoutMs
+    })
+
     captured = await withTimeout(
       sendLinkedInJobsCaptureMessage(tab.id, payload),
-      LINKEDIN_JOBS_CAPTURE_TIMEOUT_MS,
+      captureTimeoutMs,
       "LinkedIn Jobs inspection stopped responding. Try again with fewer pages or reload LinkedIn."
     )
   } catch (error) {

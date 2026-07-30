@@ -714,6 +714,8 @@ const JOBS_PAGE_DELAY_MS = 1500
 const JOBS_CARD_INSPECTION_DELAY_MS = 450
 const JOBS_APPLY_STATE_TIMEOUT_MS = 6000
 const JOBS_APPLY_STATE_POLL_MS = 250
+const JOBS_PAGE_ADVANCE_TIMEOUT_MS = 10000
+const JOBS_PAGE_ADVANCE_POLL_MS = 500
 const JOBS_MAX_SCROLLS_PER_PAGE = 24
 const JOBS_MAX_NO_PROGRESS_SCROLLS = 4
 
@@ -745,7 +747,7 @@ function findAssistedJobsShowAllButton() {
 async function navigateViaAssistedJobsEntry() {
   const startedAt = Date.now()
   while (Date.now() - startedAt < ASSISTED_JOBS_ENTRY_TIMEOUT_MS) {
-    if (/\/jobs\/(search-results|search)\//i.test(window.location.pathname)) {
+    if (/\/jobs\/(search-results|search)(\/|$)/i.test(window.location.pathname)) {
       return { ok: true, clicked: false, message: "LinkedIn already rendered assisted jobs results." }
     }
 
@@ -760,7 +762,7 @@ async function navigateViaAssistedJobsEntry() {
       const navigationStartedAt = Date.now()
       while (Date.now() - navigationStartedAt < ASSISTED_JOBS_ENTRY_TIMEOUT_MS) {
         await delay(500)
-        if (window.location.href !== beforeHref || /\/jobs\/(search-results|search)\//i.test(window.location.pathname)) {
+        if (window.location.href !== beforeHref || /\/jobs\/(search-results|search)(\/|$)/i.test(window.location.pathname)) {
           return { ok: true, clicked: true, message: "LinkedIn assisted jobs entry opened search results." }
         }
       }
@@ -952,6 +954,77 @@ function scrollJobsResultsList(cards: Element[]) {
   target.scrollTop = Math.min(target.scrollHeight - target.clientHeight, target.scrollTop + step)
   target.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: step }))
   return { targetLabel: elementLabel(target), before, after: target.scrollTop }
+}
+function getLinkedInJobsStartOffset(url = window.location.href) {
+  try {
+    const rawStart = new URL(url).searchParams.get("start")
+    const parsed = rawStart ? Number.parseInt(rawStart, 10) : 0
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0
+  } catch {
+    return 0
+  }
+}
+
+function getVisibleLinkedInJobKeys(cards = findJobsCards()) {
+  return cards
+    .map((card, index) => findLinkedInJobUrl(card) || getLinkedInJobCardKey(card, 0, index + 1))
+    .filter(Boolean)
+}
+
+function resetJobsResultsScroll(cards = findJobsCards()) {
+  const target = findJobsScrollTarget(cards)
+  if (target) {
+    target.scrollTop = 0
+    return { targetLabel: elementLabel(target), reset: true }
+  }
+  window.scrollTo({ top: 0, behavior: "auto" })
+  return { targetLabel: "window", reset: true }
+}
+
+async function waitForJobsPaginationAdvance(previousUrl: string, previousStart: number, previousKeys: string[]) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < JOBS_PAGE_ADVANCE_TIMEOUT_MS) {
+    await delay(JOBS_PAGE_ADVANCE_POLL_MS)
+    const currentUrl = window.location.href
+    const currentStart = getLinkedInJobsStartOffset(currentUrl)
+    const currentKeys = getVisibleLinkedInJobKeys().slice(0, 8)
+    const previousKeySample = previousKeys.slice(0, 8)
+    const urlChanged = currentUrl !== previousUrl
+    const startAdvanced = currentStart > previousStart
+    const listChanged = currentKeys.length > 0 && previousKeySample.length > 0 && currentKeys.join("|") !== previousKeySample.join("|")
+
+    if (startAdvanced) {
+      return {
+        advanced: true,
+        reason: "start_advanced",
+        previousUrl,
+        currentUrl,
+        previousStart,
+        currentStart,
+        urlChanged,
+        startAdvanced,
+        listChanged,
+        previousKeys: previousKeySample,
+        currentKeys
+      }
+    }
+  }
+
+  const currentUrl = window.location.href
+  const currentStart = getLinkedInJobsStartOffset(currentUrl)
+  return {
+    advanced: false,
+    reason: "pagination_did_not_change",
+    previousUrl,
+    currentUrl,
+    previousStart,
+    currentStart,
+    urlChanged: currentUrl !== previousUrl,
+    startAdvanced: currentStart > previousStart,
+    listChanged: false,
+    previousKeys: previousKeys.slice(0, 8),
+    currentKeys: getVisibleLinkedInJobKeys().slice(0, 8)
+  }
 }
 function findJobTitle(card: Element) {
   const selectors = ["[componentkey^='job-card-component'] p", "[componentkey*='job-card-component'] p", ".job-card-list__title", ".job-card-container__link", "a[href*='/jobs/view/']", "strong"]
@@ -1562,16 +1635,36 @@ async function inspectJobCard(card: Element, pageNumber: number, positionOnPage:
 }
 
 function findNextJobsPageButton() {
+  const currentStart = getLinkedInJobsStartOffset()
+  const nextStartLink = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href*=\"start=\"]"))
+    .map((anchor) => ({
+      anchor,
+      start: getLinkedInJobsStartOffset(anchor.href),
+      disabled: anchor.getAttribute("aria-disabled") === "true"
+    }))
+    .filter((candidate) => !candidate.disabled && candidate.start > currentStart)
+    .sort((left, right) => left.start - right.start)[0]
+  if (nextStartLink) {
+    return nextStartLink.anchor
+  }
+
   const explicitNext = document.querySelector<HTMLButtonElement>("button[data-testid='pagination-controls-next-button-visible']")
   if (explicitNext && !explicitNext.disabled && explicitNext.getAttribute("aria-disabled") !== "true") {
     return explicitNext
   }
 
-  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>("button, a[role='button'], a[href*='start=']"))
+  const buttons = Array.from(
+    document.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>(
+      ".jobs-search-pagination button, .jobs-search-pagination a, [aria-label*='Pagination'] button, [aria-label*='pagination'] button, a[href*='start=']"
+    )
+  )
   return buttons.find((button) => {
     const label = cleanText(`${button.textContent || ""} ${button.getAttribute("aria-label") || ""}`).toLowerCase()
     const disabled = button instanceof HTMLButtonElement ? button.disabled : button.getAttribute("aria-disabled") === "true"
-    return !disabled && NEXT_PAGE_LABELS.some((text) => label.includes(text))
+    const href = button instanceof HTMLAnchorElement ? button.href : button.getAttribute("href")
+    const hasForwardHref = href ? getLinkedInJobsStartOffset(href) > currentStart : false
+    const looksLikePagination = label.length <= 80 && NEXT_PAGE_LABELS.some((text) => label.includes(text))
+    return !disabled && (hasForwardHref || looksLikePagination)
   }) || null
 }
 
@@ -1713,7 +1806,26 @@ async function captureLinkedInJobs(payload: ContentLinkedInJobsCaptureMessage["p
     }
     nextButton.scrollIntoView({ block: "center", behavior: "auto" })
     await delay(300)
+    const previousUrl = window.location.href
+    const previousStart = getLinkedInJobsStartOffset(previousUrl)
+    const previousKeys = getVisibleLinkedInJobKeys(cards).slice(0, 8)
+    const nextButtonLabel = cleanText(`${nextButton.textContent || ""} ${nextButton.getAttribute("aria-label") || ""}`)
+    const nextButtonHref = nextButton instanceof HTMLAnchorElement ? nextButton.href : nextButton.getAttribute("href")
     nextButton.click()
+    const paginationAdvance = await waitForJobsPaginationAdvance(previousUrl, previousStart, previousKeys)
+    console.info("[Opportunity Desk] LinkedIn Jobs pagination advance result", {
+      page,
+      nextPage: page + 1,
+      nextButtonLabel,
+      nextButtonHref,
+      ...paginationAdvance
+    })
+    if (!paginationAdvance.advanced) {
+      terminalReason = "pagination_stalled"
+      safeMessage = "LinkedIn Jobs pagination did not advance after clicking next page."
+      break
+    }
+    console.info("[Opportunity Desk] reset LinkedIn Jobs result list after pagination", resetJobsResultsScroll())
     await delay(JOBS_PAGE_DELAY_MS)
   }
   const counters = countersFromCandidates(candidates, Math.max(1, Math.min(payload.maxPages, new Set(candidates.map((candidate) => candidate.pageNumber)).size || 1)))

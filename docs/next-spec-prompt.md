@@ -75,3 +75,17 @@ Recent extension diagnostic: for LinkedIn Jobs external apply capture, the only 
 
 ## LinkedIn Jobs Observed External URL Fallback Note
 Recent extension hotfix: if the apply resolver observes any external tab URL during the click window, that URL must be treated as the resolved apply URL even if the script click result is empty or the stabilized resolver later returns null. Future specs must prevent false `missing_external_apply` when `observedApplyTabs` already contains `isExternal: true`. No migration is needed for this area.
+
+## LinkedIn Jobs Pagination Advance Guard Note
+Recent extension hotfix: do not trust the local page counter alone. After clicking LinkedIn Jobs pagination, verify real advancement by comparing the URL `start` offset and visible job keys before/after the click. If neither changes, end with `pagination_stalled` and keep the `LinkedIn Jobs pagination advance result` log for manual debugging. No migration is needed for this area.
+
+## LinkedIn Jobs Strict Pagination Note
+A captura da extensao deve contar pagina de LinkedIn Jobs apenas quando o parametro start da URL avanca. Nao tratar isible_jobs_changed como pagina nova, pois a lista virtualizada muda os cards durante scroll. Se nao houver novo start, registrar pagination_stalled e manter logs de previousStart/currentStart. Sem migration.
+
+## LinkedIn Jobs Long Run Timeout Note
+Recent extension hotfix: the background timeout for LinkedIn Jobs external capture now scales with `maxPages` (`8min/page`, minimum 15min and capped at 3h). Future specs should prefer incremental persistence for accepted candidates so a late timeout/context invalidation cannot discard already accepted jobs. No migration is needed for this area.
+
+## Next Spec Candidate - LinkedIn Jobs Assisted Search Reliability
+
+Use Spec Kit for the extension only. Do not change the freelance web app. Validate assisted LinkedIn Jobs search and direct LinkedIn Jobs search as two entry routes into the same capture pipeline. Add regression coverage or documented diagnostics for Chrome message channel closure during LinkedIn route changes, accepted external URL persistence, and pagination completion across high page counts.
+

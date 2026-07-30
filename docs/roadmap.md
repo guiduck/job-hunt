@@ -600,3 +600,16 @@ Atualizacao operacional 2026-07-27: a lista de fontes de LinkedIn Jobs External 
 Atualizacao operacional 2026-07-27: a depuracao da captura LinkedIn Jobs External Search foi reduzida ao essencial: registrar a URL final da aba externa aberta e explicar, fonte por fonte, se a URL contem algum alias selecionado. O proximo teste manual deve copiar o objeto `LinkedIn external source URL decision` do console quando uma URL InHire/Gupy/Greenhouse abrir e ainda nao for aceita. Sem migration.
 
 Atualizacao operacional 2026-07-28: o resolver de LinkedIn Jobs External Search agora usa como resultado a URL externa ja observada pela aba aberta, mesmo quando o retorno do script de clique chega vazio/ambíguo. Isso corrige falsos `missing_external_apply` para vagas cujo `observedApplyTabs` ja continha URL externa. Sem migration.
+
+Atualizacao operacional 2026-07-28: LinkedIn Jobs External Search agora valida avanco real de pagina antes de incrementar o contador interno. O fluxo prefere links de paginacao cujo `start` seja maior que o atual, espera ate a URL/lista mudar e registra `pagination_stalled` quando o LinkedIn nao sai da pagina atual. Isso evita diagnosticar como limite de 15 paginas quando a URL real ficou presa no mesmo `start`. Sem migration.
+
+Atualizacao operacional 2026-07-28: LinkedIn Jobs External Search agora usa guarda estrita de start para contar pagina. Trocas de cards causadas por scroll/virtualizacao nao incrementam pagina; se o LinkedIn nao muda o offset real, o run encerra como pagination_stalled com diagnostico no console. Sem migration.
+- a captura `LinkedIn Jobs External Search` agora usa timeout de background calculado pela media operacional por pagina (`8min x maxPages`, minimo 15min e teto 3h), reduzindo falsos `dom_inspection_failed` em runs longos que chegam ao fim visualmente mas ainda precisam devolver os candidatos aceitos para persistencia
+
+### 2026-07-30 - LinkedIn Assisted Jobs Search Stabilization
+
+- Status: implemented locally.
+- Extension assisted LinkedIn Jobs mode now enters `/jobs/search-results/` directly before capture, avoiding in-message navigation that closed the content-script channel.
+- Direct LinkedIn Jobs mode, external source URL matching, and pagination timeout behavior remain intact.
+- Migration: not required.
+
