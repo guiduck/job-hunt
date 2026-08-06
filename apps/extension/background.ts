@@ -64,16 +64,55 @@ function setProgress(progress: CaptureProgress) {
   chrome.runtime.sendMessage({ type: "CAPTURE_PROGRESS", payload: progress }).catch(() => undefined)
 }
 
-function waitForTabComplete(tabId: number) {
+function createChromeTab(createProperties: chrome.tabs.CreateProperties, timeoutMs = 10000) {
+  return new Promise<chrome.tabs.Tab>((resolve, reject) => {
+    let settled = false
+    const timeoutId = setTimeout(() => {
+      if (settled) return
+      settled = true
+      reject(new Error("Chrome did not finish opening the LinkedIn Jobs tab. Reload the extension and try again."))
+    }, timeoutMs)
+
+    chrome.tabs.create(createProperties, (tab) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeoutId)
+      const error = chrome.runtime.lastError
+      if (error) {
+        reject(new Error(error.message || "Chrome could not open the LinkedIn Jobs tab."))
+        return
+      }
+      resolve(tab)
+    })
+  })
+}
+function waitForTabComplete(tabId: number, timeoutMs = 30000) {
   return new Promise<void>((resolve) => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    const cleanup = () => {
+      chrome.tabs.onUpdated.removeListener(listener)
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+    }
+    const done = () => {
+      cleanup()
+      resolve()
+    }
     const listener = (updatedTabId: number, changeInfo: { status?: string }) => {
       if (updatedTabId === tabId && changeInfo.status === "complete") {
-        chrome.tabs.onUpdated.removeListener(listener)
-        resolve()
+        done()
       }
     }
 
-    chrome.tabs.onUpdated.addListener(listener)
+    chrome.tabs.get(tabId, (tab) => {
+      if (chrome.runtime.lastError || tab?.status === "complete") {
+        done()
+        return
+      }
+      chrome.tabs.onUpdated.addListener(listener)
+      timeoutId = setTimeout(done, timeoutMs)
+    })
   })
 }
 
@@ -496,8 +535,29 @@ async function verifyRunProcessing(
 }
 
 
+function isMissingContentScriptError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "")
+  return /receiving end does not exist|could not establish connection/i.test(message)
+}
+
+function getLinkedInJobsContentScriptFiles() {
+  return (chrome.runtime.getManifest().content_scripts || [])
+    .filter((script) => script.matches?.some((match) => match.includes("linkedin.com/jobs")))
+    .flatMap((script) => script.js || [])
+}
+
+async function injectLinkedInJobsContentScript(tabId: number) {
+  const files = getLinkedInJobsContentScriptFiles()
+  if (files.length === 0) {
+    throw new Error("LinkedIn Jobs content script is not listed in the extension manifest.")
+  }
+  await chrome.scripting.executeScript({ target: { tabId }, files })
+  await delay(500)
+}
+
 async function sendLinkedInJobsCaptureMessage(tabId: number, payload: LinkedInJobsExternalRequest): Promise<ContentLinkedInJobsCaptureResponse> {
   let lastError: unknown
+  let injected = false
   for (let attempt = 0; attempt < 8; attempt += 1) {
     try {
       const response = await chrome.tabs.sendMessage(tabId, {
@@ -507,7 +567,13 @@ async function sendLinkedInJobsCaptureMessage(tabId: number, payload: LinkedInJo
       return response as ContentLinkedInJobsCaptureResponse
     } catch (error) {
       lastError = error
-      await delay(500)
+      if (!injected && isMissingContentScriptError(error)) {
+        injected = true
+        console.info("[Opportunity Desk] injecting LinkedIn Jobs content script after missing receiver", { tabId, attempt })
+        await injectLinkedInJobsContentScript(tabId)
+      } else {
+        await delay(500)
+      }
     }
   }
   throw lastError instanceof Error ? lastError : new Error("Could not reach the LinkedIn Jobs content script.")
@@ -553,10 +619,36 @@ function toApiProgress(diagnostics: ContentLinkedInJobsCaptureResponse["diagnost
   }
 }
 
-async function startLinkedInJobsExternalCapture(payload: LinkedInJobsExternalRequest) {
+async function startLinkedInJobsExternalCapture(
+  payload: LinkedInJobsExternalRequest,
+  onStarted?: (result: { runId?: string; tabId: number }) => void
+) {
   await restoreBackgroundAuth()
   const queryTerms = parseLinkedInJobsQueryTerms(payload.searchText)
   const searchMode = payload.assistedSearchEnabled ? "assisted" : queryTerms.length > 0 ? "classic_keywords" : "default_browse"
+  const directUrl = buildLinkedInJobsSearchUrl({
+    searchText: payload.searchText,
+    queryTerms,
+    mode: searchMode,
+    datePosted: payload.datePosted,
+    sort: payload.sort
+  })
+  const url = payload.assistedSearchEnabled ? "https://www.linkedin.com/jobs/" : directUrl
+
+  setJobsProgress({ status: "opening", message: payload.assistedSearchEnabled ? "Opening LinkedIn assisted jobs entry..." : "Opening LinkedIn Jobs tab..." })
+  const tab = await createChromeTab({ active: true, url })
+  if (tab.id === undefined) {
+    throw new Error("Chrome did not return a tab id for the LinkedIn Jobs search.")
+  }
+  onStarted?.({ tabId: tab.id })
+  setJobsProgress({
+    status: "opening",
+    message: payload.assistedSearchEnabled ? "LinkedIn Jobs tab opened; preparing assisted capture..." : "LinkedIn Jobs tab opened; preparing capture...",
+    sourceTabId: tab.id
+  })
+  await waitForTabComplete(tab.id)
+  await delay(1200)
+
   const run = await createLinkedInJobsExternalRun({
     search_text: payload.searchText.trim() || null,
     search_mode: searchMode,
@@ -567,22 +659,13 @@ async function startLinkedInJobsExternalCapture(payload: LinkedInJobsExternalReq
     max_pages: payload.maxPages,
     assisted_search_enabled: payload.assistedSearchEnabled
   })
-
-  setJobsProgress({ status: "opening", message: payload.assistedSearchEnabled ? "Opening LinkedIn assisted jobs results..." : "Opening LinkedIn Jobs search...", runId: run.id })
-  const directUrl = buildLinkedInJobsSearchUrl({
-    searchText: payload.searchText,
-    queryTerms,
-    mode: searchMode,
-    datePosted: payload.datePosted,
-    sort: payload.sort
+  onStarted?.({ runId: run.id, tabId: tab.id })
+  setJobsProgress({
+    status: "opening",
+    message: payload.assistedSearchEnabled ? "LinkedIn Jobs run created; waiting for assisted entry..." : "LinkedIn Jobs run created; waiting for results...",
+    runId: run.id,
+    sourceTabId: tab.id
   })
-  const url = payload.assistedSearchEnabled ? "https://www.linkedin.com/jobs/search-results/" : directUrl
-  const tab = await chrome.tabs.create({ active: true, url })
-  if (tab.id === undefined) {
-    throw new Error("Chrome did not return a tab id for the LinkedIn Jobs search.")
-  }
-  await waitForTabComplete(tab.id)
-  await delay(1200)
   await updateLinkedInJobsExternalRun(run.id, {
     status: "running",
     navigation_method: payload.assistedSearchEnabled ? "jobs_click_path" : "direct_url",
@@ -700,7 +783,6 @@ async function startLinkedInJobsExternalCapture(payload: LinkedInJobsExternalReq
     diagnostics
   }
 }
-
 type ResolvedLinkedInApplyUrl = {
   url: string | null
   clickedHref?: string | null
@@ -812,6 +894,17 @@ async function clickLinkedInApplyButtonInDisposablePage(expectedHref?: string | 
     className: selected.element.className,
     outerHTML: selected.element.outerHTML.slice(0, 700)
   })
+  selected.element.scrollIntoView({ block: "center", behavior: "auto" })
+  selected.element.focus({ preventScroll: true })
+  await waitInPage(150)
+  selected.element.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, cancelable: true, pointerType: "mouse" }))
+  selected.element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerType: "mouse" }))
+  selected.element.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, cancelable: true, view: window }))
+  selected.element.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, cancelable: true, view: window }))
+  selected.element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }))
+  selected.element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }))
+  selected.element.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerType: "mouse" }))
+  selected.element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }))
   selected.element.click()
 
   for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -826,7 +919,23 @@ async function clickLinkedInApplyButtonInDisposablePage(expectedHref?: string | 
     }
   }
 
-  return { clicked: true, href: selected.href, label: selected.label, blockedByShareProfileDialog: false, diagnostic: { candidateCount: candidates.length } }
+  return {
+    clicked: true,
+    href: selected.href,
+    label: selected.label,
+    blockedByShareProfileDialog: false,
+    diagnostic: {
+      candidateCount: candidates.length,
+      selected: {
+        href: selected.href,
+        label: selected.label,
+        tag: selected.element.tagName,
+        className: typeof selected.element.className === "string" ? selected.element.className : String(selected.element.className || ""),
+        outerHTML: selected.element.outerHTML.slice(0, 900)
+      },
+      candidates: candidates.slice(0, 5).map((candidate) => ({ href: candidate.href, label: candidate.label, score: candidate.score }))
+    }
+  }
 }
 
 async function closeTabs(tabIds: Array<number | null | undefined>) {
@@ -836,6 +945,7 @@ async function closeTabs(tabIds: Array<number | null | undefined>) {
 }
 
 async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayload, sourceTabId?: number): Promise<ResolvedLinkedInApplyUrl> {
+  console.info("[Opportunity Desk] LinkedIn apply resolver request", { sourceTabId: sourceTabId ?? null, payload })
   if (!payload.pageUrl) {
     return { url: null, reason: "missing_tab", diagnostic: { message: "Missing LinkedIn job page URL." } }
   }
@@ -1078,10 +1188,30 @@ chrome.runtime.onMessage.addListener((message: StartCaptureMessage | StartLinked
     return false
   }
 
+  if (message.type === "LINKEDIN_JOBS_DEBUG") {
+    console.info("[Opportunity Desk] LinkedIn Jobs content debug", {
+      sourceTabId: sender.tab?.id ?? null,
+      sourceUrl: sender.tab?.url || null,
+      ...(message.payload || {})
+    })
+    sendResponse({ ok: true })
+    return false
+  }
+
   if (message.type === "RESOLVE_LINKEDIN_APPLY_BUTTON_URL") {
     resolveLinkedInApplyButtonUrl(message.payload || {}, sender.tab?.id)
-      .then((result) => sendResponse(result))
-      .catch((error: Error) => sendResponse({ url: null, reason: "click_failed", error: error.message }))
+      .then((result) => {
+        console.info("[Opportunity Desk] LinkedIn apply resolver response", { sourceTabId: sender.tab?.id ?? null, result })
+        sendResponse(result)
+      })
+      .catch((error: Error) => {
+        console.info("[Opportunity Desk] LinkedIn apply resolver unhandled error", {
+          sourceTabId: sender.tab?.id ?? null,
+          message: error.message,
+          stack: error.stack || null
+        })
+        sendResponse({ url: null, reason: "click_failed", error: error.message })
+      })
     return true
   }
   if (message.type === FIELD_ASSISTANT_MESSAGE_TYPES.getPageStatus) {
@@ -1148,12 +1278,21 @@ chrome.runtime.onMessage.addListener((message: StartCaptureMessage | StartLinked
   }
 
   if (message.type === "START_LINKEDIN_JOBS_EXTERNAL_CAPTURE") {
-    startLinkedInJobsExternalCapture(message.payload)
-      .then((result) => sendResponse({ ok: true, result }))
+    let responded = false
+    const respondOnce = (response: unknown) => {
+      if (responded) return
+      responded = true
+      sendResponse(response)
+    }
+
+    startLinkedInJobsExternalCapture(message.payload, (started) => {
+      respondOnce({ ok: true, result: started })
+    })
+      .then((result) => respondOnce({ ok: true, result }))
       .catch((error: Error) => {
         const message = error.message || "LinkedIn Jobs external search failed."
         setJobsProgress({ status: "failed", message })
-        sendResponse({ ok: false, error: message })
+        respondOnce({ ok: false, error: message })
       })
 
     return true

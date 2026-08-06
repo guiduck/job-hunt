@@ -82,6 +82,14 @@ Estado atual:
 - a spec Full-time priorizada agora existe em `specs/018-linkedin-jobs-external-search/spec.md`: usar a aba Jobs do LinkedIn como fonte deterministica de candidaturas externas, capturando apenas links externos de fontes curadas, sem filtro de qualidade por IA antes de salvar, e reorganizando `/search` em abas para separar `External jobs` de `LinkedIn posts`
 
 - a spec `018-linkedin-jobs-external-search` foi implementada no recorte automatizado em 2026-07-23: API lifecycle `linkedin_jobs_external`, dedupe por URL canonica, fonte curada compartilhada, runtime background/content-script da extensao, Search UI em `External jobs`/`LinkedIn posts`, diagnostics e guards de no-outreach/apps-web. Falta validar manualmente o comportamento real do LinkedIn para direct URL/geoId/click path antes de chamar o runtime de estavel.
+- hotfix de 2026-08-03: o modo assistido da extensao deve iniciar em `https://www.linkedin.com/jobs/` e entao clicar `Exibir todas`; `/jobs/search-results/` nao deve ser usado como URL inicial nem como sucesso automatico sem cards reais renderizados.
+- hotfix de 2026-08-03: a espera por carregamento da aba LinkedIn Jobs agora tem checagem inicial e timeout, para que falhas/eventos ausentes do SPA nao deixem o run indefinidamente em `opening`.
+- hotfix de 2026-08-03: a criacao da aba LinkedIn Jobs agora usa callback explicito com timeout e progresso contendo `sourceTabId`, evitando abertura silenciosamente pendurada.
+- hotfix de 2026-08-03: o popup tambem usa callback explicito e timeout ao enviar o comando ao service worker, para nao ficar preso antes de qualquer abertura de aba se `chrome.runtime.sendMessage` nao responder.
+- hotfix de 2026-08-03: a aba LinkedIn Jobs deve ser aberta antes da criacao da run na API; o popup recebe um ack inicial com `tabId` e acompanha o restante por eventos de progresso.
+- hotfix de 2026-08-05: se o background nao encontrar receiver no tab LinkedIn Jobs, ele reinjeta o content script listado no manifest e tenta novamente, reduzindo falhas `Could not establish connection. Receiving end does not exist` em navegacoes SPA/HMR.
+- hotfix de 2026-08-05: o modo assistido clica `Exibir todas` no alvo acionavel real (`a`, `button` ou `[role=button]`) com eventos pointer/mouse, retry e fallback por href quando disponivel.
+- hotfix de 2026-08-05: a captura reconhece `/jobs/search-results/` como superficie valida e evita multiplos cliques por card, preferindo um unico anchor estavel da vaga para reduzir loops entre resultados virtualizados.
 
 Gate restante desta fase:
 
@@ -609,7 +617,23 @@ Atualizacao operacional 2026-07-28: LinkedIn Jobs External Search agora usa guar
 ### 2026-07-30 - LinkedIn Assisted Jobs Search Stabilization
 
 - Status: implemented locally.
-- Extension assisted LinkedIn Jobs mode now enters `/jobs/search-results/` directly before capture, avoiding in-message navigation that closed the content-script channel.
+- Extension assisted LinkedIn Jobs mode now enters `/jobs/`, clicks the visible assisted `Exibir todas`/`Show all` entry, and then captures the rendered results with the shared pipeline.
 - Direct LinkedIn Jobs mode, external source URL matching, and pagination timeout behavior remain intact.
 - Migration: not required.
 
+
+
+Atualizacao operacional 2026-08-05: LinkedIn Jobs External Search nao deve rolar `window` como fallback. A captura deve rolar somente o container da lista esquerda de vagas, parar quando `advanced=false` ou `atEnd=true`, limitar cada pagina logica a 25 vagas novas e entao tentar paginacao por `start`. Isso evita cair no footer/help panel do LinkedIn e aceitar vagas demais da mesma pagina virtualizada. Sem migration.
+
+
+Atualizacao operacional 2026-08-06: o resolvedor de apply externo do LinkedIn Jobs agora dispara focus e eventos pointer/mouse no CTA `Candidatar-se` antes do fallback `.click()`. Isso preserva o caminho de aba atual para CTAs sem href ou href interno do LinkedIn e reduz falso `click_failed` quando o LinkedIn ignora clique programatico simples. Sem migration.
+
+
+Atualizacao operacional 2026-08-06: LinkedIn Jobs External Search agora envia debug do content script para o service worker com `LINKEDIN_JOBS_DEBUG`. O console da extensao deve mostrar CTA selecionado, request/response do resolver, estado de apply e resultado de cada vaga inspecionada. Sem migration.
+
+
+Atualizacao operacional 2026-08-06: a captura LinkedIn Jobs agora normaliza titulos duplicados dos cards antes de validar o painel de detalhe e loga `job_detail_selection_attempt/matched/failed` no service worker. O bug diagnosticado era aborto antes de procurar `Candidatar-se`, nao falha no clique do CTA. Sem migration.
+
+Atualizacao operacional 2026-08-06: LinkedIn Jobs External Search agora tem instrumentacao de ponta a ponta no service worker para separar falha de selecao de card, falha de painel de detalhe, ausencia de CTA e falha do resolvedor de URL externa. O diagnostico atual indica que o fluxo abortava antes de procurar/clicar `Candidatar-se`; o proximo teste manual deve confirmar se aparecem `job_detail_selection_matched` e depois `selected_apply_cta_candidate` ou `no_apply_cta_candidate`. Sem migration.
+
+Atualizacao operacional 2026-08-06: o diagnostico do LinkedIn Jobs External Search agora separa explicitamente o caminho em que o CTA `Candidatar-se` ja contem um `linkedin.com/safety/go` decodificavel (`apply_href_direct_external_candidate`) do caminho que precisa clicar/observar aba externa (`request_apply_resolution`). A decisao de allowlist tambem vai para o service worker como `external_source_url_decision`, incluindo fontes selecionadas e matchedSignals. Sem migration.

@@ -408,7 +408,7 @@ function sendCaptureRequest(payload: CaptureRequest) {
 }
 
 type LinkedInJobsExternalResponse =
-  | { ok: true; result: { runId: string; tabId: number; diagnostics?: LinkedInJobsProgress["diagnostics"] } }
+  | { ok: true; result: { runId?: string; tabId: number; diagnostics?: LinkedInJobsProgress["diagnostics"] } }
   | { ok: false; error: string }
 
 function isLinkedInJobsExternalSuccess(response: LinkedInJobsExternalResponse | undefined): response is Extract<LinkedInJobsExternalResponse, { ok: true }> {
@@ -448,7 +448,26 @@ function sendLinkedInJobsExternalRequest(payload: {
   assistedSearchEnabled: boolean
   sources: Array<{ key: string; name: string; domain: string; active: boolean }>
 }) {
-  return chrome.runtime.sendMessage({ type: "START_LINKEDIN_JOBS_EXTERNAL_CAPTURE", payload }) as Promise<LinkedInJobsExternalResponse>
+  return new Promise<LinkedInJobsExternalResponse>((resolve) => {
+    let settled = false
+    const timeoutId = setTimeout(() => {
+      if (settled) return
+      settled = true
+      resolve({ ok: false, error: "Extension background did not respond to the LinkedIn Jobs command. Reload the extension on chrome://extensions and try again." })
+    }, 10000)
+
+    chrome.runtime.sendMessage({ type: "START_LINKEDIN_JOBS_EXTERNAL_CAPTURE", payload }, (response: LinkedInJobsExternalResponse | undefined) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeoutId)
+      const runtimeError = chrome.runtime.lastError
+      if (runtimeError) {
+        resolve({ ok: false, error: runtimeError.message || "Extension background could not start LinkedIn Jobs search." })
+        return
+      }
+      resolve(response || { ok: false, error: "Extension background returned an empty LinkedIn Jobs response." })
+    })
+  })
 }
 
 function errorMessage(error: unknown, fallback: string) {
@@ -1238,7 +1257,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       linkedinJobsSort,
       linkedinJobsAssisted
     } = get()
-    set({ loading: true, error: null, linkedinJobsProgress: { status: "opening", message: "Opening LinkedIn Jobs..." } })
+    set({ loading: true, error: null, linkedinJobsProgress: { status: "opening", message: "Sending LinkedIn Jobs command..." } })
     try {
       if (selectedCareerSourceKeys.length === 0) {
         throw new Error("Select at least one external job source before searching LinkedIn Jobs.")
@@ -1271,10 +1290,22 @@ export const usePopupStore = create<PopupState>((set, get) => ({
       if (!isLinkedInJobsExternalSuccess(response)) {
         throw new Error(response?.error || "LinkedIn Jobs external search returned an empty response.")
       }
+      if (!response.result.diagnostics) {
+        set((state) => ({
+          linkedinJobsProgress: {
+            ...state.linkedinJobsProgress,
+            status: "opening",
+            message: response.result.runId ? "LinkedIn Jobs run started; waiting for capture progress..." : "LinkedIn Jobs tab opened; waiting for run creation...",
+            runId: response.result.runId || state.linkedinJobsProgress.runId,
+            sourceTabId: response.result.tabId
+          }
+        }))
+        return
+      }
       set({
         linkedinJobsProgress: {
           status: "completed",
-          message: response.result.diagnostics?.safeMessage || "LinkedIn Jobs external search finished.",
+          message: response.result.diagnostics.safeMessage || "LinkedIn Jobs external search finished.",
           runId: response.result.runId,
           sourceTabId: response.result.tabId,
           diagnostics: response.result.diagnostics

@@ -89,3 +89,57 @@ Recent extension hotfix: the background timeout for LinkedIn Jobs external captu
 
 Use Spec Kit for the extension only. Do not change the freelance web app. Validate assisted LinkedIn Jobs search and direct LinkedIn Jobs search as two entry routes into the same capture pipeline. Add regression coverage or documented diagnostics for Chrome message channel closure during LinkedIn route changes, accepted external URL persistence, and pagination completion across high page counts.
 
+
+## LinkedIn Jobs Assisted Entry URL Note
+Recent extension hotfix: assisted LinkedIn Jobs search must open https://www.linkedin.com/jobs/ first, then click the visible Exibir todas/Show all entry. Do not start assisted mode at /jobs/search-results/, and do not treat /jobs/search-results/ as successful unless real job cards/results are rendered. Keep this scoped to apps/extension; no apps/web/Freelance changes.
+
+
+## LinkedIn Jobs Opening Wait Note
+Recent extension hotfix: tab loading waits must not block forever on LinkedIn Jobs SPA navigation. Preserve the current-tab status check plus bounded timeout before content-script capture, and surface operator-visible failure if the tab cannot be contacted. Keep this scoped to apps/extension; no apps/web/Freelance changes.
+
+
+## LinkedIn Jobs Tab Creation Note
+Recent extension hotfix: LinkedIn Jobs tab creation should use the callback-based helper with a bounded timeout, then emit opening progress with sourceTabId immediately after Chrome returns the tab. Future changes should keep a visible operator failure when Chrome cannot create the tab. Keep this scoped to apps/extension; no apps/web/Freelance changes.
+
+
+## LinkedIn Jobs Popup Command Timeout Note
+Recent extension hotfix: the popup must send START_LINKEDIN_JOBS_EXTERNAL_CAPTURE with a callback-based chrome.runtime.sendMessage wrapper and bounded timeout. Preserve an operator-visible failure before tab creation when the background/service worker does not respond. Keep this scoped to apps/extension; no apps/web/Freelance changes.
+
+
+## LinkedIn Jobs Open Tab Before Run Note
+Recent extension hotfix: open the LinkedIn Jobs tab before creating the API run, then send an initial popup ack with tabId and continue capture through progress events. Future changes must not let API run creation block tab opening. Keep this scoped to apps/extension; no apps/web/Freelance changes.
+
+
+## LinkedIn Jobs Content Script Reinject Note
+Recent extension hotfix: when CAPTURE_LINKEDIN_JOBS_EXTERNAL fails with a missing receiving end, the background should discover the LinkedIn Jobs content script from chrome.runtime.getManifest(), inject it with chrome.scripting.executeScript, and retry before failing the run. Preserve this for LinkedIn SPA/HMR resilience. Keep this scoped to apps/extension; no apps/web/Freelance changes.
+
+
+## LinkedIn Jobs Assisted Show All Click Note
+Recent extension hotfix: assisted search should click Exibir todas/Show all using the closest actionable target ([href], utton, or [role=button]) with pointer/mouse events, retry up to 3 attempts, and fall back to an available jobs search href. Preserve logs for attempt, target, and href. Keep this scoped to apps/extension; no apps/web/Freelance changes.
+
+
+## LinkedIn Jobs Search Results Surface Note
+Recent extension hotfix: treat both /jobs/search/ and /jobs/search-results/ as valid LinkedIn Jobs search surfaces. Job card selection should prefer a single stable /jobs/view anchor per card instead of trying multiple parent targets, because LinkedIn virtualized lists can alternate selection between neighboring cards. Keep this scoped to apps/extension; no apps/web/Freelance changes.
+
+
+
+## LinkedIn Jobs Result List Scroll Boundary Note
+Recent extension hotfix: LinkedIn Jobs capture must never use `window.scrollBy()` as a fallback for result pagination. Scroll only the left results-list container or a scrollable ancestor of job cards; if it cannot advance or reaches the end, attempt real pagination. Preserve the 25-new-jobs-per-page cap so LinkedIn's virtualized list does not behave like an infinite first page.
+
+
+## LinkedIn Jobs Apply CTA Activation Note
+Recent extension hotfix: keep the current-tab resolver for hrefless or internal LinkedIn apply CTAs, but activate the selected CTA with focus plus pointer/mouse events before the fallback `.click()`. Future work should expose resolver failure reasons directly in the popup without risking TSX encoding changes.
+
+
+## LinkedIn Jobs Resolver Debug Bridge Note
+Recent extension hotfix: keep LinkedIn Jobs resolver debugging visible in the service worker console via `LINKEDIN_JOBS_DEBUG`. Future fixes should use these events before changing navigation/click behavior again.
+
+
+## LinkedIn Jobs Detail Selection Normalization Note
+Recent extension hotfix: LinkedIn card titles may include duplicated text and badges such as `(Vaga verificada)`. Normalize titles before matching the detail pane, and use the service-worker debug events `job_detail_selection_attempt/matched/failed` before changing CTA resolver behavior.
+
+## LinkedIn Jobs Full Flow Debug Note
+Recent extension instrumentation emits service-worker debug events for every transition from result card click to external apply URL resolution. Future fixes should first inspect whether the failure is `job_detail_selection_failed`, `no_apply_cta_candidate`, or `apply_resolver_url_result` with no external URL. Do not change source matching until the logs show a resolved external URL that is being rejected.
+
+## LinkedIn Jobs Direct Href Source Decision Note
+Recent logs can show `selected_apply_cta_candidate` followed by `apply_href_direct_external_candidate` and no `request_apply_resolution`. That means the CTA had a decodable LinkedIn safety/redir href and the extension extracted the ATS URL without opening a tab. If the candidate is still not saved, inspect `external_source_url_decision`: the remaining issue is selected-source matching, not CTA clicking.

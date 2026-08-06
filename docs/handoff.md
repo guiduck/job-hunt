@@ -17,6 +17,14 @@
 - `fase_atual_roadmap`: Fase 4.5 `Outreach Freelance Em Massa` concluida, com fine tuning ativo no produto `Full-time`
 - `etapa_atual_action_plan`: `017-extension-search-history` teve primeiro recorte implementado; proxima spec priorizada agora e `Full-time LinkedIn Jobs External Search`
 - `spec_018_linkedin_jobs_external_search`: criada `specs/018-linkedin-jobs-external-search/spec.md` via `/speckit-specify`, clarificada, planejada e detalhada em tasks em 2026-07-23. `tasks.md` tem 95 tarefas em setup, fundacao, US1 busca LinkedIn Jobs externa MVP, US2 keywords/data/sort, US3 abas claras em Search, US4 modo assistido e polish/validacao. Decisao principal: a extensao e dona da navegacao/inspecao do LinkedIn Jobs na aba logada do operador; API/worker ficam com persistencia, dedupe, validacao, diagnosticos e utilitarios compartilhados. `.specify/feature.json` aponta para `specs/018-linkedin-jobs-external-search`. Implementacao iniciada: fundacao backend/worker/extension-client entregue; proximo passo e implementar background/content-script/UI da extensao para inspecionar cards reais do LinkedIn Jobs.
+- `full_time_linkedin_jobs_assisted_entry_hotfix`: em 2026-08-03, o modo assistido da extensao passou a abrir `https://www.linkedin.com/jobs/` em vez de `/jobs/search-results/`, preservando o caminho esperado de clicar `Exibir todas`. O content script tambem deixou de tratar uma rota vazia de `/jobs/search-results` como sucesso sem sinais reais de cards/renderizacao.
+- `full_time_linkedin_jobs_opening_wait_hotfix`: em 2026-08-03, `waitForTabComplete` passou a checar o status atual da aba e a ter timeout de 30s, evitando que a captura fique presa em `opening` quando o LinkedIn Jobs SPA nao emite `complete` depois que a aba e criada.
+- `full_time_linkedin_jobs_tab_create_hotfix`: em 2026-08-03, a criacao da aba LinkedIn Jobs passou a usar wrapper callback-based com timeout de 10s e progresso com `sourceTabId`, para evitar Promise de `chrome.tabs.create` pendurada sem abrir aba ou sem diagnostico visivel.
+- `full_time_linkedin_jobs_popup_command_timeout`: em 2026-08-03, o popup passou a enviar `START_LINKEDIN_JOBS_EXTERNAL_CAPTURE` por callback com timeout de 10s, evitando que `chrome.runtime.sendMessage` deixe a UI presa antes do background abrir a aba. O texto inicial agora e `Sending LinkedIn Jobs command...`, util como marcador de build carregado.
+- `full_time_linkedin_jobs_open_tab_before_run`: em 2026-08-03, o background passou a abrir a aba LinkedIn Jobs antes de criar a run na API. O comando responde ao popup assim que a aba e criada, e a captura continua por progress events; isso evita que lentidao/estado preso da API impeca a abertura da aba.
+- `full_time_linkedin_jobs_content_script_reinject`: em 2026-08-05, o background passou a detectar `receiving end does not exist` ao enviar `CAPTURE_LINKEDIN_JOBS_EXTERNAL`, localizar o content script LinkedIn Jobs no manifest gerado e reinjeta-lo via `chrome.scripting.executeScript` antes de tentar novamente.
+- `full_time_linkedin_jobs_assisted_show_all_click`: em 2026-08-05, o clique em `Exibir todas` no modo assistido passou a procurar tambem `[role=button]`, clicar o wrapper acionavel com eventos pointer/mouse, registrar `attempt`/`target`/`href` e repetir ate 3 tentativas com fallback por href.
+- `full_time_linkedin_jobs_search_results_surface`: em 2026-08-05, corrigido o detector de superficie da busca de Jobs para aceitar `/jobs/search-results/` alem de `/jobs/search/`. A selecao de vaga tambem passou a usar um unico alvo estavel por card, preferindo o anchor `/jobs/view`, para evitar alternancia entre cards vizinhos no DOM virtualizado.
 - `hotfix_local_freelance_db`: em 2026-06-09, `apps/web/scripts/bootstrap-db.ts` passou a aplicar a
   migration `20260609000100_niche_catalog_governance` quando um banco local antigo ja tem as tabelas
   freelance iniciais mas ainda nao possui `freelance_niches.display_name`. O bootstrap tambem atualiza
@@ -981,9 +989,60 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 
 ## 2026-07-30 - LinkedIn assisted jobs search channel fix
 
-- Extension: assisted LinkedIn Jobs search now opens `https://www.linkedin.com/jobs/search-results/` directly instead of opening `/jobs/` and navigating from inside the active content-script capture call.
+- Extension: assisted LinkedIn Jobs search now opens `https://www.linkedin.com/jobs/` first, clicks the visible assisted `Exibir todas`/`Show all` entry, and only then starts the shared results capture.
 - Reason: navigating during the long `CAPTURE_LINKEDIN_JOBS_EXTERNAL` message can unload the content script and close Chrome's message port, causing `Receiving end does not exist` and `message channel closed` failures.
 - Direct LinkedIn Jobs search remains unchanged.
 - Verification: `npm.cmd run typecheck` in `apps/extension`.
 - Migration: not required.
 
+
+
+## 2026-08-05 - LinkedIn Jobs Results List Scroll Cleanup
+
+- Extension: LinkedIn Jobs capture no longer falls back to `window.scrollBy()` when the left results list scroller is not detected. This prevents the assisted flow from scrolling into the LinkedIn footer/help panel and continuing from a broken page state.
+- The content script now prefers the scrollable ancestor of the current job cards, returns `advanced/atEnd` diagnostics for result-list scrolling, stops retrying when the list cannot advance, and caps each logical page at 25 newly inspected jobs before attempting pagination.
+- External apply resolution uses the current LinkedIn Jobs tab for hrefless or internal LinkedIn apply CTAs, preserving the SPA state that opens the real ATS tab while the background observes and closes the auxiliary external tab.
+- Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.
+- Migration: not required.
+
+
+## 2026-08-06 - LinkedIn Jobs Apply CTA Pointer Activation
+
+- Extension: the LinkedIn Jobs apply resolver now activates the selected `Candidatar-se` CTA with focus plus pointer/mouse events before the fallback `.click()`. This preserves the current-tab resolver path for hrefless/internal LinkedIn CTAs while improving compatibility with LinkedIn buttons that do not react to a bare programmatic click.
+- Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.
+- Migration: not required.
+
+
+## 2026-08-06 - LinkedIn Jobs Resolver Debug Bridge
+
+- Extension: LinkedIn Jobs content-script diagnostics are now bridged to the service worker via `LINKEDIN_JOBS_DEBUG`, so Opera/Chrome extension DevTools show CTA selection, apply-resolution requests, resolver responses, apply state, and inspected-job outcomes in the same console as background progress.
+- The background resolver also logs `LinkedIn apply resolver request` and `LinkedIn apply resolver response`, including `sourceTabId`, clicked CTA metadata, observed tabs, and selected CTA candidates.
+- Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.
+- Migration: not required.
+
+
+## 2026-08-06 - LinkedIn Jobs Detail Selection Title Normalization
+
+- Extension: LinkedIn Jobs card titles are now normalized before detail-pane validation, including removal of the `(Vaga verificada)` badge and collapse of repeated title text produced by LinkedIn's nested card markup.
+- The detail selection wait now emits `job_detail_selection_attempt`, `job_detail_selection_matched`, and `job_detail_selection_failed` through the service-worker debug bridge, and can accept a current URL `currentJobId` selection when the card did not expose a reliable job URL.
+- Cause diagnosed from manual logs: captures were producing only `inspected_job` failures and never reaching `selected_apply_cta_candidate` / `request_apply_resolution`, so the apply CTA was not being searched or clicked yet.
+- Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.
+- Migration: not required.
+
+## 2026-08-06 - LinkedIn Jobs Full Flow Debug Instrumentation
+
+- Extension: LinkedIn Jobs capture now emits service-worker debug events around the whole card-to-apply path: `job_card_click_before`, `job_card_click_after`, `job_detail_selection_attempt/matched/failed`, `job_detail_selection_abort`, `selected_apply_cta_candidate`, `no_apply_cta_candidate`, `request_apply_resolution`, `apply_resolver_url_result`, and `inspected_job`.
+- Current diagnosis from operator logs: the run was failing before CTA discovery. It selected/scrolled cards and pages, but aborted at detail-pane validation, so the `Candidatar-se` button was never searched/clicked for those candidates.
+- The selection wait now logs URL/job-id/title/pane snapshots and falls back to the page body only when LinkedIn has a current job id, making the next manual run distinguish selection failure from CTA/resolver failure.
+- `no_apply_cta_candidate` logs visible controls from the detail pane/body with a 1.5s throttle to avoid flooding the service worker console.
+- Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.
+- Migration: not required.
+
+## 2026-08-06 - LinkedIn Jobs Direct Href And Source Decision Diagnostics
+
+- Extension: LinkedIn Jobs now emits `capture_configuration` to the service-worker debug bridge with selected source keys, available sources, assisted mode, and page cap.
+- The apply resolver now emits `apply_href_direct_external_candidate` when a `Candidatar-se` CTA already exposes a LinkedIn safety/redir href that decodes to an external ATS URL. In this branch the code intentionally does not click/open a tab because the external URL is already available from the href.
+- The source matcher decision now emits `external_source_url_decision` through the service-worker bridge, including requested/normalized selected source keys, available source keys, checked source signals, matched signals, reason, and accepted/matched source key.
+- Diagnosis from the latest operator log: at least some jobs were not failing to find/click the CTA. They reached `selected_apply_cta_candidate` and produced canonical URLs such as `job-boards.greenhouse.io/...` and `dwsbrazil.gupy.io/...`, then were rejected as `unsupported_source` with `no_selected_source_signal_matched`.
+- Validation: `apps/extension npm.cmd run typecheck` passed and `apps/extension npm.cmd run build` passed; build only reported the existing Plasmo `punycode` deprecation and `svgo`/htmlnano warning.
+- Migration: not required.
