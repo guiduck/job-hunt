@@ -85,6 +85,7 @@ export type CaptureDiagnostics = {
 export type CaptureVerification = {
   runStatus?: string
   timedOut?: boolean
+  authRequired?: boolean
   inspectedCount?: number
   acceptedCount?: number
   rejectedCount?: number

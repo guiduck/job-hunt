@@ -90,6 +90,7 @@ Estado atual:
 - hotfix de 2026-08-05: se o background nao encontrar receiver no tab LinkedIn Jobs, ele reinjeta o content script listado no manifest e tenta novamente, reduzindo falhas `Could not establish connection. Receiving end does not exist` em navegacoes SPA/HMR.
 - hotfix de 2026-08-05: o modo assistido clica `Exibir todas` no alvo acionavel real (`a`, `button` ou `[role=button]`) com eventos pointer/mouse, retry e fallback por href quando disponivel.
 - hotfix de 2026-08-05: a captura reconhece `/jobs/search-results/` como superficie valida e evita multiplos cliques por card, preferindo um unico anchor estavel da vaga para reduzir loops entre resultados virtualizados.
+- hotfix de 2026-08-14: botoes `Candidatar-se` sem `href` (`BUTTON.jobs-apply-button[data-live-test-job-apply-button]`) agora sao resolvidos clicando o botao visivel na aba LinkedIn Jobs atual, com clique no `MAIN world`, espera completa por tab externa, log `apply_resolution_strategy=current_tab_button_click` e motivo `script_no_result` quando o script injetado nao devolve resultado.
 
 Gate restante desta fase:
 
@@ -578,7 +579,7 @@ A extensao `Full-time` nao clica mais automaticamente em CTA `Candidatar-se` sem
 
 A extensao `Full-time` agora registra diagnostico passivo para `BUTTON`/`role=link` de `Candidatar-se` sem `href`: job id atual, dataset/html do CTA, cadeia de pais, resources `/voyager/`/`/jobs/` e sinais JSON. O objetivo e descobrir a origem do apply URL sem clique automatico nem modal de compartilhar perfil.
 
-Atualizacao operacional 2026-07-27: no recorte `018-linkedin-jobs-external-search`, CTAs externos sem `href` continuam sem URL deterministica antes do clique. O runtime agora evita crash de progresso sem `diagnostics`, reduz ruido de resource logs e bloqueia/restaura navegação acidental para fora de `/jobs/search`. Proximo hardening recomendado: resolver `BUTTON.jobs-apply-button` sem `href` em uma aba descartavel/isolada, capturando somente a primeira URL externa e fechando a aba/modal sem afetar a busca principal.
+Atualizacao operacional 2026-07-27: no recorte `018-linkedin-jobs-external-search`, CTAs externos sem `href` continuam sem URL deterministica antes do clique. O runtime agora evita crash de progresso sem `diagnostics`, reduz ruido de resource logs e bloqueia/restaura navegaï¿½ï¿½o acidental para fora de `/jobs/search`. Proximo hardening recomendado: resolver `BUTTON.jobs-apply-button` sem `href` em uma aba descartavel/isolada, capturando somente a primeira URL externa e fechando a aba/modal sem afetar a busca principal.
 
 Atualizacao operacional 2026-07-27: o hardening de `018-linkedin-jobs-external-search` agora inclui resolver de CTA externo em aba descartavel para `BUTTON.jobs-apply-button` sem `href`. A coleta principal nao deve mais clicar no apply da vaga ativa; qualquer clique de resolucao acontece em aba auxiliar fechada automaticamente. Gate restante: validar manualmente se o LinkedIn entrega o ATS externo nessa aba inativa ou se bloqueia em `share_profile_blocked`.
 
@@ -596,7 +597,7 @@ Atualizacao operacional 2026-07-27: a captura LinkedIn Jobs agora rastreia abas 
 
 Atualizacao operacional 2026-07-27: o matching de fontes externas do LinkedIn Jobs agora e propositalmente simples: se a URL canonica contem a chave/dominio/alias da fonte selecionada, a vaga e aceita para aquela fonte. Isso substitui matching estrito de host para evitar falsos negativos em variantes como `job-boards.greenhouse.io` vs `boards.greenhouse.io`.
 
-Atualizacao operacional 2026-07-27: a captura LinkedIn Jobs agora espera o detalhe real da vaga antes de inspecionar o CTA. A validacao por titulo nao olha mais para o body inteiro, evitando que titulos da lista esquerda confirmem falsamente a selecao e façam o scraper ler o apply URL da vaga anterior.
+Atualizacao operacional 2026-07-27: a captura LinkedIn Jobs agora espera o detalhe real da vaga antes de inspecionar o CTA. A validacao por titulo nao olha mais para o body inteiro, evitando que titulos da lista esquerda confirmem falsamente a selecao e faï¿½am o scraper ler o apply URL da vaga anterior.
 
 Atualizacao operacional 2026-07-27: o resolver LinkedIn Jobs agora trata href interno do LinkedIn em botao externo (/jobs/view/...alternateChannel=search) como candidato a resolver na aba atual, pois a aba descartavel nao preserva o estado SPA que abre o ATS real. Easy Apply agora depende de label de controle/botao, nao de texto solto no painel.
 
@@ -607,7 +608,7 @@ Atualizacao operacional 2026-07-27: a lista de fontes de LinkedIn Jobs External 
 
 Atualizacao operacional 2026-07-27: a depuracao da captura LinkedIn Jobs External Search foi reduzida ao essencial: registrar a URL final da aba externa aberta e explicar, fonte por fonte, se a URL contem algum alias selecionado. O proximo teste manual deve copiar o objeto `LinkedIn external source URL decision` do console quando uma URL InHire/Gupy/Greenhouse abrir e ainda nao for aceita. Sem migration.
 
-Atualizacao operacional 2026-07-28: o resolver de LinkedIn Jobs External Search agora usa como resultado a URL externa ja observada pela aba aberta, mesmo quando o retorno do script de clique chega vazio/ambíguo. Isso corrige falsos `missing_external_apply` para vagas cujo `observedApplyTabs` ja continha URL externa. Sem migration.
+Atualizacao operacional 2026-07-28: o resolver de LinkedIn Jobs External Search agora usa como resultado a URL externa ja observada pela aba aberta, mesmo quando o retorno do script de clique chega vazio/ambï¿½guo. Isso corrige falsos `missing_external_apply` para vagas cujo `observedApplyTabs` ja continha URL externa. Sem migration.
 
 Atualizacao operacional 2026-07-28: LinkedIn Jobs External Search agora valida avanco real de pagina antes de incrementar o contador interno. O fluxo prefere links de paginacao cujo `start` seja maior que o atual, espera ate a URL/lista mudar e registra `pagination_stalled` quando o LinkedIn nao sai da pagina atual. Isso evita diagnosticar como limite de 15 paginas quando a URL real ficou presa no mesmo `start`. Sem migration.
 
@@ -637,3 +638,18 @@ Atualizacao operacional 2026-08-06: a captura LinkedIn Jobs agora normaliza titu
 Atualizacao operacional 2026-08-06: LinkedIn Jobs External Search agora tem instrumentacao de ponta a ponta no service worker para separar falha de selecao de card, falha de painel de detalhe, ausencia de CTA e falha do resolvedor de URL externa. O diagnostico atual indica que o fluxo abortava antes de procurar/clicar `Candidatar-se`; o proximo teste manual deve confirmar se aparecem `job_detail_selection_matched` e depois `selected_apply_cta_candidate` ou `no_apply_cta_candidate`. Sem migration.
 
 Atualizacao operacional 2026-08-06: o diagnostico do LinkedIn Jobs External Search agora separa explicitamente o caminho em que o CTA `Candidatar-se` ja contem um `linkedin.com/safety/go` decodificavel (`apply_href_direct_external_candidate`) do caminho que precisa clicar/observar aba externa (`request_apply_resolution`). A decisao de allowlist tambem vai para o service worker como `external_source_url_decision`, incluindo fontes selecionadas e matchedSignals. Sem migration.
+- hotfix de 2026-08-14: o resolvedor do botao `Candidatar-se` sem href agora usa helper de delay local dentro da funcao injetada por `chrome.scripting.executeScript`, porque helpers do background nao existem no contexto serializado da pagina. Logs de `executeScript start/end` e diagnostico interno (`phase`, elemento selecionado, eventos disparados e snapshots do tab) devem ser preservados ate o fluxo ficar estavel.
+- hotfix de 2026-08-14: apos o resolvedor do botao `Candidatar-se` voltar a executar, logs mostraram duas abas externas candidatas na mesma janela de clique. A extensao deixou de disparar `MouseEvent("click")` mais `element.click()` e agora faz uma unica ativacao final com `element.click()`, fechando todas as abas externas candidatas observadas no cleanup.
+
+## 2026-08-21 - Freelance WhatsApp Outreach Template Milestone
+
+- Implemented first-contact WhatsApp template delivery for the Freelance web app using Twilio `ContentSid`/`ContentVariables` behind `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID`.
+- Next product hardening: operator-visible template readiness, delivery status callback handling, and reply-window/freeform follow-up automation after a lead responds.
+
+## 2026-08-21 - Freelance WhatsApp English Template Support
+
+The Freelance WhatsApp first-contact flow now supports separate Twilio Content SIDs per language. Portuguese/Brazil keeps `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID`; English uses `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN`. Generation records `templateLanguage` in each item context, and delivery selects the correct SID without changing the bulk checkbox/review/approve UX. Next hardening remains template readiness/status callbacks and freeform follow-up once the lead replies.
+
+## 2026-08-24 - Freelance WhatsApp Inbox Direction
+
+Because Twilio WhatsApp Business Platform senders cannot continue using the same number in the WhatsApp/WhatsApp Business mobile app under the standard Twilio migration flow, the Freelance app now owns the reply surface. The first MVP stores inbound webhook replies and outbound accepted sends in Postgres and exposes a WhatsApp-style `/inbox` with polling. Future hardening should add delivery status callbacks, stronger conversation assignment for multi-user deployments, attachment/media handling, template-to-freeform handoff after customer replies, and optional WebSocket/Redis fanout only when real-time scale requires it.

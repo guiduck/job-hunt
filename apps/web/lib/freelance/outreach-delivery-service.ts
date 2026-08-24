@@ -14,6 +14,7 @@ import type {
   WhatsAppOutreachProvider
 } from "@/lib/providers/outreach-provider";
 import { findDuplicateFirstContactOutreach } from "./duplicate-outreach-service";
+import { recordOutboundWhatsAppMessage } from "./whatsapp-conversation-service";
 import {
   freelanceRepositories,
   recomputeBulkOutreachBatchCounters,
@@ -91,6 +92,35 @@ async function markExcludedItems(input: {
   }
 }
 
+function getTwilioWhatsAppTemplate(item: BulkOutreachItem) {
+  const context = item.generationInputContext;
+  if (!context || typeof context !== "object" || Array.isArray(context)) {
+    return undefined;
+  }
+  const template = (context as Record<string, unknown>).twilioWhatsAppTemplate;
+  if (!template || typeof template !== "object" || Array.isArray(template)) {
+    return undefined;
+  }
+  return template as Record<string, unknown>;
+}
+
+function getWhatsAppTemplateVariables(item: BulkOutreachItem) {
+  const template = getTwilioWhatsAppTemplate(item);
+  const variables = template?.contentVariables;
+  if (!variables || typeof variables !== "object" || Array.isArray(variables)) {
+    return undefined;
+  }
+  const entries = Object.entries(variables);
+  if (!entries.every(([key, value]) => key && typeof value === "string")) {
+    return undefined;
+  }
+  return Object.fromEntries(entries) as Record<string, string>;
+}
+
+function getWhatsAppTemplateLanguage(item: BulkOutreachItem) {
+  const template = getTwilioWhatsAppTemplate(item);
+  return template?.templateLanguage === "en" ? "en" : "pt-BR";
+}
 function providerForChannel(channel: OutreachChannel, provider?: EmailOutreachProvider | WhatsAppOutreachProvider) {
   if (provider) return provider;
   if (channel === "email") return createEmailProvider();
@@ -282,6 +312,8 @@ export async function approveBulkOutreachBatch(
         : await (provider as WhatsAppOutreachProvider).send({
             to: item.recipientWhatsapp ?? item.recipientPhone ?? "",
             message: item.message ?? "",
+            templateVariables: getWhatsAppTemplateVariables(item),
+            templateLanguage: getWhatsAppTemplateLanguage(item),
             metadata: { userId, batchId: batch.id, itemId: item.id, leadId: item.leadId }
           });
     const updatedItem = await persistDeliveryResult({

@@ -1565,12 +1565,29 @@ async function resolveLinkedInApplyHref(candidate: ApplyHrefCandidate | null) {
 
     try {
       const pageUrl = typeof candidate.diagnostic.pageUrl === "string" ? candidate.diagnostic.pageUrl : window.location.href
-      const useCurrentTab = !candidate.href || isLinkedInInternalHref(candidate.href)
+      const isInternalLinkedInHref = Boolean(candidate.href && isLinkedInInternalHref(candidate.href))
+      const useCurrentTab = !candidate.href || isInternalLinkedInHref
+      const strategy = candidate.href
+        ? isInternalLinkedInHref
+          ? "current_tab_internal_href_click"
+          : "direct_or_disposable_href"
+        : "current_tab_button_click"
+      emitLinkedInJobsDebug("apply_resolution_strategy", {
+        strategy,
+        candidateHref: candidate.href,
+        candidateLabel: candidate.label,
+        pageUrl,
+        useCurrentTab,
+        isInternalLinkedInHref,
+        diagnostic: candidate.diagnostic
+      })
       emitLinkedInJobsDebug("request_apply_resolution", {
         candidateHref: candidate.href,
         candidateLabel: candidate.label,
         pageUrl,
         useCurrentTab,
+        strategy,
+        isInternalLinkedInHref,
         diagnostic: candidate.diagnostic
       })
       const response = await chrome.runtime.sendMessage({

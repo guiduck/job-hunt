@@ -155,6 +155,16 @@ enum OutreachEventType {
   blocked_rate_limit
 }
 
+enum WhatsAppConversationStatus {
+  open
+  archived
+}
+
+enum WhatsAppMessageDirection {
+  inbound
+  outbound
+}
+
 enum ChannelReadinessStatus {
   ready
   missing_config
@@ -379,6 +389,8 @@ model FreelanceLead {
   latestGenerated       LatestGeneratedText[]
   bulkOutreachItems     BulkOutreachItem[]
   outreachEvents        OutreachEvent[]
+  whatsappConversations WhatsAppConversation[]
+  whatsappMessages      WhatsAppMessage[]
 
   @@index([userId, commercialStatus])
   @@index([campaignId])
@@ -638,4 +650,51 @@ model OutreachEvent {
   @@index([campaignId, channel])
   @@index([eventType, occurredAt])
   @@map("outreach_events")
+}
+
+model WhatsAppConversation {
+  id                   String                     @id @default(cuid())
+  userId               String                     @map("user_id")
+  leadId               String?                    @map("lead_id")
+  contactPhone         String                     @map("contact_phone")
+  contactName          String?                    @map("contact_name")
+  status               WhatsAppConversationStatus @default(open)
+  lastMessagePreview   String?                    @map("last_message_preview")
+  lastMessageDirection WhatsAppMessageDirection?  @map("last_message_direction")
+  lastMessageAt        DateTime?                  @map("last_message_at")
+  unreadInboundCount   Int                        @default(0) @map("unread_inbound_count")
+  createdAt            DateTime                   @default(now()) @map("created_at")
+  updatedAt            DateTime                   @updatedAt @map("updated_at")
+  lead                 FreelanceLead?             @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  messages             WhatsAppMessage[]
+
+  @@unique([userId, contactPhone])
+  @@index([userId, status, lastMessageAt])
+  @@index([leadId])
+  @@map("whatsapp_conversations")
+}
+
+model WhatsAppMessage {
+  id                String                   @id @default(cuid())
+  userId            String                   @map("user_id")
+  conversationId    String                   @map("conversation_id")
+  leadId            String?                  @map("lead_id")
+  direction         WhatsAppMessageDirection
+  fromPhone         String                   @map("from_phone")
+  toPhone           String                   @map("to_phone")
+  body              String
+  providerName      String                   @default("twilio") @map("provider_name")
+  providerMessageId String?                  @map("provider_message_id")
+  providerStatus    String?                  @map("provider_status")
+  payload           Json                     @default("{}")
+  occurredAt        DateTime                 @default(now()) @map("occurred_at")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  conversation      WhatsAppConversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  lead              FreelanceLead?           @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@unique([providerName, providerMessageId])
+  @@index([userId, occurredAt])
+  @@index([conversationId, occurredAt])
+  @@index([leadId])
+  @@map("whatsapp_messages")
 }

@@ -1,4 +1,5 @@
 import {
+  ApiError,
   completeLinkedInJobsExternalRun,
   createFieldAssistantActivation,
   createAuthenticatedBrowserRun,
@@ -420,7 +421,7 @@ async function startCapture(payload: CaptureRequest): Promise<CaptureResult> {
   })
   const runReachedTerminalStatus = Boolean(verification.runStatus && verification.runStatus !== "pending" && verification.runStatus !== "running")
   const finalStatus: CaptureProgress["status"] =
-    verification.timedOut || verification.runStatus === "failed" ? "failed" : runReachedTerminalStatus ? "completed" : "processing"
+    verification.authRequired || verification.timedOut || verification.runStatus === "failed" ? "failed" : runReachedTerminalStatus ? "completed" : "processing"
   const finalMessage = runReachedTerminalStatus
     ? `Created run ${run.id}. ${verification.message}`
     : verification.timedOut
@@ -454,6 +455,23 @@ async function verifyRunProcessing(
     await delay(attempt === 1 ? 1000 : RUN_VERIFICATION_POLL_INTERVAL_MS)
 
     try {
+      const restoredSession = await tryRestoreBackgroundAuth()
+      if (!restoredSession) {
+        latest = {
+          authRequired: true,
+          message: "Login required. Open the extension and log in again before checking this run."
+        }
+        options.onProgress?.(latest)
+        console.warn("[Opportunity Desk] run verification stopped because no auth session is available", { runId, attempt })
+        return latest
+      }
+
+      console.info("[Opportunity Desk] run verification auth restored", {
+        runId,
+        attempt,
+        userEmail: restoredSession.user.email
+      })
+
       const [runResult, candidatesResult, opportunitiesResult] = await Promise.allSettled([
         getJobSearchRun(runId),
         listRunCandidates(runId),
@@ -519,6 +537,24 @@ async function verifyRunProcessing(
         return latest
       }
     } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        const restoredSession = await tryRestoreBackgroundAuth()
+        latest = {
+          authRequired: true,
+          message: restoredSession
+            ? "Login required. The API rejected the stored session while checking this run; log out and log in again."
+            : "Login required. Open the extension and log in again before checking this run."
+        }
+        options.onProgress?.(latest)
+        console.warn("[Opportunity Desk] run verification stopped after API authentication failure", {
+          runId,
+          attempt,
+          restoredSession: Boolean(restoredSession),
+          error
+        })
+        return latest
+      }
+
       latest = {
         message: error instanceof Error ? error.message : "Could not verify run processing."
       }
@@ -787,7 +823,7 @@ type ResolvedLinkedInApplyUrl = {
   url: string | null
   clickedHref?: string | null
   clickedLabel?: string | null
-  reason: "resolved_tab" | "click_failed" | "timeout" | "missing_tab" | "share_profile_blocked"
+  reason: "resolved_tab" | "click_failed" | "timeout" | "missing_tab" | "share_profile_blocked" | "script_no_result"
   diagnostic?: Record<string, unknown>
 }
 
@@ -815,7 +851,26 @@ function waitInPage(ms: number) {
 }
 
 async function clickLinkedInApplyButtonInDisposablePage(expectedHref?: string | null, expectedLabel?: string | null) {
+  const waitInInjectedPage = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
   const cleanText = (text: string) => text.replace(/\s+/g, " ").trim()
+  const describeError = (error: unknown) => error instanceof Error
+    ? { name: error.name, message: error.message, stack: error.stack || null }
+    : { name: "UnknownError", message: String(error) }
+  const describeElement = (element: HTMLElement) => {
+    const rect = element.getBoundingClientRect()
+    return {
+      tag: element.tagName,
+      id: element.id || null,
+      className: typeof element.className === "string" ? element.className : String(element.className || ""),
+      role: element.getAttribute("role"),
+      type: element.getAttribute("type"),
+      ariaLabel: element.getAttribute("aria-label"),
+      disabled: element.hasAttribute("disabled") || element.getAttribute("aria-disabled") === "true",
+      href: element instanceof HTMLAnchorElement ? element.href || element.getAttribute("href") : element.getAttribute("href"),
+      rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
+      outerHTML: element.outerHTML.slice(0, 900)
+    }
+  }
   const isVisible = (element: Element) => {
     const rect = element.getBoundingClientRect()
     return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight
@@ -868,76 +923,124 @@ async function clickLinkedInApplyButtonInDisposablePage(expectedHref?: string | 
     return candidates
   }
 
-  let candidates: Array<{ element: HTMLElement; href: string | null; label: string; score: number }> = []
-  for (let attempt = 0; attempt < 32; attempt += 1) {
-    candidates = collectCandidates()
-    if (candidates.length > 0) break
-    await waitInPage(250)
-  }
-
-  const selected = candidates[0]
-  if (!selected) {
-    const bodyText = cleanText(document.body.textContent || "").slice(0, 700)
-    console.info("[Opportunity Desk] LinkedIn disposable apply resolver found no CTA candidate", { url: window.location.href, bodyText })
-    return { clicked: false, href: null, label: null, blockedByShareProfileDialog: false, diagnostic: { candidateCount: 0, pageUrl: window.location.href, bodyText } }
-  }
-
-  if (selected.element instanceof HTMLAnchorElement) {
-    selected.element.setAttribute("target", "_blank")
-    selected.element.setAttribute("rel", "noopener")
-  }
-
-  console.info("[Opportunity Desk] LinkedIn disposable apply resolver clicking CTA", {
-    href: selected.href,
-    label: selected.label,
-    tag: selected.element.tagName,
-    className: selected.element.className,
-    outerHTML: selected.element.outerHTML.slice(0, 700)
-  })
-  selected.element.scrollIntoView({ block: "center", behavior: "auto" })
-  selected.element.focus({ preventScroll: true })
-  await waitInPage(150)
-  selected.element.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, cancelable: true, pointerType: "mouse" }))
-  selected.element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerType: "mouse" }))
-  selected.element.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, cancelable: true, view: window }))
-  selected.element.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, cancelable: true, view: window }))
-  selected.element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }))
-  selected.element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }))
-  selected.element.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerType: "mouse" }))
-  selected.element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }))
-  selected.element.click()
-
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    await waitInPage(250)
-    const dialog = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], .artdeco-modal, .jobs-s-apply')).find(isShareProfileDialog)
-    if (dialog) {
-      console.info("[Opportunity Desk] LinkedIn disposable apply resolver stopped at share-profile dialog", {
-        clickedHref: selected.href,
-        clickedLabel: selected.label
-      })
-      return { clicked: true, href: selected.href, label: selected.label, blockedByShareProfileDialog: true, diagnostic: { dialogText: cleanText(dialog.textContent || "").slice(0, 500) } }
+  let phase = "start"
+  try {
+    let candidates: Array<{ element: HTMLElement; href: string | null; label: string; score: number }> = []
+    for (let attempt = 0; attempt < 32; attempt += 1) {
+      phase = `collect_candidates_${attempt}`
+      candidates = collectCandidates()
+      if (candidates.length > 0) break
+      await waitInInjectedPage(250)
     }
-  }
 
-  return {
-    clicked: true,
-    href: selected.href,
-    label: selected.label,
-    blockedByShareProfileDialog: false,
-    diagnostic: {
-      candidateCount: candidates.length,
-      selected: {
-        href: selected.href,
-        label: selected.label,
-        tag: selected.element.tagName,
-        className: typeof selected.element.className === "string" ? selected.element.className : String(selected.element.className || ""),
-        outerHTML: selected.element.outerHTML.slice(0, 900)
-      },
-      candidates: candidates.slice(0, 5).map((candidate) => ({ href: candidate.href, label: candidate.label, score: candidate.score }))
+    const selected = candidates[0]
+    if (!selected) {
+      const bodyText = cleanText(document.body.textContent || "").slice(0, 700)
+      console.info("[Opportunity Desk] LinkedIn disposable apply resolver found no CTA candidate", { url: window.location.href, bodyText })
+      return { clicked: false, href: null, label: null, blockedByShareProfileDialog: false, diagnostic: { phase, candidateCount: 0, pageUrl: window.location.href, bodyText } }
+    }
+
+    if (selected.element instanceof HTMLAnchorElement) {
+      selected.element.setAttribute("target", "_blank")
+      selected.element.setAttribute("rel", "noopener")
+    }
+
+    const dispatchResults: Array<Record<string, unknown>> = []
+    const dispatch = (name: string, createEvent: () => Event) => {
+      try {
+        dispatchResults.push({ name, ok: selected.element.dispatchEvent(createEvent()) })
+      } catch (error) {
+        dispatchResults.push({ name, error: describeError(error) })
+      }
+    }
+    console.info("[Opportunity Desk] LinkedIn disposable apply resolver clicking CTA", {
+      href: selected.href,
+      label: selected.label,
+      selected: describeElement(selected.element),
+      candidates: candidates.slice(0, 5).map((candidate) => ({ href: candidate.href, label: candidate.label, score: candidate.score, element: describeElement(candidate.element) }))
+    })
+
+    phase = "before_scroll"
+    selected.element.scrollIntoView({ block: "center", behavior: "auto" })
+    phase = "before_focus"
+    selected.element.focus({ preventScroll: true })
+    await waitInInjectedPage(150)
+    phase = "before_dispatch"
+    dispatch("pointerover", () => new PointerEvent("pointerover", { bubbles: true, cancelable: true, pointerType: "mouse" }))
+    dispatch("pointerdown", () => new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerType: "mouse" }))
+    dispatch("mouseover", () => new MouseEvent("mouseover", { bubbles: true, cancelable: true, view: window }))
+    dispatch("mousemove", () => new MouseEvent("mousemove", { bubbles: true, cancelable: true, view: window }))
+    dispatch("mousedown", () => new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }))
+    dispatch("mouseup", () => new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }))
+    dispatch("pointerup", () => new PointerEvent("pointerup", { bubbles: true, cancelable: true, pointerType: "mouse" }))
+    phase = "before_element_click"
+    selected.element.click()
+    phase = "after_element_click"
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await waitInInjectedPage(250)
+      const dialog = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], .artdeco-modal, .jobs-s-apply')).find(isShareProfileDialog)
+      if (dialog) {
+        console.info("[Opportunity Desk] LinkedIn disposable apply resolver stopped at share-profile dialog", {
+          clickedHref: selected.href,
+          clickedLabel: selected.label
+        })
+        return {
+          clicked: true,
+          href: selected.href,
+          label: selected.label,
+          blockedByShareProfileDialog: true,
+          diagnostic: {
+            phase,
+            dispatchResults,
+            dialogText: cleanText(dialog.textContent || "").slice(0, 500)
+          }
+        }
+      }
+    }
+
+    return {
+      clicked: true,
+      href: selected.href,
+      label: selected.label,
+      blockedByShareProfileDialog: false,
+      diagnostic: {
+        phase,
+        pageUrl: window.location.href,
+        documentReadyState: document.readyState,
+        documentVisibilityState: document.visibilityState,
+        documentHasFocus: document.hasFocus(),
+        dispatchResults,
+        clickActivation: "element_click_only",
+        candidateCount: candidates.length,
+        selected: describeElement(selected.element),
+        candidates: candidates.slice(0, 5).map((candidate) => ({ href: candidate.href, label: candidate.label, score: candidate.score }))
+      }
+    }
+  } catch (error) {
+    console.info("[Opportunity Desk] LinkedIn disposable apply resolver failed inside injected script", {
+      phase,
+      error: describeError(error),
+      pageUrl: window.location.href
+    })
+    return {
+      clicked: false,
+      href: null,
+      label: null,
+      blockedByShareProfileDialog: false,
+      reason: "injected_script_exception",
+      diagnostic: {
+        phase,
+        error: describeError(error),
+        pageUrl: window.location.href,
+        documentReadyState: document.readyState,
+        documentVisibilityState: document.visibilityState,
+        documentHasFocus: document.hasFocus(),
+        bodyText: cleanText(document.body.textContent || "").slice(0, 700)
+      }
     }
   }
 }
-
 async function closeTabs(tabIds: Array<number | null | undefined>) {
   await Promise.all(
     Array.from(new Set(tabIds.filter((tabId): tabId is number => typeof tabId === "number"))).map((tabId) => chrome.tabs.remove(tabId).catch(() => undefined))
@@ -1097,15 +1200,37 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
       chrome.tabs.onUpdated.addListener(onUpdated)
     })
 
-    const [execution] = await chrome.scripting.executeScript({
+    const targetTabBeforeClick = await chrome.tabs.get(targetTabId).catch(() => null)
+    console.info("[Opportunity Desk] LinkedIn apply resolver executeScript start", {
+      targetTabId,
+      sourceTabMode: shouldUseSourceTab ? "current_tab" : "disposable_tab",
+      expectedHref: payload.expectedHref || null,
+      expectedLabel: payload.expectedLabel || null,
+      targetTabUrl: targetTabBeforeClick?.url || null,
+      targetTabPendingUrl: targetTabBeforeClick?.pendingUrl || null,
+      targetTabStatus: targetTabBeforeClick?.status || null
+    })
+    const executions = await chrome.scripting.executeScript({
       target: { tabId: targetTabId },
+      world: "MAIN",
       func: clickLinkedInApplyButtonInDisposablePage,
       args: [payload.expectedHref, payload.expectedLabel]
-    })
-    const clickResult = execution?.result as { clicked?: boolean; href?: string | null; label?: string | null; blockedByShareProfileDialog?: boolean; diagnostic?: Record<string, unknown> } | undefined
-    console.info("[Opportunity Desk] LinkedIn apply resolver click result", {
+    } as Parameters<typeof chrome.scripting.executeScript>[0])
+    const execution = executions[0]
+    const clickResult = execution?.result as { clicked?: boolean; href?: string | null; label?: string | null; blockedByShareProfileDialog?: boolean; diagnostic?: Record<string, unknown> } | null | undefined
+    const scriptReturnedNoResult = clickResult === null || clickResult === undefined
+    const targetTabAfterClick = await chrome.tabs.get(targetTabId).catch(() => null)
+    console.info("[Opportunity Desk] LinkedIn apply resolver executeScript end", {
       targetTabId,
+      executionCount: executions.length,
+      frameId: execution?.frameId ?? null,
+      documentId: execution?.documentId ?? null,
+      scriptReturnedNoResult,
       clickResult,
+      targetTabUrlBeforeClick: targetTabBeforeClick?.url || null,
+      targetTabUrlAfterClick: targetTabAfterClick?.url || null,
+      targetTabPendingUrlAfterClick: targetTabAfterClick?.pendingUrl || null,
+      targetTabStatusAfterClick: targetTabAfterClick?.status || null,
       observedApplyTabs
     })
     if (!clickResult?.clicked || clickResult.blockedByShareProfileDialog) {
@@ -1123,17 +1248,16 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
         return withClickContext(observedResult)
       }
       if (!clickResult?.clicked) {
-        const graceResult = await Promise.race([
-          resolved,
-          new Promise<ResolvedLinkedInApplyUrl>((resolve) => {
-            setTimeout(() => {
-              resolve({ url: null, reason: "click_failed", diagnostic: { observedApplyTabs, graceWaitMs: 2500 } })
-            }, 2500)
-          })
-        ])
+        const graceResult = await resolved
         const recoveredResult = graceResult.url ? graceResult : observedExternalResult("resolved_tab")
         if (recoveredResult?.url) {
-          return withClickContext(recoveredResult)
+          return withClickContext({
+            ...recoveredResult,
+            diagnostic: {
+              ...(recoveredResult.diagnostic || {}),
+              scriptReturnedNoResult
+            }
+          })
         }
       }
       cleanupListeners()
@@ -1141,10 +1265,22 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
         url: null,
         clickedHref: clickResult?.href || null,
         clickedLabel: clickResult?.label || null,
-        reason: clickResult?.blockedByShareProfileDialog ? "share_profile_blocked" : "click_failed",
+        reason: clickResult?.blockedByShareProfileDialog ? "share_profile_blocked" : scriptReturnedNoResult ? "script_no_result" : "click_failed",
         diagnostic: {
           ...(clickResult?.diagnostic || {}),
-          observedApplyTabs
+          observedApplyTabs,
+          scriptReturnedNoResult,
+          sourceTabMode: shouldUseSourceTab ? "current_tab" : "disposable_tab",
+          targetTabBeforeClick: {
+            url: targetTabBeforeClick?.url || null,
+            pendingUrl: targetTabBeforeClick?.pendingUrl || null,
+            status: targetTabBeforeClick?.status || null
+          },
+          targetTabAfterClick: {
+            url: targetTabAfterClick?.url || null,
+            pendingUrl: targetTabAfterClick?.pendingUrl || null,
+            status: targetTabAfterClick?.status || null
+          }
         }
       }
     }
@@ -1170,7 +1306,7 @@ async function resolveLinkedInApplyButtonUrl(payload: ResolveLinkedInApplyPayloa
     }
   } finally {
     cleanupListeners()
-    await closeTabs([openedTabId, disposableTab?.id])
+    await closeTabs([openedTabId, disposableTab?.id, ...Array.from(candidateExternalTabIds)])
   }
 }
 function errorMessage(error: unknown) {

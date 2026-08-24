@@ -40,7 +40,9 @@ export type EmailSendInput = {
 export type WhatsAppSendInput = {
   to: string;
   message: string;
+  templateVariables?: Record<string, string>;
   templateName?: string;
+  templateLanguage?: "pt-BR" | "en";
   metadata: {
     userId: string;
     batchId: string;

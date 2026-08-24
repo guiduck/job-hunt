@@ -35,10 +35,10 @@ Recent extension hotfix: do not click `BUTTON.jobs-apply-button` with `href=null
 Recent extension diagnostic: hrefless `Candidatar-se` buttons log `currentJobId`, CTA dataset/html, parent chain, recent `/voyager/` resources, and JSON signals. Use those logs to design the next deterministic resolver without clicking profile-share flows.
 
 ## LinkedIn Jobs Hrefless CTA Resolver Follow-up
-Manual diagnostics on 2026-07-27 showed `BUTTON.jobs-apply-button[data-live-test-job-apply-button]` has no `href`, and passive `/voyager/` resources are too noisy or scoped to unrelated job IDs. Do not keep guessing selectors. Specify a safe resolver that duplicates the current job/search URL into a disposable tab, clicks only the verified apply CTA there, captures the first non-LinkedIn URL if one appears, closes any LinkedIn share-profile modal/tab without clicking `Continuar`, and returns diagnostics to the main run. Keep this scoped to `apps/extension`; no `apps/web`/Freelance changes.
+Manual diagnostics on 2026-07-27 and 2026-08-14 showed `BUTTON.jobs-apply-button[data-live-test-job-apply-button]` has no `href`, and duplicating `/jobs/search/` in a disposable tab can recreate only another LinkedIn search tab instead of clicking the active CTA. Do not keep guessing selectors. Specify a safe resolver that clicks only the verified apply CTA in the current LinkedIn Jobs tab, observes the opened non-LinkedIn tab, captures the stabilized external URL, closes only that auxiliary external tab, and returns diagnostics to the main run. Keep this scoped to `apps/extension`; no `apps/web`/Freelance changes.
 
-## LinkedIn Jobs Disposable Resolver Validation
-The extension now resolves hrefless LinkedIn Jobs apply CTAs through a disposable background tab. Next spec should be created only after manual smoke validates: external ATS URL captured, disposable tab closed, no main-tab feed redirect, no automatic `Continuar` click on share-profile modal, and diagnostics distinguish `resolved_tab`, `timeout`, `click_failed`, and `share_profile_blocked`.
+## LinkedIn Jobs Current Tab Resolver Validation
+The extension resolves hrefless LinkedIn Jobs apply CTAs by clicking the verified CTA in the current LinkedIn Jobs tab and observing the opened non-LinkedIn auxiliary tab. Next spec should be created only after manual smoke validates: external ATS URL captured, external auxiliary tab closed, no duplicate `/jobs/search/` tab opened, no automatic `Continuar` click on share-profile modal, and diagnostics distinguish `resolved_tab`, `timeout`, `script_no_result`, `click_failed`, and `share_profile_blocked`.
 
 ## Freelance Outreach Retry Note
 Recent hotfix: duplicate first-contact checks should use the latest outreach event. `failed_send` must allow a retry, while pending/sent events still block duplicates. Preserve this behavior in future Twilio delivery-status and outreach-history specs.
@@ -143,3 +143,26 @@ Recent extension instrumentation emits service-worker debug events for every tra
 
 ## LinkedIn Jobs Direct Href Source Decision Note
 Recent logs can show `selected_apply_cta_candidate` followed by `apply_href_direct_external_candidate` and no `request_apply_resolution`. That means the CTA had a decodable LinkedIn safety/redir href and the extension extracted the ATS URL without opening a tab. If the candidate is still not saved, inspect `external_source_url_decision`: the remaining issue is selected-source matching, not CTA clicking.
+
+## LinkedIn Jobs Hrefless Button Current Tab Resolver Note
+Recent extension hotfix: when LinkedIn renders `Candidatar-se` as `BUTTON.jobs-apply-button[data-live-test-job-apply-button]` with `href=null`, resolve it by clicking the verified CTA in the current LinkedIn Jobs tab in the page `MAIN world`, waiting for the full tab-observation window, capturing the first non-LinkedIn URL, and closing only the opened external auxiliary tab. Preserve `apply_resolution_strategy=current_tab_button_click` and `script_no_result` diagnostics for cases where the injected click is aborted or returns no structured result. This supersedes the discarded duplicate `/jobs/search/` disposable-tab attempt for hrefless buttons. Keep this scoped to `apps/extension`; no `apps/web`/Freelance changes.
+
+## LinkedIn Jobs Injected CTA Click Diagnostic Note
+
+2026-08-14: the hrefless `Candidatar-se` button resolver was narrowed to a background injection issue, not a CTA selector issue. Logs showed `selected_apply_cta_candidate`, `apply_resolution_strategy=current_tab_button_click`, and `apply resolver request`, followed by `scriptReturnedNoResult=true` and `observedApplyTabs=[]`. The injected function was referencing the background helper `waitInPage`, which is not available after `chrome.scripting.executeScript({ func })` serializes the function into the LinkedIn page. The resolver now uses an injected-page-local delay helper and returns structured diagnostics (`phase`, selected element, dispatch results, tab snapshots) instead of failing as `null`.
+
+## LinkedIn Jobs Duplicate External Tab Fix Note
+
+2026-08-14: after the hrefless apply button resolver started executing correctly, logs showed one resolver window observing two external candidate tabs (`candidateExternalTabIds: Array(2)`) for the same `Candidatar-se` CTA. The injected script was still dispatching a synthetic `MouseEvent("click")` and then calling `element.click()`, which could activate LinkedIn's apply handler twice. The resolver now dispatches only pointer/mouse hover/down/up events and uses a single final `element.click()` activation. Cleanup also closes every observed external candidate tab, not only the last `openedTabId`.
+
+## Freelance WhatsApp Template Follow-up Candidate
+
+Recent implementation: apps/web can send first-contact WhatsApp outreach through a Twilio approved content template when `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID` is configured. Future Spec Kit work should focus on delivery-status callbacks, operator-visible template/readiness diagnostics, and switching from template first contact to freeform AI follow-up after the lead replies. Preserve the existing checkbox bulk outreach flow and do not remove the deterministic `primeiro_contato_site_v1` variable mapping.
+
+## Freelance WhatsApp English Template Note
+
+Recent web implementation: first-contact WhatsApp now supports one Twilio Content SID per language. Keep `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID` for Portuguese and use `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN` for the English template. Future specs should preserve `twilioWhatsAppTemplate.templateLanguage`, the same 9-variable mapping across PT/EN templates, and the existing checkbox bulk outreach approval flow.
+
+## Freelance WhatsApp Inbox Follow-up Candidate
+
+Recent web implementation: apps/web has a Twilio WhatsApp inbox MVP backed by `WhatsAppConversation` and `WhatsAppMessage`, inbound webhook `POST /api/twilio/whatsapp/webhook`, and page `/inbox`. Future specs should harden delivery status callbacks, media/attachments, read/assignment states, multi-user routing beyond `DEFAULT_FREELANCE_USER_ID`, and optional WebSocket/Redis live updates. Preserve the existing Twilio template first-contact flow and use freeform replies only after the lead has responded/opened the WhatsApp customer-care window.

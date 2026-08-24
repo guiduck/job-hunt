@@ -60,6 +60,8 @@ export function createWhatsAppProvider(
       accountSid: env.TWILIO_ACCOUNT_SID ?? "",
       authToken: env.TWILIO_AUTH_TOKEN ?? "",
       from: config.displayAddress ?? "",
+      templateContentSid: config.templateContentSid,
+      templateContentSidEn: config.templateContentSidEn,
       dailyLimit: config.dailyLimit,
       readiness
     });

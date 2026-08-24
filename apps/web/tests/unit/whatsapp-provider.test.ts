@@ -90,4 +90,73 @@ describe("whatsapp provider", () => {
       }
     });
   });
+  it("sends approved WhatsApp templates with ContentSid and ContentVariables", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ sid: "SM_TEMPLATE", status: "queued" }), { status: 201 })
+    );
+    const provider = createTwilioWhatsAppProvider({
+      accountSid: "AC123",
+      authToken: "secret-token",
+      from: "+15555550000",
+      templateContentSid: "HX123",
+      dailyLimit: 500,
+      readiness: {
+        channel: "whatsapp",
+        providerName: "twilio",
+        status: "ready",
+        requiredEnvVars: [],
+        missingEnvVars: []
+      },
+      fetchImpl
+    });
+
+    await provider.send({
+      to: "+15555550123",
+      message: "Preview only",
+      templateVariables: { "1": "pessoal", "2": "Guilherme" },
+      metadata: { userId: "user_1", batchId: "batch_1", itemId: "item_1", leadId: "lead_1" }
+    });
+
+    const request = fetchImpl.mock.calls[0]?.[1] as RequestInit;
+    const body = request.body as URLSearchParams;
+    expect(body.get("ContentSid")).toBe("HX123");
+    expect(body.get("ContentVariables")).toBe(JSON.stringify({ "1": "pessoal", "2": "Guilherme" }));
+    expect(body.has("Body")).toBe(false);
+  });
+
+  it("selects the English ContentSid for English WhatsApp templates", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ sid: "SM_TEMPLATE_EN", status: "queued" }), { status: 201 })
+    );
+    const provider = createTwilioWhatsAppProvider({
+      accountSid: "AC123",
+      authToken: "secret-token",
+      from: "+15555550000",
+      templateContentSid: "HX_PT",
+      templateContentSidEn: "HX_EN",
+      dailyLimit: 500,
+      readiness: {
+        channel: "whatsapp",
+        providerName: "twilio",
+        status: "ready",
+        requiredEnvVars: [],
+        missingEnvVars: []
+      },
+      fetchImpl
+    });
+
+    await provider.send({
+      to: "+15555550123",
+      message: "Preview only",
+      templateLanguage: "en",
+      templateVariables: { "1": "there", "2": "Guilherme" },
+      metadata: { userId: "user_1", batchId: "batch_1", itemId: "item_1", leadId: "lead_1" }
+    });
+
+    const request = fetchImpl.mock.calls[0]?.[1] as RequestInit;
+    const body = request.body as URLSearchParams;
+    expect(body.get("ContentSid")).toBe("HX_EN");
+    expect(body.get("ContentVariables")).toBe(JSON.stringify({ "1": "there", "2": "Guilherme" }));
+    expect(body.has("Body")).toBe(false);
+  });
 });

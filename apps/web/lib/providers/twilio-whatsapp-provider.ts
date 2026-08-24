@@ -10,6 +10,8 @@ type TwilioWhatsAppProviderOptions = {
   accountSid: string;
   authToken: string;
   from: string;
+  templateContentSid?: string;
+  templateContentSidEn?: string;
   dailyLimit: number;
   readiness: ChannelReadiness;
   fetchImpl?: typeof fetch;
@@ -17,6 +19,14 @@ type TwilioWhatsAppProviderOptions = {
 
 function withWhatsappPrefix(value: string) {
   return value.startsWith("whatsapp:") ? value : `whatsapp:${value}`;
+}
+
+function selectTemplateContentSid(options: TwilioWhatsAppProviderOptions, input: WhatsAppSendInput) {
+  if (input.templateLanguage === "en") {
+    return options.templateContentSidEn ?? options.templateContentSid;
+  }
+
+  return options.templateContentSid;
 }
 
 function twilioAcceptedDiagnostic(providerStatus: string) {
@@ -65,9 +75,16 @@ export function createTwilioWhatsAppProvider(
       try {
         const body = new URLSearchParams({
           From: withWhatsappPrefix(options.from),
-          To: withWhatsappPrefix(input.to),
-          Body: input.message
+          To: withWhatsappPrefix(input.to)
         });
+        const templateContentSid = selectTemplateContentSid(options, input);
+        if (templateContentSid && input.templateVariables) {
+          body.set("ContentSid", templateContentSid);
+          body.set("ContentVariables", JSON.stringify(input.templateVariables));
+        } else {
+          body.set("Body", input.message);
+        }
+
         const response = await fetchImpl(
           `https://api.twilio.com/2010-04-01/Accounts/${options.accountSid}/Messages.json`,
           {

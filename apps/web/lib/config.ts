@@ -16,7 +16,9 @@ const configSchema = z.object({
   freelanceWhatsappDailyLimit: z.coerce.number().int().positive().default(500),
   twilioAccountSid: z.string().optional(),
   twilioAuthToken: z.string().optional(),
-  twilioWhatsappFrom: z.string().optional()
+  twilioWhatsappFrom: z.string().optional(),
+  twilioWhatsappTemplateContentSid: z.string().optional(),
+  twilioWhatsappTemplateContentSidEn: z.string().optional()
 });
 
 export type AppConfig = z.infer<typeof configSchema>;
@@ -41,7 +43,9 @@ export function getAppConfig(env: EnvMap = process.env): AppConfig {
     freelanceWhatsappDailyLimit: env.FREELANCE_WHATSAPP_DAILY_LIMIT ?? "500",
     twilioAccountSid: env.TWILIO_ACCOUNT_SID,
     twilioAuthToken: env.TWILIO_AUTH_TOKEN,
-    twilioWhatsappFrom: env.TWILIO_WHATSAPP_FROM
+    twilioWhatsappFrom: env.TWILIO_WHATSAPP_FROM,
+    twilioWhatsappTemplateContentSid: env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID,
+    twilioWhatsappTemplateContentSidEn: env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN
   });
 }
 
@@ -51,6 +55,8 @@ export type ChannelRuntimeConfig = {
   requiredEnvVars: string[];
   missingEnvVars: string[];
   displayAddress?: string;
+  templateContentSid?: string;
+  templateContentSidEn?: string;
 };
 
 function missingEnvVars(env: EnvMap, names: string[]) {
@@ -85,6 +91,8 @@ export function getWhatsappChannelConfig(env: EnvMap = process.env): ChannelRunt
     dailyLimit: appConfig.freelanceWhatsappDailyLimit,
     requiredEnvVars,
     missingEnvVars: missingEnvVars(env, requiredEnvVars),
-    displayAddress: appConfig.twilioWhatsappFrom
+    displayAddress: appConfig.twilioWhatsappFrom,
+    templateContentSid: appConfig.twilioWhatsappTemplateContentSid,
+    templateContentSidEn: appConfig.twilioWhatsappTemplateContentSidEn
   };
 }

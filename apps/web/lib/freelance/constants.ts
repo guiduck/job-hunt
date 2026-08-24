@@ -124,6 +124,7 @@ export const freelanceNavigationItems = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Campanhas", href: "/campaigns" },
   { label: "Leads", href: "/leads" },
+  { label: "Inbox", href: "/inbox" },
   { label: "Templates", href: "/templates" },
   { label: "Configuracoes", href: "/settings" }
 ] as const;
