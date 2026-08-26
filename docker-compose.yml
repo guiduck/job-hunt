@@ -102,7 +102,10 @@ services:
         condition: service_healthy
 
   web:
-    image: node:22-slim
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: opportunity-desk-web-runtime:node22
     container_name: opportunity_desk_freelance_web
     working_dir: /app/apps/web
     env_file:
@@ -131,7 +134,10 @@ services:
         condition: service_healthy
 
   web-worker:
-    image: node:22-slim
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: opportunity-desk-web-runtime:node22
     container_name: opportunity_desk_freelance_web_worker
     working_dir: /app/apps/web
     env_file:

@@ -658,3 +658,9 @@ Because Twilio WhatsApp Business Platform senders cannot continue using the same
 ## 2026-08-25 - Freelance WhatsApp First-Contact Hardening
 
 The Freelance web app now exposes the exact PT/EN Twilio templates in the operator UI, validates every ContentVariables value before provider submission, requires the correct language SID, and normalizes legacy Brazilian mobile numbers. Bulk review now follows the extension pattern with floating actions and a modal; ineligible contacts are skipped without blocking eligible leads. Next hardening should add Twilio delivery-status callbacks and a controlled retry/override policy for legitimate duplicate test sends.
+
+
+## 2026-08-26 - Deployment Runtime Hardening
+
+- [x] Provide a shared OpenSSL-enabled Docker runtime for the freelance web app and worker.
+- [x] Document full-stack Compose restart semantics and separate extension build handling.

@@ -171,3 +171,8 @@ Recent web implementation: apps/web has a Twilio WhatsApp inbox MVP backed by `W
 ## Freelance WhatsApp Delivery Status And Retry Candidate
 
 Specify the next Freelance WhatsApp hardening slice: receive Twilio delivery status callbacks, persist queued/sent/delivered/failed transitions, surface the Twilio error code and safe diagnostic in the review modal and inbox, and define an explicit operator-confirmed retry path for previously contacted test leads. Preserve the exact PT/EN ContentSid mapping, the 9 validated ContentVariables, automatic lead-language selection, eligibility skipping, and the checkbox-to-floating-action-to-review-modal workflow.
+
+
+## Next Candidate: Immutable Web Images And Zero-Downtime Deployment
+
+Specify a production deployment flow that builds immutable web images, runs database bootstrap as a one-off task, performs health checks before traffic switches, and avoids stale Next.js Server Action requests during releases.

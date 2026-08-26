@@ -1086,3 +1086,11 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - Brazilian outreach phone normalization now adds the mandatory ninth digit to legacy mobile-looking numbers while preserving landlines and already-modern mobile numbers.
 - Lead bulk actions now mirror the extension interaction: checkbox selection exposes floating Email and WhatsApp icon actions, and generation/review occurs in a modal. Missing, invalid, and duplicate leads are skipped while eligible leads continue. A duplicate-only selection is reported as already contacted, not missing WhatsApp.
 - Validation: production build passed; TypeScript passed; 3 focused test files passed with 13 tests. Local database bootstrap passed after Postgres became healthy. Playwright CLI browser startup was attempted but its WSL wrapper stalled and was terminated, so automated screenshot verification remains pending.
+
+
+## 2026-08-26 - Docker Web Runtime OpenSSL
+
+- Added a shared Node 22 Bookworm runtime image for the freelance web app and worker.
+- Installed OpenSSL and CA certificates in the image so Prisma can detect the supported runtime library.
+- Full VPS restarts should use `docker compose --env-file .env.local`; named database volumes must be preserved.
+- The Chrome extension is not a Compose service. Build it separately from `apps/extension` and reload the generated unpacked extension in Chrome.
