@@ -653,3 +653,8 @@ The Freelance WhatsApp first-contact flow now supports separate Twilio Content S
 ## 2026-08-24 - Freelance WhatsApp Inbox Direction
 
 Because Twilio WhatsApp Business Platform senders cannot continue using the same number in the WhatsApp/WhatsApp Business mobile app under the standard Twilio migration flow, the Freelance app now owns the reply surface. The first MVP stores inbound webhook replies and outbound accepted sends in Postgres and exposes a WhatsApp-style `/inbox` with polling. Future hardening should add delivery status callbacks, stronger conversation assignment for multi-user deployments, attachment/media handling, template-to-freeform handoff after customer replies, and optional WebSocket/Redis fanout only when real-time scale requires it.
+
+
+## 2026-08-25 - Freelance WhatsApp First-Contact Hardening
+
+The Freelance web app now exposes the exact PT/EN Twilio templates in the operator UI, validates every ContentVariables value before provider submission, requires the correct language SID, and normalizes legacy Brazilian mobile numbers. Bulk review now follows the extension pattern with floating actions and a modal; ineligible contacts are skipped without blocking eligible leads. Next hardening should add Twilio delivery-status callbacks and a controlled retry/override policy for legitimate duplicate test sends.

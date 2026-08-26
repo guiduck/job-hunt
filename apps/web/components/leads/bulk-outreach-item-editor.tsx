@@ -18,12 +18,27 @@ export type BulkOutreachItemView = {
   validationErrorCode?: string | null;
   validationErrorMessage?: string | null;
   skipReason?: string | null;
+  generationInputContext?: unknown;
 };
 
 type BulkOutreachItemEditorProps = {
   item: BulkOutreachItemView;
   onSave: (itemId: string, payload: Record<string, unknown>) => Promise<void>;
 };
+
+function usesTwilioTemplate(item: BulkOutreachItemView) {
+  if (
+    !item.generationInputContext ||
+    typeof item.generationInputContext !== "object" ||
+    Array.isArray(item.generationInputContext)
+  ) {
+    return false;
+  }
+
+  const template = (item.generationInputContext as Record<string, unknown>)
+    .twilioWhatsAppTemplate;
+  return Boolean(template && typeof template === "object" && !Array.isArray(template));
+}
 
 export function BulkOutreachItemEditor({ item, onSave }: BulkOutreachItemEditorProps) {
   const [recipientEmail, setRecipientEmail] = useState(item.recipientEmail ?? "");
@@ -34,6 +49,7 @@ export function BulkOutreachItemEditor({ item, onSave }: BulkOutreachItemEditorP
   const [body, setBody] = useState(item.body ?? "");
   const [message, setMessage] = useState(item.message ?? "");
   const [saving, setSaving] = useState(false);
+  const isTemplateMessage = usesTwilioTemplate(item);
 
   async function save(payload: Record<string, unknown>) {
     setSaving(true);
@@ -90,17 +106,31 @@ export function BulkOutreachItemEditor({ item, onSave }: BulkOutreachItemEditorP
             placeholder="+15555550123"
           />
           <textarea
-            aria-label="WhatsApp message"
+            aria-label={
+              isTemplateMessage ? "WhatsApp approved template preview" : "WhatsApp message"
+            }
             value={message}
             onChange={(event) => setMessage(event.target.value)}
-            className="min-h-28 rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+            readOnly={isTemplateMessage}
+            className="min-h-28 rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 read-only:cursor-default read-only:text-slate-300"
           />
+          {isTemplateMessage ? (
+            <p className="text-xs text-slate-400">
+              Approved Twilio template preview. Regenerate the draft to change its variables.
+            </p>
+          ) : null}
           <Button
             size="sm"
             disabled={saving}
-            onClick={() => save({ recipientWhatsapp, message, skip: false })}
+            onClick={() =>
+              save(
+                isTemplateMessage
+                  ? { recipientWhatsapp, skip: false }
+                  : { recipientWhatsapp, message, skip: false }
+              )
+            }
           >
-            Save WhatsApp item
+            {isTemplateMessage ? "Save recipient" : "Save WhatsApp item"}
           </Button>
         </div>
       )}

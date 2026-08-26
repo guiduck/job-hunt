@@ -159,4 +159,69 @@ describe("whatsapp provider", () => {
     expect(body.get("ContentVariables")).toBe(JSON.stringify({ "1": "there", "2": "Guilherme" }));
     expect(body.has("Body")).toBe(false);
   });
+  it("blocks empty or multiline template variables before calling Twilio", async () => {
+    const fetchImpl = vi.fn();
+    const provider = createTwilioWhatsAppProvider({
+      accountSid: "AC123",
+      authToken: "secret-token",
+      from: "+15555550000",
+      templateContentSid: "HX_PT",
+      dailyLimit: 500,
+      readiness: {
+        channel: "whatsapp",
+        providerName: "twilio",
+        status: "ready",
+        requiredEnvVars: [],
+        missingEnvVars: []
+      },
+      fetchImpl
+    });
+
+    await expect(
+      provider.send({
+        to: "+15555550123",
+        message: "Preview only",
+        templateVariables: { "1": "pessoal", "2": "" },
+        metadata: { userId: "user_1", batchId: "batch_1", itemId: "item_1", leadId: "lead_1" }
+      })
+    ).resolves.toMatchObject({
+      status: "failed_send",
+      diagnosticCode: "invalid_content_variables"
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("does not use the Portuguese SID for an English first contact", async () => {
+    const fetchImpl = vi.fn();
+    const provider = createTwilioWhatsAppProvider({
+      accountSid: "AC123",
+      authToken: "secret-token",
+      from: "+15555550000",
+      templateContentSid: "HX_PT",
+      dailyLimit: 500,
+      readiness: {
+        channel: "whatsapp",
+        providerName: "twilio",
+        status: "ready",
+        requiredEnvVars: [],
+        missingEnvVars: []
+      },
+      fetchImpl
+    });
+
+    await expect(
+      provider.send({
+        to: "+15555550123",
+        message: "Preview only",
+        templateLanguage: "en",
+        templateVariables: { "1": "there" },
+        metadata: { userId: "user_1", batchId: "batch_1", itemId: "item_1", leadId: "lead_1" }
+      })
+    ).resolves.toMatchObject({
+      status: "failed_send",
+      diagnosticCode: "missing_whatsapp_template_sid"
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
 });

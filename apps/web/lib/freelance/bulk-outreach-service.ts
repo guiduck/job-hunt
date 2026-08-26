@@ -15,29 +15,39 @@ import {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function normalizePhone(value?: string | null, country?: string | null) {
+export function normalizeOutreachPhone(value?: string | null, country?: string | null) {
   const trimmed = value?.trim();
   if (!trimmed) {
     return null;
   }
   const withoutWhatsappPrefix = trimmed.replace(/^whatsapp:/i, "").trim();
-  const digits = withoutWhatsappPrefix.replace(/\D/g, "");
+  let digits = withoutWhatsappPrefix.replace(/\D/g, "");
   if (!digits) {
     return null;
   }
-  if (withoutWhatsappPrefix.startsWith("+")) {
-    return `+${digits}`;
-  }
+
   const normalizedCountry = country?.trim().toLowerCase();
-  const isBrazil = normalizedCountry === "br" || normalizedCountry === "brazil" || normalizedCountry === "brasil";
-  if (isBrazil && (digits.length === 10 || digits.length === 11)) {
-    return `+55${digits}`;
+  const isBrazil =
+    digits.startsWith("55") ||
+    normalizedCountry === "br" ||
+    normalizedCountry === "brazil" ||
+    normalizedCountry === "brasil";
+
+  if (isBrazil && !digits.startsWith("55") && (digits.length === 10 || digits.length === 11)) {
+    digits = `55${digits}`;
   }
+
+  // Legacy Brazilian mobile numbers may still be stored with eight local digits.
+  // Add the mandatory ninth digit only for mobile-looking prefixes (6-9), never landlines.
+  if (digits.startsWith("55") && digits.length === 12 && /^[6-9]/.test(digits.slice(4, 5))) {
+    digits = `${digits.slice(0, 4)}9${digits.slice(4)}`;
+  }
+
   return `+${digits}`;
 }
 
 function isValidPhone(value?: string | null) {
-  const normalized = normalizePhone(value);
+  const normalized = normalizeOutreachPhone(value);
   const digits = normalized?.replace(/\D/g, "") ?? "";
   return Boolean(normalized?.startsWith("+") && digits.length >= 10 && digits.length <= 15);
 }
@@ -81,7 +91,7 @@ function getInitialItemState(input: {
     };
   }
 
-  const recipientWhatsapp = normalizePhone(input.lead.whatsapp ?? input.lead.phone, input.lead.country);
+  const recipientWhatsapp = normalizeOutreachPhone(input.lead.whatsapp ?? input.lead.phone, input.lead.country);
   if (!recipientWhatsapp) {
     return {
       status: "missing_contact" as const,
@@ -228,10 +238,10 @@ export async function updateBulkOutreachItem(
     }
   } else {
     if (input.recipientWhatsapp !== undefined) {
-      data.recipientWhatsapp = normalizePhone(input.recipientWhatsapp) || null;
+      data.recipientWhatsapp = normalizeOutreachPhone(input.recipientWhatsapp) || null;
       data.contactSource = "manual_edit";
     }
-    if (input.recipientPhone !== undefined) data.recipientPhone = normalizePhone(input.recipientPhone) || null;
+    if (input.recipientPhone !== undefined) data.recipientPhone = normalizeOutreachPhone(input.recipientPhone) || null;
     if (input.message !== undefined) data.message = input.message || null;
     const target = String(data.recipientWhatsapp ?? data.recipientPhone ?? item.recipientWhatsapp ?? item.recipientPhone ?? "");
     const message = String(data.message ?? item.message ?? "");

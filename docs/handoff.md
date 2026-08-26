@@ -1077,3 +1077,12 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - Existing WhatsApp sends through bulk/lead outreach now also record outbound messages into the inbox when Twilio accepts the message. Inbox replies send freeform WhatsApp messages through the existing Twilio provider, intended for the customer-care 24h reply window after a lead answers.
 - Twilio webhook signature validation is implemented with `TWILIO_AUTH_TOKEN`; local/ngrok troubleshooting can explicitly disable it with `TWILIO_DISABLE_WEBHOOK_VALIDATION=true`.
 - Validation: `apps/web npx.cmd tsc --noEmit` passed; focused `apps/web npm.cmd run test -- --run tests/unit/whatsapp-provider.test.ts tests/unit/bulk-generation-context.test.ts tests/unit/whatsapp-conversation-service.test.ts` passed (3 files, 11 tests). Prisma Client generation passed. Local migration application was attempted but blocked because `localhost:5433`/`freelance-postgres` was not reachable/running.
+
+
+## 2026-08-25 - WhatsApp Template Validation And Bulk Review UX
+
+- The Templates page now shows the exact approved Portuguese and English Twilio first-contact bodies, their 9-variable mapping, and whether each language SID is configured. The old generic first-contact seed is now Email-only; a provider-managed WhatsApp system template supplies bulk generation.
+- First-contact variables are guaranteed non-empty and single-line before delivery. The Twilio provider blocks invalid variables locally, requires the language-specific SID, and no longer falls back from a missing English SID to the Portuguese SID.
+- Brazilian outreach phone normalization now adds the mandatory ninth digit to legacy mobile-looking numbers while preserving landlines and already-modern mobile numbers.
+- Lead bulk actions now mirror the extension interaction: checkbox selection exposes floating Email and WhatsApp icon actions, and generation/review occurs in a modal. Missing, invalid, and duplicate leads are skipped while eligible leads continue. A duplicate-only selection is reported as already contacted, not missing WhatsApp.
+- Validation: production build passed; TypeScript passed; 3 focused test files passed with 13 tests. Local database bootstrap passed after Postgres became healthy. Playwright CLI browser startup was attempted but its WSL wrapper stalled and was terminated, so automated screenshot verification remains pending.

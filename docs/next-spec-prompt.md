@@ -166,3 +166,8 @@ Recent web implementation: first-contact WhatsApp now supports one Twilio Conten
 ## Freelance WhatsApp Inbox Follow-up Candidate
 
 Recent web implementation: apps/web has a Twilio WhatsApp inbox MVP backed by `WhatsAppConversation` and `WhatsAppMessage`, inbound webhook `POST /api/twilio/whatsapp/webhook`, and page `/inbox`. Future specs should harden delivery status callbacks, media/attachments, read/assignment states, multi-user routing beyond `DEFAULT_FREELANCE_USER_ID`, and optional WebSocket/Redis live updates. Preserve the existing Twilio template first-contact flow and use freeform replies only after the lead has responded/opened the WhatsApp customer-care window.
+
+
+## Freelance WhatsApp Delivery Status And Retry Candidate
+
+Specify the next Freelance WhatsApp hardening slice: receive Twilio delivery status callbacks, persist queued/sent/delivered/failed transitions, surface the Twilio error code and safe diagnostic in the review modal and inbox, and define an explicit operator-confirmed retry path for previously contacted test leads. Preserve the exact PT/EN ContentSid mapping, the 9 validated ContentVariables, automatic lead-language selection, eligibility skipping, and the checkbox-to-floating-action-to-review-modal workflow.

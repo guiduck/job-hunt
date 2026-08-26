@@ -23,10 +23,18 @@ function withWhatsappPrefix(value: string) {
 
 function selectTemplateContentSid(options: TwilioWhatsAppProviderOptions, input: WhatsAppSendInput) {
   if (input.templateLanguage === "en") {
-    return options.templateContentSidEn ?? options.templateContentSid;
+    return options.templateContentSidEn;
   }
 
   return options.templateContentSid;
+}
+
+function invalidTemplateVariables(variables: Record<string, string>) {
+  const invalidKeys = Object.entries(variables)
+    .filter(([, value]) => !value.trim() || /[\r\n]/.test(value))
+    .map(([key]) => key);
+
+  return invalidKeys.length > 0 ? invalidKeys : undefined;
 }
 
 function twilioAcceptedDiagnostic(providerStatus: string) {
@@ -78,7 +86,27 @@ export function createTwilioWhatsAppProvider(
           To: withWhatsappPrefix(input.to)
         });
         const templateContentSid = selectTemplateContentSid(options, input);
-        if (templateContentSid && input.templateVariables) {
+        if (input.templateVariables) {
+          if (!templateContentSid) {
+            return {
+              status: "failed_send",
+              providerName: "twilio",
+              diagnosticCode: "missing_whatsapp_template_sid",
+              diagnosticMessage:
+                input.templateLanguage === "en"
+                  ? "Configure TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN before sending an English first-contact template."
+                  : "Configure TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID before sending a Portuguese first-contact template."
+            };
+          }
+          const invalidKeys = invalidTemplateVariables(input.templateVariables);
+          if (invalidKeys) {
+            return {
+              status: "failed_send",
+              providerName: "twilio",
+              diagnosticCode: "invalid_content_variables",
+              diagnosticMessage: `WhatsApp template variables ${invalidKeys.join(", ")} are empty or contain line breaks. Regenerate the draft before sending.`
+            };
+          }
           body.set("ContentSid", templateContentSid);
           body.set("ContentVariables", JSON.stringify(input.templateVariables));
         } else {

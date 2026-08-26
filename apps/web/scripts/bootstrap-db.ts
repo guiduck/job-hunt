@@ -234,20 +234,21 @@ async function seed() {
   }
 
   for (const template of seedCommercialTemplates) {
-    const existing = await prisma.commercialTemplate.findUnique({
-      where: { id: `system-${template.stage}-${template.category}` }
+    const { id, ...data } = template;
+    await prisma.commercialTemplate.upsert({
+      where: { id },
+      update: {
+        ...data,
+        isDefault: true,
+        isActive: true
+      },
+      create: {
+        id,
+        ...data,
+        isDefault: true,
+        isActive: true
+      }
     });
-
-    if (!existing) {
-      await prisma.commercialTemplate.create({
-        data: {
-          id: `system-${template.stage}-${template.category}`,
-          ...template,
-          isDefault: true,
-          isActive: true
-        }
-      });
-    }
   }
 }
 

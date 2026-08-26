@@ -4,6 +4,22 @@ import type {
   FreelanceLead,
   SellerSettings
 } from "@prisma/client";
+import {
+  WHATSAPP_FIRST_CONTACT_CUSTOM_TEXT_MAX_LENGTH,
+  WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY,
+  WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY_EN,
+  WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME,
+  WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME_EN
+} from "@/lib/freelance/whatsapp-template-definition";
+
+export {
+  WHATSAPP_FIRST_CONTACT_CUSTOM_TEXT_MAX_LENGTH,
+  WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY,
+  WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY_EN,
+  WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME,
+  WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME_EN
+} from "@/lib/freelance/whatsapp-template-definition";
+
 
 type LeadWithCampaign = FreelanceLead & { campaign: FreelanceCampaign };
 type TargetLanguage = "pt-BR" | "en";
@@ -67,29 +83,7 @@ function languageDefaults(language: TargetLanguage, settings: SellerSettings | n
   };
 }
 
-export const WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME = "primeiro_contato_site_v1";
-export const WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME_EN = "first_contact_website_v1";
-export const WHATSAPP_FIRST_CONTACT_CUSTOM_TEXT_MAX_LENGTH = 600;
 
-export const WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY = `Ola {{1}}, tudo bem? Sou {{2}}, desenvolvedor web.
-
-Encontrei a {{3}} em {{4}} e percebi alguns pontos que podem estar reduzindo contatos pelo site e pelo WhatsApp. Trabalho criando {{5}} para negocios locais, com foco em presenca online mais clara e mais pedidos de orcamento.
-
-Para uma primeira versao, o investimento fica {{6}}, com prazo estimado de {{7}} e possibilidade de parcelar em ate {{8}}.
-
-Sobre o caso de voces: {{9}}
-
-Obrigado pela atencao. Se fizer sentido, posso te mandar uma ideia rapida de melhoria por aqui?`;
-
-export const WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY_EN = `Hi {{1}}, how are you? I'm {{2}}, a web developer.
-
-I found {{3}} in {{4}} and noticed a few points that may be reducing contacts through the website and WhatsApp. I create {{5}} for local businesses, focused on clearer online presence and more quote requests.
-
-For a first version, the investment is {{6}}, with an estimated timeline of {{7}} and {{8}}.
-
-About your case: {{9}}
-
-Thanks for your attention. If this makes sense, can I send you a quick improvement idea here?`;
 
 export function sanitizeWhatsAppTemplateVariable(value: string, maxLength = 1600) {
   return value
@@ -98,6 +92,11 @@ export function sanitizeWhatsAppTemplateVariable(value: string, maxLength = 1600
     .trim()
     .slice(0, maxLength)
     .trim();
+}
+
+function requiredWhatsAppTemplateVariable(value: unknown, fallback: string, maxLength: number) {
+  const sanitized = sanitizeWhatsAppTemplateVariable(String(value ?? ""), maxLength);
+  return sanitized || fallback;
 }
 
 function formatBrlPrice(value: unknown) {
@@ -136,33 +135,55 @@ export function buildWhatsAppFirstContactTemplateDraft({
   language?: TargetLanguage;
 }) {
   const defaults = languageDefaults(language, settings);
-  const niche = lead.category ?? lead.campaign.nicheNameSnapshot;
+  const niche =
+    lead.category?.trim() ||
+    lead.campaign.nicheNameSnapshot?.trim() ||
+    (language === "pt-BR" ? "negocio local" : "local business");
   const templateName =
     language === "pt-BR" ? WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME : WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME_EN;
   const templateBody =
     language === "pt-BR" ? WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY : WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY_EN;
-  const marketContext = language === "pt-BR" ? `${niche} em ${lead.city}` : `${niche} in ${lead.city}`;
+  const city = lead.city?.trim() || (language === "pt-BR" ? "sua cidade" : "your city");
+  const marketContext = language === "pt-BR" ? `${niche} em ${city}` : `${niche} in ${city}`;
   const offerTitle =
     language === "pt-BR"
-      ? settings?.offerTitle ?? "sites e landing pages focados em conversao"
+      ? settings?.offerTitle?.trim() || "sites e landing pages focados em conversao"
       : "conversion-focused websites and landing pages";
   const price =
     language === "pt-BR"
       ? formatBrlPrice(settings?.landingPagePrice)
       : defaults.offerPrice;
-  const deliveryTime = language === "pt-BR" ? settings?.deliveryTime ?? defaults.deliveryTime : "15 days";
+  const deliveryTime = language === "pt-BR" ? settings?.deliveryTime?.trim() || defaults.deliveryTime : "15 days";
   const paymentTerms =
     language === "pt-BR" ? formatInstallments(settings?.installments) : "payment terms defined after scope review";
   const variables: Record<string, string> = {
     "1": language === "pt-BR" ? "pessoal" : "there",
-    "2": sanitizeWhatsAppTemplateVariable(settings?.sellerName ?? defaults.sellerName, 120),
-    "3": sanitizeWhatsAppTemplateVariable(lead.businessName, 160),
-    "4": sanitizeWhatsAppTemplateVariable(marketContext, 180),
-    "5": sanitizeWhatsAppTemplateVariable(offerTitle, 180),
-    "6": sanitizeWhatsAppTemplateVariable(price, 80),
-    "7": sanitizeWhatsAppTemplateVariable(deliveryTime, 80),
-    "8": sanitizeWhatsAppTemplateVariable(paymentTerms, 120),
-    "9": sanitizeWhatsAppTemplateVariable(customText, WHATSAPP_FIRST_CONTACT_CUSTOM_TEXT_MAX_LENGTH)
+    "2": requiredWhatsAppTemplateVariable(settings?.sellerName, defaults.sellerName, 120),
+    "3": requiredWhatsAppTemplateVariable(
+      lead.businessName,
+      language === "pt-BR" ? "sua empresa" : "your business",
+      160
+    ),
+    "4": requiredWhatsAppTemplateVariable(marketContext, city, 180),
+    "5": requiredWhatsAppTemplateVariable(
+      offerTitle,
+      language === "pt-BR" ? "sites focados em conversao" : "conversion-focused websites",
+      180
+    ),
+    "6": requiredWhatsAppTemplateVariable(price, defaults.offerPrice, 80),
+    "7": requiredWhatsAppTemplateVariable(deliveryTime, defaults.deliveryTime, 80),
+    "8": requiredWhatsAppTemplateVariable(
+      paymentTerms,
+      language === "pt-BR" ? "6x sem juros" : "payment terms defined after scope review",
+      120
+    ),
+    "9": requiredWhatsAppTemplateVariable(
+      customText,
+      language === "pt-BR"
+        ? "a presenca online pode deixar os servicos e o contato mais claros para novos clientes."
+        : "the online presence could make services and contact paths clearer for new customers.",
+      WHATSAPP_FIRST_CONTACT_CUSTOM_TEXT_MAX_LENGTH
+    )
   };
 
   let message = templateBody;

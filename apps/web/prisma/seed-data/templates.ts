@@ -1,9 +1,12 @@
+import { WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY } from "../../lib/freelance/whatsapp-template-definition";
+
 export const seedCommercialTemplates = [
   {
-    name: "First contact - website opportunity",
+    id: "system-first_contact-default",
+    name: "First contact - email opportunity",
     stage: "first_contact" as const,
     category: "default",
-    channel: "any",
+    channel: "email",
     bodyTemplate:
       "Hi {{business_name}}, I reviewed your current online presence and found a practical opportunity to improve conversion for {{niche}} in {{city}}. I can prepare a focused landing page/demo for {{offer_price}} with delivery in {{delivery_time}}.",
     variablesSchema: {
@@ -12,6 +15,19 @@ export const seedCommercialTemplates = [
     }
   },
   {
+    id: "system-first_contact-twilio",
+    name: "WhatsApp first contact - approved Twilio template",
+    stage: "first_contact" as const,
+    category: "twilio_first_contact",
+    channel: "whatsapp",
+    bodyTemplate: WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY,
+    variablesSchema: {
+      required: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+      optional: []
+    }
+  },
+  {
+    id: "system-follow_up-default",
     name: "Follow-up - demo reminder",
     stage: "follow_up" as const,
     category: "default",

@@ -9,6 +9,13 @@ import type { BulkOutreachItemView } from "./bulk-outreach-item-editor";
 import { TemperatureBadge, WebsiteStatusBadge } from "./lead-badges";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -47,6 +54,7 @@ type CreatedBatch = {
 
 export function LeadTable({ leads }: { leads: LeadRow[] }) {
   const [batch, setBatch] = useState<CreatedBatch | undefined>();
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [items, setItems] = useState<BulkOutreachItemView[]>([]);
   const [error, setError] = useState<string | undefined>();
   const [creatingChannel, setCreatingChannel] = useState<"email" | "whatsapp" | undefined>();
@@ -114,11 +122,15 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
       return;
     }
     if (batch.eligibleCount === 0) {
-      setError(
-        batch.channel === "email"
-          ? "No selected leads have saved email addresses. Email drafts were not generated; use WhatsApp or add emails first."
-          : "No selected leads have WhatsApp-ready phone numbers. WhatsApp drafts were not generated; add phone numbers first."
-      );
+      if (batch.duplicateCount > 0 && batch.missingContactCount === 0 && batch.invalidContactCount === 0) {
+        setError(
+          `All ${batch.duplicateCount} selected ${batch.duplicateCount === 1 ? "lead was" : "leads were"} excluded because first contact was already sent for this campaign and channel.`
+        );
+      } else {
+        setError(
+          `No leads are eligible. ${batch.missingContactCount} missing contact, ${batch.invalidContactCount} invalid contact, and ${batch.duplicateCount} already contacted.`
+        );
+      }
       return;
     }
     setGenerating(true);
@@ -195,47 +207,34 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <BulkOutreachCounters
-          selectedCount={selectedLeadIds.length}
-          visibleSelectedCount={visibleSelectedCount}
-          hiddenSelectedCount={hiddenSelectedCount}
-          onClearHidden={() => clearHiddenLeadSelection(visibleLeadIds)}
-        />
-        {selectedLeadIds.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              onClick={() => createBatch("email")}
-              disabled={Boolean(creatingChannel)}
-            >
-              <Mail className="mr-2 h-4 w-4" />
-              {creatingChannel === "email" ? "Creating..." : "Generate Email"}
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => createBatch("whatsapp")}
-              disabled={Boolean(creatingChannel)}
-            >
-              <MessageCircle className="mr-2 h-4 w-4" />
-              {creatingChannel === "whatsapp" ? "Creating..." : "Generate WhatsApp"}
-            </Button>
-          </div>
-        ) : null}
-      </div>
-      <BulkOutreachPanel
-        batch={batch}
-        error={error}
-        generating={generating}
-        approving={approving}
-        onGenerate={batch ? generateDrafts : undefined}
-        onApprove={batch ? approveDelivery : undefined}
-        items={items}
-        onSaveItem={saveItem}
-        deliveryResults={deliveryResults}
-        channelReadiness={channelReadiness}
+      <BulkOutreachCounters
+        selectedCount={selectedLeadIds.length}
+        visibleSelectedCount={visibleSelectedCount}
+        hiddenSelectedCount={hiddenSelectedCount}
+        onClearHidden={() => clearHiddenLeadSelection(visibleLeadIds)}
       />
+      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <DialogContent className="max-h-[90vh] w-[min(94vw,880px)] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{batch?.channel === "email" || creatingChannel === "email" ? "Email review" : "WhatsApp review"}</DialogTitle>
+            <DialogDescription>
+              Only eligible contacts are generated. Missing, invalid, and previously contacted leads stay excluded.
+            </DialogDescription>
+          </DialogHeader>
+          <BulkOutreachPanel
+            batch={batch}
+            error={error}
+            generating={generating}
+            approving={approving}
+            onGenerate={batch ? generateDrafts : undefined}
+            onApprove={batch ? approveDelivery : undefined}
+            items={items}
+            onSaveItem={saveItem}
+            deliveryResults={deliveryResults}
+            channelReadiness={channelReadiness}
+          />
+        </DialogContent>
+      </Dialog>
       <Table>
         <TableHeader>
           <TableRow>
@@ -292,6 +291,43 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
           ))}
         </TableBody>
       </Table>
+      {selectedLeadIds.length > 0 ? (
+        <div className="fixed bottom-6 right-6 z-30 flex items-center gap-3" aria-label="Bulk outreach actions">
+          <Button
+            size="icon"
+            className="relative h-12 w-12 rounded-full shadow-xl"
+            onClick={() => {
+              setReviewOpen(true);
+              void createBatch("email");
+            }}
+            disabled={Boolean(creatingChannel)}
+            aria-label={`Review email for ${selectedLeadIds.length} selected leads`}
+            title="Generate email review"
+          >
+            <Mail className="h-5 w-5" aria-hidden="true" />
+            <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-slate-100 px-1 text-center text-xs font-semibold text-slate-950">
+              {selectedLeadIds.length}
+            </span>
+          </Button>
+          <Button
+            size="icon"
+            variant="secondary"
+            className="relative h-12 w-12 rounded-full border-cyan-500/50 bg-slate-900 shadow-xl"
+            onClick={() => {
+              setReviewOpen(true);
+              void createBatch("whatsapp");
+            }}
+            disabled={Boolean(creatingChannel)}
+            aria-label={`Review WhatsApp for ${selectedLeadIds.length} selected leads`}
+            title="Generate WhatsApp review"
+          >
+            <MessageCircle className="h-5 w-5" aria-hidden="true" />
+            <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-cyan-300 px-1 text-center text-xs font-semibold text-slate-950">
+              {selectedLeadIds.length}
+            </span>
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
