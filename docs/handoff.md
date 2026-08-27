@@ -1150,3 +1150,15 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - Migration SQL was validated against PostgreSQL: repaired GFig correctly, preserved a US E.164
   number, and rejected insertion of the old incomplete Brazilian mobile.
 - Migration: required.
+
+
+## 2026-08-27 - Accurate WhatsApp Contacted State And Test Reset
+
+- Draft generation was confirmed not to be the direct blocker: it writes only a `generated` event.
+- Fixed duplicate detection so interrupted `queued_send` records no longer appear as already
+  contacted; only provider-accepted `sent` events block another first contact.
+- Initial batch review now compares the exact normalized recipient, matching the approval-time guard.
+- Added a guarded GFig-only reset command with preview mode and explicit `--confirm`; it clears the
+  local outreach/inbox history while preserving all other leads and Twilio audit logs.
+- Validation: TypeScript passed and the complete unit suite passed with 93 tests.
+- Migration: not required for this correction; the previously added phone-integrity migration remains required.

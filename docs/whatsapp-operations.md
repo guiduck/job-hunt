@@ -58,3 +58,26 @@ The approved template uses variable `{{7}}` for the complete delivery timeline. 
 converts simple values such as `15 days`/`15 dias` to the selected template language. Drafts already
 generated before a localization fix must be regenerated; provider delivery uses the variables saved
 in each draft snapshot.
+
+
+## Already-contacted semantics and GFig test reset
+
+Draft generation does not count as contact. Duplicate first-contact protection considers only a
+`sent` event persisted after the provider accepts the request, and it compares the exact normalized
+recipient. Interrupted `queued_send` attempts and failed sends remain retryable.
+
+To inspect the local GFig test history without changing data:
+
+```bash
+docker compose --env-file .env.local exec -T web npm run whatsapp:reset-gfig-test-lead
+```
+
+To delete only that lead's local outreach items/events and inbox conversation, then return it to
+`new` for another test:
+
+```bash
+docker compose --env-file .env.local exec -T web npm run whatsapp:reset-gfig-test-lead -- --confirm
+```
+
+The command requires exactly one lead named `GFig Software Factory Sandbox`; otherwise it aborts.
+It does not delete Twilio message logs and does not affect any other lead.

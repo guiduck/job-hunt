@@ -111,11 +111,16 @@ export async function createBulkOutreachBatch(scope: OwnerScope, payload: unknow
   });
 
   for (const lead of leads) {
+    const recipient =
+      input.channel === "email"
+        ? lead.email
+        : normalizeOutreachPhone(lead.whatsapp ?? lead.phone, lead.country);
     const duplicate = await findDuplicateFirstContactOutreach(scope, {
       leadId: lead.id,
       campaignId: input.campaignId ?? lead.campaignId,
       channel: input.channel,
-      stage: input.stage
+      stage: input.stage,
+      recipient
     });
     const itemState = getInitialItemState({
       channel: input.channel,

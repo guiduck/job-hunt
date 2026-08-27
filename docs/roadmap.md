@@ -697,3 +697,11 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Enforce general E.164 and Brazil-specific phone shapes in PostgreSQL.
 - [x] Allow corrected-recipient testing without disabling same-recipient duplicate protection.
 - [x] Validate the migration behavior against a real PostgreSQL instance.
+
+
+## 2026-08-27 - Accurate First-Contact Deduplication
+
+- [x] Keep generated drafts retryable and exclude interrupted queued attempts from contacted state.
+- [x] Block duplicates only after provider acceptance creates a sent event.
+- [x] Compare the exact normalized recipient during both batch creation and approval.
+- [x] Provide a guarded local-history reset for the GFig test lead.

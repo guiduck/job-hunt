@@ -41,7 +41,9 @@ describe("bulk outreach duplicate blocking", () => {
           leadId: "lead_1",
           campaignId: "campaign_1",
           channel: "email",
-          stage: "first_contact"
+          stage: "first_contact",
+          eventType: "sent",
+          status: "sent"
         }),
         orderBy: { occurredAt: "desc" },
         take: 5
@@ -49,7 +51,7 @@ describe("bulk outreach duplicate blocking", () => {
     );
   });
 
-  it("blocks when the latest first-contact event is still pending", async () => {
+  it("does not mark an interrupted queued attempt as already contacted", async () => {
     findManyMock.mockResolvedValue([{ id: "event_queued", eventType: "queued_send", status: "sending" }]);
 
     await expect(
@@ -62,7 +64,7 @@ describe("bulk outreach duplicate blocking", () => {
           stage: "first_contact"
         }
       )
-    ).resolves.toMatchObject({ id: "event_queued" });
+    ).resolves.toBeNull();
   });
 
   it("allows a corrected recipient while still blocking the same recipient", async () => {

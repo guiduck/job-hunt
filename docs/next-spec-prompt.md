@@ -207,3 +207,11 @@ Preserve PostgreSQL E.164 constraints and the stricter Brazilian fixed/mobile sh
 support should add explicit country-aware normalization without weakening Brazilian validation.
 Duplicate outreach protection must compare the actual recipient so corrected contacts can be retried
 without enabling repeated sends to the same address.
+
+
+## WhatsApp Contacted-State Invariant
+
+Preserve the distinction between preparation and actual provider acceptance: generated, edited,
+queued, interrupted, and failed items must not be presented as already contacted. Only a persisted
+sent event for the same normalized recipient may block another first-contact attempt. Any future
+retry/override UI must remain explicit and auditable, and must not weaken this default protection.
