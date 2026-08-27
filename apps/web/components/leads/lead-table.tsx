@@ -24,12 +24,14 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { useFreelanceUiStore } from "@/lib/freelance/ui-store";
+import { normalizeOutreachPhone } from "@/lib/freelance/phone-normalization";
 
 type LeadRow = {
   id: string;
   businessName: string;
   city: string;
   phone: string | null;
+  country?: string | null;
   whatsapp?: string | null;
   email?: string | null;
   websiteUrl: string | null;
@@ -271,7 +273,11 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
                 <div className="font-medium">{lead.businessName}</div>
                 <div className="text-xs text-slate-500">{lead.city}</div>
               </TableCell>
-              <TableCell>{lead.email ?? lead.whatsapp ?? lead.phone ?? "No contact"}</TableCell>
+              <TableCell>
+                {lead.email ??
+                  normalizeOutreachPhone(lead.whatsapp ?? lead.phone, lead.country) ??
+                  "No contact"}
+              </TableCell>
               <TableCell>
                 <WebsiteStatusBadge status={lead.websiteStatus} />
               </TableCell>

@@ -1,3 +1,4 @@
+import { normalizeOutreachPhone } from "@/lib/freelance/phone-normalization";
 import { scrubProviderPayload } from "./outreach-diagnostics";
 import type {
   ChannelReadiness,
@@ -81,9 +82,18 @@ export function createTwilioWhatsAppProvider(
     },
     async send(input: WhatsAppSendInput) {
       try {
+        const normalizedTo = normalizeOutreachPhone(input.to);
+        if (!normalizedTo) {
+          return {
+            status: "failed_send",
+            providerName: "twilio",
+            diagnosticCode: "invalid_phone",
+            diagnosticMessage: "The WhatsApp recipient is not a valid E.164 phone number."
+          };
+        }
         const body = new URLSearchParams({
           From: withWhatsappPrefix(options.from),
-          To: withWhatsappPrefix(input.to)
+          To: withWhatsappPrefix(normalizedTo)
         });
         const templateContentSid = selectTemplateContentSid(options, input);
         if (input.templateVariables) {

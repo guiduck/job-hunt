@@ -677,3 +677,23 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Receive signed Twilio delivery callbacks and expose delivery/read/failure state in message bubbles.
 - [x] Provide an idempotent backfill for Twilio sends created before inbox persistence was fixed.
 - [ ] Add media messages and optional event-driven realtime fanout when polling is no longer sufficient.
+
+## 2026-08-27 - Brazilian WhatsApp Number Hardening
+
+- [x] Normalize legacy eight-digit Brazilian mobile numbers at ingestion and final Twilio delivery.
+- [x] Preserve Brazilian landlines and the exact configured Twilio sender.
+- [x] Provide an idempotent repair command for existing lead records.
+- [ ] Consider Twilio Lookup validation before first contact when volume justifies the extra API cost.
+
+## 2026-08-27 - WhatsApp Timeline Localization
+
+- [x] Localize numeric day timelines in Twilio variable 7 for Portuguese and English templates.
+- [x] Preserve arbitrary operator-entered timeline text when it is not a simple day/dia expression.
+- [x] Cover both PT from English settings and EN from Portuguese settings in generation tests.
+
+## 2026-08-27 - Database Phone Integrity
+
+- [x] Repair legacy Brazilian mobile numbers in a Prisma migration.
+- [x] Enforce general E.164 and Brazil-specific phone shapes in PostgreSQL.
+- [x] Allow corrected-recipient testing without disabling same-recipient duplicate protection.
+- [x] Validate the migration behavior against a real PostgreSQL instance.

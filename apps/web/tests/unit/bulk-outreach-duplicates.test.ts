@@ -65,6 +65,25 @@ describe("bulk outreach duplicate blocking", () => {
     ).resolves.toMatchObject({ id: "event_queued" });
   });
 
+  it("allows a corrected recipient while still blocking the same recipient", async () => {
+    findManyMock.mockResolvedValue([
+      { id: "event_old", eventType: "sent", status: "sent", recipient: "+556182724656" }
+    ]);
+
+    await expect(
+      findDuplicateFirstContactOutreach(
+        { userId: "user_1" },
+        {
+          leadId: "lead_1",
+          campaignId: "campaign_1",
+          channel: "whatsapp",
+          stage: "first_contact",
+          recipient: "+5561982724656"
+        }
+      )
+    ).resolves.toBeNull();
+  });
+
   it("allows retry when the latest first-contact delivery failed", async () => {
     findManyMock.mockResolvedValue([
       { id: "event_failed", eventType: "failed_send", status: "failed_send" },

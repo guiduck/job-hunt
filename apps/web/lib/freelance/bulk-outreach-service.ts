@@ -5,6 +5,8 @@ import {
   bulkOutreachItemUpdateSchema
 } from "@/lib/validation/freelance";
 import { findDuplicateFirstContactOutreach } from "./duplicate-outreach-service";
+import { normalizeOutreachPhone } from "./phone-normalization";
+export { normalizeOutreachPhone } from "./phone-normalization";
 import {
   findOwnedFreelanceLeads,
   freelanceRepositories,
@@ -14,37 +16,6 @@ import {
 } from "./repositories";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function normalizeOutreachPhone(value?: string | null, country?: string | null) {
-  const trimmed = value?.trim();
-  if (!trimmed) {
-    return null;
-  }
-  const withoutWhatsappPrefix = trimmed.replace(/^whatsapp:/i, "").trim();
-  let digits = withoutWhatsappPrefix.replace(/\D/g, "");
-  if (!digits) {
-    return null;
-  }
-
-  const normalizedCountry = country?.trim().toLowerCase();
-  const isBrazil =
-    digits.startsWith("55") ||
-    normalizedCountry === "br" ||
-    normalizedCountry === "brazil" ||
-    normalizedCountry === "brasil";
-
-  if (isBrazil && !digits.startsWith("55") && (digits.length === 10 || digits.length === 11)) {
-    digits = `55${digits}`;
-  }
-
-  // Legacy Brazilian mobile numbers may still be stored with eight local digits.
-  // Add the mandatory ninth digit only for mobile-looking prefixes (6-9), never landlines.
-  if (digits.startsWith("55") && digits.length === 12 && /^[6-9]/.test(digits.slice(4, 5))) {
-    digits = `${digits.slice(0, 4)}9${digits.slice(4)}`;
-  }
-
-  return `+${digits}`;
-}
 
 function isValidPhone(value?: string | null) {
   const normalized = normalizeOutreachPhone(value);

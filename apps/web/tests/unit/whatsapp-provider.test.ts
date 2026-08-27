@@ -90,6 +90,39 @@ describe("whatsapp provider", () => {
       }
     });
   });
+  it("adds the Brazilian ninth digit immediately before sending to Twilio", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ sid: "SM_BR", status: "queued" }), { status: 201 })
+    );
+    const provider = createTwilioWhatsAppProvider({
+      accountSid: "AC123",
+      authToken: "secret-token",
+      from: "+556199136993",
+      templateContentSid: "HX_PT",
+      dailyLimit: 500,
+      readiness: {
+        channel: "whatsapp",
+        providerName: "twilio",
+        status: "ready",
+        requiredEnvVars: [],
+        missingEnvVars: []
+      },
+      fetchImpl
+    });
+
+    await provider.send({
+      to: "+556182724656",
+      message: "Preview only",
+      templateVariables: { "1": "pessoal" },
+      metadata: { userId: "user_1", batchId: "batch_1", itemId: "item_1", leadId: "lead_1" }
+    });
+
+    const request = fetchImpl.mock.calls[0]?.[1] as RequestInit;
+    const body = request.body as URLSearchParams;
+    expect(body.get("To")).toBe("whatsapp:+5561982724656");
+    expect(body.get("From")).toBe("whatsapp:+556199136993");
+  });
+
   it("sends approved WhatsApp templates with ContentSid and ContentVariables", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ sid: "SM_TEMPLATE", status: "queued" }), { status: 201 })

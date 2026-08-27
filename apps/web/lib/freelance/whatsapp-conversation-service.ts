@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { OwnerScope } from "./repositories";
+import { normalizeOutreachPhone } from "./phone-normalization";
 
 const WHATSAPP_PREFIX = "whatsapp:";
 
@@ -95,8 +96,7 @@ export function normalizeWhatsAppAddress(value?: string | null) {
   const withoutPrefix = value.trim().toLowerCase().startsWith(WHATSAPP_PREFIX)
     ? value.trim().slice(WHATSAPP_PREFIX.length)
     : value.trim();
-  const normalized = withoutPrefix.replace(/[()\s-]/g, "");
-  return normalized.startsWith("+") ? normalized : normalized ? `+${normalized}` : "";
+  return normalizeOutreachPhone(withoutPrefix) ?? "";
 }
 
 function fallbackOwnerUserId() {

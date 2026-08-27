@@ -188,3 +188,22 @@ Preserve immediate inbox persistence for every Twilio-accepted bulk WhatsApp mes
 and delivery-status webhooks, monotonic status transitions, and the idempotent historical backfill.
 A future inbox spec may add media, assignment, search, and event-driven realtime updates, but must not
 make Redis/WebSockets mandatory while the current five-second polling model remains sufficient.
+
+## Brazilian WhatsApp Phone Integrity Note
+
+Preserve shared E.164 normalization for Brazilian legacy mobile numbers at lead ingestion, review,
+inbox matching, and final provider submission. Never rewrite `TWILIO_WHATSAPP_FROM`; it must remain
+the exact sender registered by Twilio. Historical delivery records must not be silently rewritten.
+
+## WhatsApp Timeline Language Note
+
+Twilio first-contact variable 7 contains the full estimated timeline. Preserve deterministic
+localization so numeric day values use `dias` in `pt-BR` and `days` in English, regardless of the
+language in which the shared seller setting was originally stored.
+
+## Database Phone Constraint Note
+
+Preserve PostgreSQL E.164 constraints and the stricter Brazilian fixed/mobile shape. New country
+support should add explicit country-aware normalization without weakening Brazilian validation.
+Duplicate outreach protection must compare the actual recipient so corrected contacts can be retried
+without enabling repeated sends to the same address.

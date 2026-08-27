@@ -8,6 +8,7 @@ export type DuplicateOutreachLookup = {
   campaignId?: string | null;
   channel: OutreachChannel;
   stage?: TemplateStage;
+  recipient?: string | null;
 };
 
 function isBlockingOutreachEvent(event: OutreachEvent) {
@@ -41,7 +42,9 @@ export async function findDuplicateFirstContactOutreach(
     orderBy: { occurredAt: "desc" },
     take: 5
   });
-  const latestRelevantEvent = events[0];
+  const latestRelevantEvent = lookup.recipient
+    ? events.find((event) => event.recipient === lookup.recipient)
+    : events[0];
   return latestRelevantEvent && isBlockingOutreachEvent(latestRelevantEvent)
     ? latestRelevantEvent
     : null;

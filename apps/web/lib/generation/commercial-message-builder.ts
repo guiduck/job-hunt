@@ -53,13 +53,27 @@ export function detectLeadMessageLanguage(lead: LeadWithCampaign): TargetLanguag
   return "en";
 }
 
+export function localizeDeliveryTime(value: string | null | undefined, language: TargetLanguage) {
+  const fallback = language === "pt-BR" ? "15 dias" : "15 days";
+  const text = value?.trim();
+  if (!text) return fallback;
+
+  const dayCount = text.match(/^(\d+)\s*(?:day|days|dia|dias)$/i);
+  if (dayCount) {
+    const count = dayCount[1];
+    return language === "pt-BR" ? `${count} dias` : `${count} days`;
+  }
+
+  return text;
+}
+
 function languageDefaults(language: TargetLanguage, settings: SellerSettings | null) {
   if (language === "pt-BR") {
     return {
       demoUrl: "o link do demo",
       offerPrice: settings?.landingPagePrice ? `a partir de R$ ${String(settings.landingPagePrice)}` : "a partir de R$ 2500",
       installments: settings?.installments ? `ate ${String(settings.installments)}x sem juros` : "ate 6x sem juros",
-      deliveryTime: settings?.deliveryTime ?? "15 dias",
+      deliveryTime: localizeDeliveryTime(settings?.deliveryTime, language),
       offerTitle: settings?.offerTitle ?? "uma landing page focada em conversao",
       offerDescription:
         settings?.offerDescription ?? "uma experiencia de site mais clara com chamadas de contato mais fortes",
@@ -73,7 +87,7 @@ function languageDefaults(language: TargetLanguage, settings: SellerSettings | n
     demoUrl: "the demo link",
     offerPrice: settings?.landingPagePriceUsd ? `starting at US$ ${String(settings.landingPagePriceUsd)}` : "starting at US$ 1000",
     installments: settings?.installments ? `${String(settings.installments)} installments for Brazil only` : "installments for Brazil only",
-    deliveryTime: settings?.deliveryTime ?? "15 days",
+    deliveryTime: localizeDeliveryTime(settings?.deliveryTime, language),
     offerTitle: settings?.offerTitle ?? "a conversion-focused landing page",
     offerDescription:
       settings?.offerDescription ?? "a clearer website experience with stronger contact calls-to-action",
@@ -153,7 +167,7 @@ export function buildWhatsAppFirstContactTemplateDraft({
     language === "pt-BR"
       ? formatBrlPrice(settings?.landingPagePrice)
       : defaults.offerPrice;
-  const deliveryTime = language === "pt-BR" ? settings?.deliveryTime?.trim() || defaults.deliveryTime : "15 days";
+  const deliveryTime = defaults.deliveryTime;
   const paymentTerms =
     language === "pt-BR" ? formatInstallments(settings?.installments) : "payment terms defined after scope review";
   const variables: Record<string, string> = {

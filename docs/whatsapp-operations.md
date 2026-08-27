@@ -17,7 +17,9 @@ states such as `sent`, `delivered`, `read`, `failed`, and `undelivered`.
 ```bash
 cd /srv/projects/job-hunt/job-hunt
 git pull
-docker compose --env-file .env.local up -d --force-recreate web web-worker
+docker compose --env-file .env.local up -d --build --force-recreate web web-worker
+docker compose --env-file .env.local exec -T web npm run prisma:migrate
+docker compose --env-file .env.local exec -T web npm run whatsapp:normalize-lead-phones
 docker compose --env-file .env.local exec -T web npm run whatsapp:backfill-inbox
 docker compose --env-file .env.local ps
 ```
@@ -37,3 +39,22 @@ records that already exist.
 ```bash
 docker compose --env-file .env.local logs --tail 200 web
 ```
+
+## Brazilian mobile normalization
+
+Brazilian mobile numbers stored with eight local digits are normalized before persistence, review,
+inbox matching, and the final Twilio API request. For example, `+556182724656` becomes
+`+5561982724656`. The sender configured in `TWILIO_WHATSAPP_FROM` is not rewritten. PostgreSQL check constraints
+reject non-E.164 contacts and enforce the Brazilian fixed/mobile shape after the migration repairs
+existing records.
+
+`whatsapp:normalize-lead-phones` repairs existing lead phone/WhatsApp fields idempotently. It does
+not rewrite historical Twilio messages or prove that a past `delivered` message reached the intended
+human; inspect that message SID in Twilio before deciding whether to contact the lead again.
+
+## Regenerating localized drafts
+
+The approved template uses variable `{{7}}` for the complete delivery timeline. Draft generation
+converts simple values such as `15 days`/`15 dias` to the selected template language. Drafts already
+generated before a localization fix must be regenerated; provider delivery uses the variables saved
+in each draft snapshot.

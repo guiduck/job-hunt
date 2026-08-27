@@ -263,7 +263,8 @@ export async function approveBulkOutreachBatch(
       leadId: item.leadId,
       campaignId: item.campaignId,
       channel: item.channel,
-      stage: batch.stage
+      stage: batch.stage,
+      recipient: item.recipientEmail ?? item.recipientWhatsapp ?? item.recipientPhone
     });
     if (duplicate) {
       await freelanceRepositories.bulkOutreachItems.update({

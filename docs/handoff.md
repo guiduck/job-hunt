@@ -1116,3 +1116,37 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - Validation: web TypeScript passed, production build passed, and 3 focused test files passed with
   14 tests before the monotonic-status assertions were added; final focused validation is required.
 - Migration: not required.
+
+## 2026-08-27 - Brazilian WhatsApp Ninth-Digit Guard
+
+- Centralized Brazilian E.164 normalization and now applies it when leads are saved, bulk recipients
+  are prepared, inbox addresses are matched, and immediately before Twilio receives the `To` value.
+- Legacy mobile `+556182724656` is sent as `whatsapp:+5561982724656`; Brazilian landlines and the
+  configured Twilio `From` sender remain unchanged.
+- Added `npm run whatsapp:normalize-lead-phones` to repair existing lead records idempotently.
+- Historical delivery records are intentionally immutable; a past `delivered` status must be checked
+  by Twilio Message SID and is not silently reclassified after phone repair.
+- Migration: not required.
+
+## 2026-08-27 - WhatsApp Delivery-Time Localization
+
+- Fixed Twilio template variable 7 so a saved `deliveryTime` such as `15 days` becomes `15 dias`
+  for `pt-BR`, while `15 dias` becomes `15 days` for English.
+- The approved Twilio templates remain unchanged because the complete timeline is already variable
+  `{{7}}`; the defect was in local variable construction.
+- Existing generated drafts are immutable snapshots and must be regenerated to receive the fix.
+- Validation: focused WhatsApp generation/provider/phone/inbox suite passed with 17 tests; TypeScript passed.
+- Migration: not required.
+
+## 2026-08-27 - Database Phone Integrity And Reply Test Readiness
+
+- Added migration `20260827000100_brazilian_phone_integrity`: repairs legacy Brazilian mobile
+  numbers, including GFig `+556182724656` to `+5561982724656`, and adds general E.164 plus
+  Brazil-specific phone/WhatsApp check constraints.
+- Invalid Brazilian contacts that cannot be normalized are cleared instead of remaining sendable.
+- Duplicate first-contact protection now keys the blocking event to the actual recipient, allowing
+  one corrected-number send while still blocking repeats to the same destination.
+- The final Twilio provider rejects invalid recipients locally before making an HTTP request.
+- Migration SQL was validated against PostgreSQL: repaired GFig correctly, preserved a US E.164
+  number, and rejected insertion of the old incomplete Brazilian mobile.
+- Migration: required.

@@ -3,6 +3,7 @@ import { freelanceRepositories, requireOwnerScope, type OwnerScope } from "./rep
 import type { NormalizedBusinessCandidate } from "@/lib/providers/freelance-maps-provider";
 import type { WebsiteAnalysisResult } from "@/worker/website-analysis/types";
 import { getOwnedWebsiteUrl, getSocialProfileUrl } from "./url-classification";
+import { normalizeOutreachPhone } from "./phone-normalization";
 
 export async function listLeads(scope: OwnerScope, filters: unknown = {}) {
   const { userId } = requireOwnerScope(scope);
@@ -91,7 +92,7 @@ export async function saveLeadWithAnalysis({
       region: candidate.region,
       city: candidate.city,
       address: candidate.address,
-      phone: candidate.phone,
+      phone: normalizeOutreachPhone(candidate.phone, candidate.country),
       websiteUrl,
       socialUrl,
       websiteStatus: analysis.detectedStatus,
