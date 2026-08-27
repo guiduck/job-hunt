@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import {
-  isValidTwilioWebhookSignature,
-  recordTwilioWhatsAppStatus
-} from "@/lib/freelance/whatsapp-conversation-service";
+import { recordTwilioWhatsAppStatus } from "@/lib/freelance/whatsapp-conversation-service";
+import { validateTwilioWebhookRequest } from "@/lib/freelance/twilio-webhook-security";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -10,14 +8,19 @@ export async function POST(request: Request) {
     Array.from(formData.entries()).map(([key, value]) => [key, String(value)])
   );
 
-  const isValid = isValidTwilioWebhookSignature({
-    url: request.url,
+  const validation = validateTwilioWebhookRequest({
+    request,
     params,
-    signature: request.headers.get("x-twilio-signature"),
     authToken: process.env.TWILIO_AUTH_TOKEN
   });
 
-  if (!isValid) {
+  if (!validation.valid) {
+    console.error("Rejected Twilio WhatsApp status signature", {
+      candidates: validation.candidates,
+      hasSignature: Boolean(request.headers.get("x-twilio-signature")),
+      hasAuthToken: Boolean(process.env.TWILIO_AUTH_TOKEN),
+      messageSid: params.MessageSid ?? params.SmsMessageSid ?? null
+    });
     return NextResponse.json({ error: "Invalid Twilio signature." }, { status: 403 });
   }
 

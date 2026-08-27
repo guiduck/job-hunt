@@ -186,8 +186,16 @@ Specify a safe Twilio sender preflight that checks the configured Account SID ag
 
 Preserve immediate inbox persistence for every Twilio-accepted bulk WhatsApp message, signed inbound
 and delivery-status webhooks, monotonic status transitions, and the idempotent historical backfill.
-A future inbox spec may add media, assignment, search, and event-driven realtime updates, but must not
-make Redis/WebSockets mandatory while the current five-second polling model remains sufficient.
+A future inbox spec may add media, assignment, and search while preserving the current
+Redis/WebSocket invalidation path and 30-second polling fallback.
+
+## Freelance WhatsApp Realtime And Unread Note
+
+The inbox now uses Redis pub/sub and a dedicated WebSocket service for immediate invalidation, with
+PostgreSQL as the source of truth and a 30-second polling fallback. Preserve Twilio signature
+validation against the exact public webhook URL behind Caddy. Unread badges represent inbound
+messages not yet opened; opening the conversation clears them. Future work may add media,
+assignment, search, and mobile push, but must not reinterpret unread as unanswered.
 
 ## Brazilian WhatsApp Phone Integrity Note
 

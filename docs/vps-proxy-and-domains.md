@@ -22,6 +22,8 @@ API/full-time:      127.0.0.1:8000 -> api:8000
 Postgres full-time: 127.0.0.1:5432 -> postgres:5432
 Freelance web:      0.0.0.0:3000   -> web:3000
 Postgres freelance: 127.0.0.1:5433 -> freelance-postgres:5432
+WhatsApp realtime:  127.0.0.1:3001 -> whatsapp-realtime:3001
+Redis freelance:    127.0.0.1:6379 -> redis:6379
 ```
 
 Os bancos nao devem ser expostos publicamente. Acesso remoto a Postgres deve ser via tunel SSH.
@@ -75,9 +77,14 @@ Bloco recomendado para o app freelance:
 
 ```caddyfile
 freelance.gfig.space {
+    @whatsapp_realtime path /ws
+    reverse_proxy @whatsapp_realtime 127.0.0.1:3001
     reverse_proxy 127.0.0.1:3000
 }
 ```
+
+Caddy forwards WebSocket upgrades automatically. The matcher must come before the general web
+proxy so only `/ws` reaches the realtime service.
 
 Depois de editar:
 
@@ -122,7 +129,12 @@ No `.env.local` da raiz do projeto na VPS, configure:
 FREELANCE_WEB_APP_BASE_URL=https://freelance.gfig.space
 FREELANCE_AUTH_API_BASE_URL=http://api:8000
 FREELANCE_GOOGLE_AUTH_SUCCESS_REDIRECT_URL=https://freelance.gfig.space/auth/google/callback
+TWILIO_WEBHOOK_BASE_URL=https://freelance.gfig.space
+REDIS_URL=redis://redis:6379
 ```
+
+Do not set `NEXT_PUBLIC_WHATSAPP_REALTIME_URL` to `localhost` in production. When it is unset, the
+browser derives `wss://freelance.gfig.space/ws` from the page URL.
 
 Nao substitua `GOOGLE_AUTH_SUCCESS_REDIRECT_URL` por essa URL do Freelance; essa variavel continua
 servindo como fallback do fluxo Google primario existente da API/extensao. A API aceita

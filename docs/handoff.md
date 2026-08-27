@@ -1171,3 +1171,22 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
   protection and releases linked duplicate-blocked items.
 - Inbox conversations/messages, lead records, and Twilio logs remain preserved.
 - TypeScript validation passed.
+
+## 2026-08-27 - WhatsApp Inbound Realtime And Unread Notifications
+
+- Replaced fragile manual Twilio signature handling with the official Twilio validator and public
+  URL reconstruction for Caddy/reverse-proxy deployments. Production should set
+  `TWILIO_WEBHOOK_BASE_URL=https://freelance.gfig.space`.
+- Added Redis pub/sub plus a dedicated `whatsapp-realtime` WebSocket service. PostgreSQL remains the
+  source of truth; Redis events contain identifiers/reasons only and trigger API refreshes.
+- The inbox now receives immediate updates, reconnects with backoff, and polls every 30 seconds as a
+  fallback. It shows total/per-conversation unread badges and opt-in browser notifications.
+- Opening a conversation clears its local unread count. No persistent "unanswered" state was added.
+- Caddy must route `/ws` to `127.0.0.1:3001` before the general Next.js proxy.
+- Validation: TypeScript passed; the 4 focused webhook/signature tests passed; Compose config passed;
+  the Redis -> WebSocket broadcast was exercised locally; and the production build generated a
+  valid `.next/BUILD_ID`.
+- The complete existing test suite still has 4 stale integration assertions expecting the previous
+  bulk-review labels/details (`Approve Email delivery`, `Approve WhatsApp delivery`, and the old
+  per-item delivery text). The current component renders `Send 1` and compact result text. These
+  failures are outside the inbox change and should be updated in a separate test-alignment pass.

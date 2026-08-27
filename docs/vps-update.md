@@ -63,6 +63,9 @@ O servico `web` roda o app Next.js freelance em modo producao dentro do Docker: 
 gera Prisma Client, executa bootstrap idempotente, faz `next build` e serve com `next start` na porta
 3000. Evite usar `next dev` na VPS; o modo dev/Turbopack e apenas para desenvolvimento local.
 
+O inbox do WhatsApp tambem sobe `redis` e `whatsapp-realtime`. O Caddy deve encaminhar `/ws` para
+`127.0.0.1:3001`; veja `docs/vps-proxy-and-domains.md`.
+
 Para login Google no app web Freelance, mantenha `GOOGLE_AUTH_SUCCESS_REDIRECT_URL` para o fluxo
 existente da API/extensao e configure a URL final do web em uma variavel separada:
 
@@ -70,6 +73,7 @@ existente da API/extensao e configure a URL final do web em uma variavel separad
 FREELANCE_WEB_APP_BASE_URL=https://freelance.gfig.space
 FREELANCE_AUTH_API_BASE_URL=http://api:8000
 FREELANCE_GOOGLE_AUTH_SUCCESS_REDIRECT_URL=https://freelance.gfig.space/auth/google/callback
+TWILIO_WEBHOOK_BASE_URL=https://freelance.gfig.space
 ```
 
 ## Bancos Separados
@@ -183,7 +187,7 @@ Nao use `npx prisma db push` na VPS. Use apenas `migrate deploy`.
 Depois das migrations:
 
 ```bash
-docker compose restart api worker web web-worker
+docker compose restart api worker web web-worker whatsapp-realtime
 ```
 
 Se algum servico nao existir na VPS ainda, rode apenas os que existem, ou rode:
@@ -206,6 +210,7 @@ Veja logs recentes:
 docker compose logs --tail 100 api
 docker compose logs --tail 100 web
 docker compose logs --tail 100 web-worker
+docker compose logs --tail 100 whatsapp-realtime
 ```
 
 Se a API tiver rota publica de health:
@@ -233,7 +238,7 @@ docker compose up -d --build
 docker compose exec api alembic upgrade head
 docker compose exec web npx prisma migrate deploy
 docker compose exec web npm run prisma:seed
-docker compose restart api worker web web-worker
+docker compose restart api worker web web-worker whatsapp-realtime
 docker compose ps
 ```
 

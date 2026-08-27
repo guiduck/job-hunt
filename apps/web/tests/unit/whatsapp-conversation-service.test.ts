@@ -1,11 +1,14 @@
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
-  isValidTwilioWebhookSignature,
   normalizeTwilioMessageStatus,
   normalizeWhatsAppAddress,
   shouldApplyTwilioMessageStatus
 } from "@/lib/freelance/whatsapp-conversation-service";
+import {
+  getTwilioWebhookUrlCandidates,
+  validateTwilioWebhookRequest
+} from "@/lib/freelance/twilio-webhook-security";
 
 function sign(url: string, params: Record<string, string>, token: string) {
   const sorted = Object.keys(params)
@@ -41,20 +44,55 @@ describe("whatsapp conversation service", () => {
     const authToken = "secret-token";
 
     expect(
-      isValidTwilioWebhookSignature({
-        url,
+      validateTwilioWebhookRequest({
+        request: new Request(url, {
+          headers: { "x-twilio-signature": sign(url, params, authToken) }
+        }),
         params,
-        authToken,
-        signature: sign(url, params, authToken)
-      })
+        authToken
+      }).valid
     ).toBe(true);
     expect(
-      isValidTwilioWebhookSignature({
-        url,
+      validateTwilioWebhookRequest({
+        request: new Request(url, {
+          headers: { "x-twilio-signature": "bad-signature" }
+        }),
         params,
-        authToken,
-        signature: "bad-signature"
-      })
+        authToken
+      }).valid
     ).toBe(false);
   });
+
+  it("validates against the configured public URL behind a reverse proxy", () => {
+    const previousBase = process.env.TWILIO_WEBHOOK_BASE_URL;
+    process.env.TWILIO_WEBHOOK_BASE_URL = "https://freelance.gfig.space";
+    const publicUrl = "https://freelance.gfig.space/api/twilio/whatsapp/webhook";
+    const params = {
+      Body: "Resposta",
+      From: "whatsapp:+5561982724656",
+      MessageSid: "SM_PROXY",
+      To: "whatsapp:+556199136993"
+    };
+    const authToken = "proxy-token";
+    const request = new Request(
+      "http://127.0.0.1:3000/api/twilio/whatsapp/webhook",
+      {
+        headers: {
+          "x-forwarded-host": "freelance.gfig.space",
+          "x-forwarded-proto": "https",
+          "x-twilio-signature": sign(publicUrl, params, authToken)
+        }
+      }
+    );
+
+    expect(getTwilioWebhookUrlCandidates(request)).toContain(publicUrl);
+    expect(validateTwilioWebhookRequest({ request, params, authToken })).toMatchObject({
+      valid: true,
+      validatedUrl: publicUrl
+    });
+
+    if (previousBase === undefined) delete process.env.TWILIO_WEBHOOK_BASE_URL;
+    else process.env.TWILIO_WEBHOOK_BASE_URL = previousBase;
+  });
+
 });

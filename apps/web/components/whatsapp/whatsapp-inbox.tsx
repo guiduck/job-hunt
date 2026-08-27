@@ -1,7 +1,22 @@
 "use client";
 
-import { RefreshCcw, Send, Smartphone } from "lucide-react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+  Bell,
+  BellOff,
+  RefreshCcw,
+  Send,
+  Smartphone,
+  Wifi,
+  WifiOff
+} from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition
+} from "react";
 import { Button } from "@/components/ui/button";
 import type {
   WhatsAppConversationView,
@@ -17,7 +32,6 @@ function formatTime(value: string | null) {
     minute: "2-digit"
   }).format(new Date(value));
 }
-
 
 function deliveryLabel(status: string) {
   const labels: Record<string, string> = {
@@ -42,6 +56,13 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return body;
 }
 
+function getRealtimeUrl() {
+  const configured = process.env.NEXT_PUBLIC_WHATSAPP_REALTIME_URL;
+  if (configured) return configured;
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}/ws`;
+}
+
 export function WhatsAppInbox({
   initialConversations,
   initialMessages,
@@ -56,41 +77,121 @@ export function WhatsAppInbox({
   const [messages, setMessages] = useState(initialMessages);
   const [draft, setDraft] = useState("");
   const [status, setStatus] = useState<string | null>(null);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | "unsupported"
+  >("default");
   const [isSending, startSendTransition] = useTransition();
+  const selectedIdRef = useRef(selectedId);
+  const unreadRef = useRef(
+    new Map(initialConversations.map((conversation) => [
+      conversation.id,
+      conversation.unreadInboundCount
+    ]))
+  );
+
   const selectedConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === selectedId) ?? null,
     [conversations, selectedId]
   );
+  const totalUnread = useMemo(
+    () => conversations.reduce((total, conversation) => total + conversation.unreadInboundCount, 0),
+    [conversations]
+  );
 
-  async function refreshConversations() {
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
+  const refreshConversations = useCallback(async (notify = false) => {
     const body = await fetchJson<{ conversations: WhatsAppConversationView[] }>(
       "/api/freelance/whatsapp/conversations"
     );
-    setConversations(body.conversations);
-    if (!selectedId && body.conversations[0]) {
-      setSelectedId(body.conversations[0].id);
-    }
-  }
 
-  async function refreshMessages(conversationId = selectedId) {
-    if (!conversationId) return;
-    const body = await fetchJson<{ messages: WhatsAppMessageView[] }>(
-      `/api/freelance/whatsapp/conversations/${conversationId}/messages`
+    if (notify && typeof Notification !== "undefined" && Notification.permission === "granted") {
+      for (const conversation of body.conversations) {
+        const previousUnread = unreadRef.current.get(conversation.id) ?? 0;
+        const isVisibleConversation =
+          conversation.id === selectedIdRef.current &&
+          document.visibilityState === "visible";
+        if (conversation.unreadInboundCount > previousUnread && !isVisibleConversation) {
+          const notification = new Notification(
+            `Nova mensagem de ${conversation.businessName}`,
+            {
+              body: conversation.lastMessagePreview ?? "Nova mensagem no WhatsApp",
+              tag: `whatsapp-${conversation.id}`
+            }
+          );
+          notification.onclick = () => {
+            window.focus();
+            setSelectedId(conversation.id);
+            notification.close();
+          };
+        }
+      }
+    }
+
+    unreadRef.current = new Map(
+      body.conversations.map((conversation) => [
+        conversation.id,
+        conversation.unreadInboundCount
+      ])
     );
-    setMessages(body.messages);
-  }
+    setConversations(body.conversations);
+    setSelectedId((current) => current ?? body.conversations[0]?.id ?? null);
+  }, []);
+
+  const refreshMessages = useCallback(async (
+    conversationId: string | null = selectedIdRef.current,
+    markRead = false
+  ) => {
+    if (!conversationId) return;
+    const query = markRead ? "?markRead=1" : "";
+    const body = await fetchJson<{ messages: WhatsAppMessageView[] }>(
+      `/api/freelance/whatsapp/conversations/${conversationId}/messages${query}`
+    );
+    if (conversationId === selectedIdRef.current) {
+      setMessages(body.messages);
+    }
+    if (markRead) {
+      unreadRef.current.set(conversationId, 0);
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === conversationId
+            ? { ...conversation, unreadInboundCount: 0 }
+            : conversation
+        )
+      );
+    }
+  }, []);
+
+  const syncInbox = useCallback(async (notify = false) => {
+    await refreshConversations(notify);
+    const currentId = selectedIdRef.current;
+    if (currentId) {
+      const markRead = document.visibilityState === "visible";
+      await refreshMessages(currentId, markRead);
+      if (markRead) await refreshConversations(false);
+    }
+  }, [refreshConversations, refreshMessages]);
 
   function selectConversation(conversationId: string) {
     setSelectedId(conversationId);
+    selectedIdRef.current = conversationId;
+    setMessages([]);
     setStatus(null);
-    void refreshMessages(conversationId);
   }
+
+  useEffect(() => {
+    if (!selectedId || document.visibilityState !== "visible") return;
+    void refreshMessages(selectedId, true).then(() => refreshConversations(false));
+  }, [selectedId, refreshConversations, refreshMessages]);
 
   function sendReply() {
     if (!selectedId || !draft.trim()) return;
     const body = draft.trim();
     startSendTransition(async () => {
-      setStatus("Sending...");
+      setStatus("Enviando...");
       try {
         const response = await fetchJson<{ messages: WhatsAppMessageView[] }>(
           `/api/freelance/whatsapp/conversations/${selectedId}/messages`,
@@ -103,20 +204,89 @@ export function WhatsAppInbox({
         setDraft("");
         setMessages(response.messages);
         await refreshConversations();
-        setStatus("Sent.");
+        setStatus("Enviada.");
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : "Message was not sent.");
+        setStatus(error instanceof Error ? error.message : "A mensagem nao foi enviada.");
       }
     });
   }
 
+  async function enableNotifications() {
+    if (typeof Notification === "undefined") {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+  }
+
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      void refreshConversations();
-      void refreshMessages();
-    }, 5000);
-    return () => window.clearInterval(timer);
-  });
+    setNotificationPermission(
+      typeof Notification === "undefined" ? "unsupported" : Notification.permission
+    );
+  }, []);
+
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = totalUnread > 0
+      ? `(${totalUnread}) WhatsApp | Opportunity Desk`
+      : previousTitle.replace(/^\(\d+\)\s*/, "");
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [totalUnread]);
+
+  useEffect(() => {
+    let socket: WebSocket | null = null;
+    let reconnectTimer: number | null = null;
+    let stopped = false;
+    let retryDelay = 1000;
+
+    const connect = () => {
+      if (stopped) return;
+      socket = new WebSocket(getRealtimeUrl());
+      socket.onopen = () => {
+        retryDelay = 1000;
+        setRealtimeConnected(true);
+      };
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(String(event.data)) as { type?: string };
+          if (payload.type === "whatsapp.updated") {
+            void syncInbox(true);
+          }
+        } catch {
+          // Ignore malformed realtime control messages.
+        }
+      };
+      socket.onerror = () => socket?.close();
+      socket.onclose = () => {
+        setRealtimeConnected(false);
+        if (stopped) return;
+        reconnectTimer = window.setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 30_000);
+      };
+    };
+
+    connect();
+    const fallbackTimer = window.setInterval(() => {
+      void syncInbox(true);
+    }, 30_000);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void syncInbox(true);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      stopped = true;
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      window.clearInterval(fallbackTimer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      socket?.close();
+    };
+  }, [syncInbox]);
 
   return (
     <div className="grid min-h-[calc(100vh-180px)] overflow-hidden rounded-lg border border-slate-800 bg-slate-950 lg:grid-cols-[340px_minmax(0,1fr)]">
@@ -125,18 +295,51 @@ export function WhatsAppInbox({
           <div className="flex min-w-0 items-center gap-2">
             <Smartphone className="h-4 w-4 text-cyan-300" aria-hidden="true" />
             <p className="truncate text-sm font-semibold text-slate-100">WhatsApp</p>
+            {totalUnread > 0 ? (
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-cyan-400 px-1.5 text-[11px] font-semibold text-slate-950">
+                {totalUnread}
+              </span>
+            ) : null}
           </div>
-          <Button
-            aria-label="Refresh conversations"
-            size="icon"
-            variant="ghost"
-            onClick={() => {
-              void refreshConversations();
-              void refreshMessages();
-            }}
-          >
-            <RefreshCcw className="h-4 w-4" aria-hidden="true" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <span
+              className={realtimeConnected ? "text-emerald-400" : "text-amber-400"}
+              title={realtimeConnected ? "Tempo real conectado" : "Reconectando tempo real"}
+            >
+              {realtimeConnected ? (
+                <Wifi className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <WifiOff className="h-4 w-4" aria-hidden="true" />
+              )}
+            </span>
+            <Button
+              aria-label="Ativar notificacoes"
+              title={
+                notificationPermission === "granted"
+                  ? "Notificacoes ativadas"
+                  : "Ativar notificacoes"
+              }
+              size="icon"
+              variant="ghost"
+              onClick={() => void enableNotifications()}
+              disabled={notificationPermission === "granted"}
+            >
+              {notificationPermission === "granted" ? (
+                <Bell className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <BellOff className="h-4 w-4" aria-hidden="true" />
+              )}
+            </Button>
+            <Button
+              aria-label="Atualizar conversas"
+              title="Atualizar conversas"
+              size="icon"
+              variant="ghost"
+              onClick={() => void syncInbox(false)}
+            >
+              <RefreshCcw className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </div>
         </div>
         <div className="max-h-[calc(100vh-236px)] overflow-y-auto">
           {conversations.length === 0 ? (

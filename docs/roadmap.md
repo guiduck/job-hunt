@@ -676,7 +676,16 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Persist Twilio-accepted bulk first contacts as outbound inbox conversations.
 - [x] Receive signed Twilio delivery callbacks and expose delivery/read/failure state in message bubbles.
 - [x] Provide an idempotent backfill for Twilio sends created before inbox persistence was fixed.
-- [ ] Add media messages and optional event-driven realtime fanout when polling is no longer sufficient.
+- [x] Add Redis/WebSocket event fanout with a slow polling fallback.
+- [x] Add per-conversation unread counts and opt-in browser notifications cleared when opened.
+- [ ] Add media messages and attachments.
+
+## 2026-08-27 - WhatsApp Inbound Realtime And Unread State
+
+- [x] Validate Twilio signatures against the exact public webhook URL behind Caddy.
+- [x] Persist inbound messages before publishing a generic Redis update event.
+- [x] Route `/ws` to a dedicated realtime service without exposing Redis publicly.
+- [x] Keep PostgreSQL as the source of truth and use 30-second polling only as a fallback.
 
 ## 2026-08-27 - Brazilian WhatsApp Number Hardening
 

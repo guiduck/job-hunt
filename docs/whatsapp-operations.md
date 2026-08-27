@@ -8,6 +8,18 @@
 Both endpoints validate `X-Twilio-Signature` with `TWILIO_AUTH_TOKEN`. Keep
 `TWILIO_DISABLE_WEBHOOK_VALIDATION` unset in production.
 
+Set the exact public base URL in the VPS environment so signature validation does not depend on the
+internal URL seen behind Caddy:
+
+```bash
+TWILIO_WEBHOOK_BASE_URL=https://freelance.gfig.space
+REDIS_URL=redis://redis:6379
+```
+
+The webhook validator also considers forwarded proxy headers, but `TWILIO_WEBHOOK_BASE_URL` is the
+authoritative production value. A rejected request logs safe diagnostics without exposing the auth
+token or request signature.
+
 For an individual WhatsApp Sender, configure both URLs under Messaging Endpoint Configuration.
 The incoming URL creates inbound messages and conversations. The status URL reconciles outbound
 states such as `sent`, `delivered`, `read`, `failed`, and `undelivered`.
@@ -17,7 +29,7 @@ states such as `sent`, `delivered`, `read`, `failed`, and `undelivered`.
 ```bash
 cd /srv/projects/job-hunt/job-hunt
 git pull
-docker compose --env-file .env.local up -d --build --force-recreate web web-worker
+docker compose --env-file .env.local up -d --build --force-recreate redis web web-worker whatsapp-realtime
 docker compose --env-file .env.local exec -T web npm run prisma:migrate
 docker compose --env-file .env.local exec -T web npm run whatsapp:normalize-lead-phones
 docker compose --env-file .env.local exec -T web npm run whatsapp:backfill-inbox
@@ -32,13 +44,28 @@ records that already exist.
 
 1. Refresh `/inbox`; outbound first-contact messages must appear before a lead replies.
 2. Open a conversation; each outbound bubble shows its current provider status.
-3. Reply from a recipient; the inbound webhook should add the reply and unread count within the
-   existing five-second inbox polling interval.
-4. Check web logs when needed:
+3. Reply from a recipient; the inbound webhook persists the reply and publishes a Redis event. The
+   inbox should update immediately through WebSocket. A 30-second poll remains as a fallback.
+4. The unread badge remains until that conversation is opened. Opening it marks inbound messages as
+   read locally and clears the badge; this is an inbox read state, not a WhatsApp read receipt.
+5. Click the bell icon once to grant browser notification permission. New unread replies in a
+   conversation that is not currently visible trigger a browser notification.
+6. Check web and realtime logs when needed:
 
 ```bash
 docker compose --env-file .env.local logs --tail 200 web
+docker compose --env-file .env.local logs --tail 200 whatsapp-realtime
 ```
+
+Expected inbound success log in `web`:
+
+```text
+Recorded inbound Twilio WhatsApp message
+```
+
+If Twilio shows a webhook attempt with HTTP `403`, compare the logged `candidates` with exactly
+`https://freelance.gfig.space/api/twilio/whatsapp/webhook`. If no request appears in `web` logs,
+check the sender URL, DNS, TLS, and Caddy before debugging Redis or the inbox.
 
 ## Brazilian mobile normalization
 

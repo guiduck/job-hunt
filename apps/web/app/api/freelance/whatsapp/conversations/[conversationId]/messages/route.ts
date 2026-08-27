@@ -9,13 +9,16 @@ import {
 } from "@/lib/freelance/whatsapp-conversation-service";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ conversationId: string }> }
 ) {
   const { conversationId } = await params;
   const scope = await getCurrentUserScope();
   const messages = await listWhatsAppMessages(scope, conversationId);
-  await markWhatsAppConversationRead(scope, conversationId);
+  const shouldMarkRead = new URL(request.url).searchParams.get("markRead") === "1";
+  if (shouldMarkRead) {
+    await markWhatsAppConversationRead(scope, conversationId);
+  }
   return NextResponse.json({ messages });
 }
 

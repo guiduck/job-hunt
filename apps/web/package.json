@@ -19,7 +19,8 @@
     "whatsapp:backfill-inbox": "tsx scripts/backfill-whatsapp-inbox.ts",
     "whatsapp:normalize-lead-phones": "tsx scripts/normalize-lead-phones.ts",
     "whatsapp:reset-gfig-test-lead": "tsx scripts/reset-gfig-test-lead.ts",
-    "whatsapp:reset-all-contacted-leads": "tsx scripts/reset-all-whatsapp-contacted-leads.ts"
+    "whatsapp:reset-all-contacted-leads": "tsx scripts/reset-all-whatsapp-contacted-leads.ts",
+    "realtime": "tsx realtime/server.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
@@ -28,12 +29,15 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "ioredis": "^6.0.0",
     "lucide-react": "^0.554.0",
     "next": "^16.0.5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "server-only": "^0.0.1",
     "tailwind-merge": "^3.4.0",
+    "twilio": "^6.1.0",
+    "ws": "^8.21.3",
     "zod": "^4.1.12",
     "zustand": "^5.0.8"
   },
@@ -44,6 +48,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
+    "@types/ws": "^8.18.1",
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.0.5",
     "jsdom": "^27.2.0",

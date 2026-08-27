@@ -1,8 +1,8 @@
-import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { OwnerScope } from "./repositories";
 import { normalizeOutreachPhone } from "./phone-normalization";
+import { publishWhatsAppRealtimeEvent } from "./whatsapp-realtime";
 
 const WHATSAPP_PREFIX = "whatsapp:";
 
@@ -131,27 +131,6 @@ async function findConversationLead(userId: string, leadId: string | null, conta
   return findLeadForPhone(userId, contactPhone);
 }
 
-export function isValidTwilioWebhookSignature(input: {
-  url: string;
-  params: Record<string, string>;
-  signature: string | null;
-  authToken?: string;
-}) {
-  if (process.env.TWILIO_DISABLE_WEBHOOK_VALIDATION === "true") return true;
-  if (!input.authToken || !input.signature) return false;
-  const sorted = Object.keys(input.params)
-    .sort()
-    .map((key) => `${key}${input.params[key]}`)
-    .join("");
-  const expected = crypto
-    .createHmac("sha1", input.authToken)
-    .update(`${input.url}${sorted}`)
-    .digest("base64");
-  const expectedBuffer = Buffer.from(expected);
-  const actualBuffer = Buffer.from(input.signature);
-  return expectedBuffer.length === actualBuffer.length && crypto.timingSafeEqual(expectedBuffer, actualBuffer);
-}
-
 export async function recordInboundTwilioWhatsAppMessage(payload: TwilioInboundPayload) {
   const fromPhone = normalizeWhatsAppAddress(payload.From);
   const toPhone = normalizeWhatsAppAddress(payload.To);
@@ -194,7 +173,7 @@ export async function recordInboundTwilioWhatsAppMessage(payload: TwilioInboundP
     }
   });
 
-  return prisma.whatsAppMessage.create({
+  const message = await prisma.whatsAppMessage.create({
     data: {
       userId,
       conversationId: conversation.id,
@@ -209,6 +188,12 @@ export async function recordInboundTwilioWhatsAppMessage(payload: TwilioInboundP
       payload: payload as Prisma.InputJsonObject
     }
   });
+  await publishWhatsAppRealtimeEvent({
+    userId,
+    conversationId: conversation.id,
+    reason: "inbound"
+  });
+  return message;
 }
 
 export async function recordOutboundWhatsAppMessage(input: {
@@ -259,7 +244,7 @@ export async function recordOutboundWhatsAppMessage(input: {
     }
   });
 
-  return prisma.whatsAppMessage.create({
+  const message = await prisma.whatsAppMessage.create({
     data: {
       userId: input.userId,
       conversationId: conversation.id,
@@ -274,6 +259,12 @@ export async function recordOutboundWhatsAppMessage(input: {
       payload: (input.payload ?? {}) as Prisma.InputJsonObject
     }
   });
+  await publishWhatsAppRealtimeEvent({
+    userId: input.userId,
+    conversationId: conversation.id,
+    reason: "outbound"
+  });
+  return message;
 }
 
 export async function recordTwilioWhatsAppStatus(payload: TwilioStatusPayload) {
@@ -334,6 +325,14 @@ export async function recordTwilioWhatsAppStatus(payload: TwilioStatusPayload) {
         payload
       });
     }
+  }
+
+  if (existingMessage) {
+    await publishWhatsAppRealtimeEvent({
+      userId: existingMessage.userId,
+      conversationId: existingMessage.conversationId,
+      reason: "status"
+    });
   }
 
   return { providerMessageId, providerStatus };
