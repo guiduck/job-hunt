@@ -1094,3 +1094,25 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - Installed OpenSSL and CA certificates in the image so Prisma can detect the supported runtime library.
 - Full VPS restarts should use `docker compose --env-file .env.local`; named database volumes must be preserved.
 - The Chrome extension is not a Compose service. Build it separately from `apps/extension` and reload the generated unpacked extension in Chrome.
+
+
+## 2026-08-26 - WhatsApp Sender Diagnostics
+
+- Twilio error 63007 was isolated to sender/account configuration, after template-variable validation succeeded.
+- WhatsApp readiness now states that environment values are present without claiming Twilio remotely validated sender ownership or ONLINE status.
+- Batches with only failed deliveries now finish as `failed`; repeated approval reports the stored provider failure instead of returning an empty result and does not retry automatically.
+- Validation: focused provider/status tests passed (11 tests) and TypeScript passed.
+
+## 2026-08-27 - WhatsApp Inbox Outbound Reconciliation
+
+- Fixed the bulk approval path so every Twilio-accepted WhatsApp send creates the outbound inbox
+  conversation/message immediately; previously only direct inbox replies called the persistence service.
+- Added `POST /api/twilio/whatsapp/status` with Twilio signature validation and monotonic delivery
+  reconciliation for `sent`, `delivered`, `read`, `failed`, and `undelivered`.
+- Added provider-status labels to outbound inbox bubbles and the idempotent
+  `npm run whatsapp:backfill-inbox` command for already-sent bulk messages.
+- Authentication was not the cause of the empty inbox: the current unconnected flow and its batches
+  both use the configured fallback owner (`DEFAULT_FREELANCE_USER_ID` or `local-operator`).
+- Validation: web TypeScript passed, production build passed, and 3 focused test files passed with
+  14 tests before the monotonic-status assertions were added; final focused validation is required.
+- Migration: not required.

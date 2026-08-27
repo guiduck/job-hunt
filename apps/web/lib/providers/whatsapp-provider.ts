@@ -37,8 +37,9 @@ function readinessFromConfig(config: ChannelRuntimeConfig): ChannelReadiness {
     missingEnvVars: [],
     dailyLimit: config.dailyLimit,
     remainingToday: config.dailyLimit,
-    diagnosticCode: "ready",
-    diagnosticMessage: "WhatsApp provider is configured and ready."
+    diagnosticCode: "credentials_configured",
+    diagnosticMessage:
+      "Twilio credentials and a WhatsApp sender value are configured. Sender ownership and ONLINE status are validated by Twilio when delivery is attempted."
   };
 }
 

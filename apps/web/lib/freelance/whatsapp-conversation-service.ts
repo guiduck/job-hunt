@@ -17,6 +17,55 @@ type TwilioInboundPayload = {
   MessageStatus?: string;
 };
 
+type TwilioStatusPayload = {
+  MessageSid?: string;
+  SmsSid?: string;
+  SmsMessageSid?: string;
+  MessageStatus?: string;
+  SmsStatus?: string;
+  ErrorCode?: string;
+  ErrorMessage?: string;
+  EventType?: string;
+};
+
+const TWILIO_MESSAGE_STATUSES = new Set([
+  "accepted",
+  "queued",
+  "sending",
+  "sent",
+  "delivered",
+  "read",
+  "failed",
+  "undelivered"
+]);
+
+export function normalizeTwilioMessageStatus(value?: string | null) {
+  const status = value?.trim().toLowerCase() ?? "";
+  return TWILIO_MESSAGE_STATUSES.has(status) ? status : "unknown";
+}
+
+const TWILIO_STATUS_RANK: Record<string, number> = {
+  unknown: -1,
+  accepted: 0,
+  queued: 1,
+  sending: 2,
+  sent: 3,
+  delivered: 4,
+  failed: 4,
+  undelivered: 4,
+  read: 5
+};
+
+export function shouldApplyTwilioMessageStatus(current: string | null | undefined, next: string) {
+  const currentStatus = normalizeTwilioMessageStatus(current);
+  const nextStatus = normalizeTwilioMessageStatus(next);
+  if (nextStatus === "unknown") return false;
+  if (currentStatus === "failed" || currentStatus === "undelivered" || currentStatus === "read") {
+    return currentStatus === nextStatus;
+  }
+  return TWILIO_STATUS_RANK[nextStatus] >= TWILIO_STATUS_RANK[currentStatus];
+}
+
 export type WhatsAppConversationView = {
   id: string;
   leadId: string | null;
@@ -225,6 +274,69 @@ export async function recordOutboundWhatsAppMessage(input: {
       payload: (input.payload ?? {}) as Prisma.InputJsonObject
     }
   });
+}
+
+export async function recordTwilioWhatsAppStatus(payload: TwilioStatusPayload) {
+  const providerMessageId = payload.MessageSid ?? payload.SmsMessageSid ?? payload.SmsSid;
+  const providerStatus = normalizeTwilioMessageStatus(
+    payload.EventType?.toUpperCase() === "READ"
+      ? "read"
+      : payload.MessageStatus ?? payload.SmsStatus
+  );
+  if (!providerMessageId || providerStatus === "unknown") {
+    throw new Error("Twilio status callback is missing a valid message SID or status.");
+  }
+
+  const existingMessage = await prisma.whatsAppMessage.findUnique({
+    where: {
+      providerName_providerMessageId: { providerName: "twilio", providerMessageId }
+    }
+  });
+  if (shouldApplyTwilioMessageStatus(existingMessage?.providerStatus, providerStatus)) {
+    await prisma.whatsAppMessage.updateMany({
+      where: { providerName: "twilio", providerMessageId },
+      data: { providerStatus, payload: payload as Prisma.InputJsonObject }
+    });
+  }
+
+  const item = await prisma.bulkOutreachItem.findFirst({
+    where: { providerName: "twilio", providerMessageId }
+  });
+  if (item) {
+    const applyToItem = shouldApplyTwilioMessageStatus(item.providerStatus, providerStatus);
+    const effectiveStatus = applyToItem
+      ? providerStatus
+      : normalizeTwilioMessageStatus(item.providerStatus);
+    const failed = effectiveStatus === "failed" || effectiveStatus === "undelivered";
+    if (applyToItem) {
+      await prisma.bulkOutreachItem.update({
+        where: { id: item.id },
+        data: {
+          status: failed ? "failed_send" : item.status,
+          providerStatus,
+          providerErrorCode: failed ? payload.ErrorCode ?? "twilio_delivery_failed" : null,
+          providerErrorMessage: failed
+            ? payload.ErrorMessage ?? ("Twilio reported " + providerStatus + ".")
+            : null
+        }
+      });
+    }
+
+    if (!existingMessage && item.message) {
+      await recordOutboundWhatsAppMessage({
+        userId: item.userId,
+        leadId: item.leadId,
+        to: item.recipientWhatsapp ?? item.recipientPhone ?? "",
+        from: process.env.TWILIO_WHATSAPP_FROM ?? "",
+        body: item.message,
+        providerMessageId,
+        providerStatus: effectiveStatus,
+        payload
+      });
+    }
+  }
+
+  return { providerMessageId, providerStatus };
 }
 
 export async function listWhatsAppConversations(scope: OwnerScope): Promise<WhatsAppConversationView[]> {

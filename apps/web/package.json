@@ -15,7 +15,8 @@
     "worker": "tsx worker/index.ts",
     "db:bootstrap": "tsx scripts/bootstrap-db.ts",
     "prisma:migrate": "tsx scripts/bootstrap-db.ts",
-    "prisma:seed": "prisma db seed"
+    "prisma:seed": "prisma db seed",
+    "whatsapp:backfill-inbox": "tsx scripts/backfill-whatsapp-inbox.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

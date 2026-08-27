@@ -176,3 +176,15 @@ Specify the next Freelance WhatsApp hardening slice: receive Twilio delivery sta
 ## Next Candidate: Immutable Web Images And Zero-Downtime Deployment
 
 Specify a production deployment flow that builds immutable web images, runs database bootstrap as a one-off task, performs health checks before traffic switches, and avoids stale Next.js Server Action requests during releases.
+
+
+## Next Candidate: Twilio Sender Preflight
+
+Specify a safe Twilio sender preflight that checks the configured Account SID against the Senders API, verifies that `TWILIO_WHATSAPP_FROM` is present and ONLINE, caches only non-secret status metadata, and surfaces actionable configuration diagnostics before an operator approves delivery.
+
+## Freelance WhatsApp Inbox Reconciliation Note
+
+Preserve immediate inbox persistence for every Twilio-accepted bulk WhatsApp message, signed inbound
+and delivery-status webhooks, monotonic status transitions, and the idempotent historical backfill.
+A future inbox spec may add media, assignment, search, and event-driven realtime updates, but must not
+make Redis/WebSockets mandatory while the current five-second polling model remains sufficient.

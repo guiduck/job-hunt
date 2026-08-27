@@ -2,7 +2,9 @@ import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   isValidTwilioWebhookSignature,
-  normalizeWhatsAppAddress
+  normalizeTwilioMessageStatus,
+  normalizeWhatsAppAddress,
+  shouldApplyTwilioMessageStatus
 } from "@/lib/freelance/whatsapp-conversation-service";
 
 function sign(url: string, params: Record<string, string>, token: string) {
@@ -17,6 +19,15 @@ describe("whatsapp conversation service", () => {
   it("normalizes Twilio WhatsApp addresses to E.164 phone numbers", () => {
     expect(normalizeWhatsAppAddress("whatsapp:+55 61 9 9913-6993")).toBe("+5561999136993");
     expect(normalizeWhatsAppAddress("5561999136993")).toBe("+5561999136993");
+  });
+
+  it("normalizes final Twilio delivery statuses", () => {
+    expect(normalizeTwilioMessageStatus("DELIVERED")).toBe("delivered");
+    expect(normalizeTwilioMessageStatus("undelivered")).toBe("undelivered");
+    expect(normalizeTwilioMessageStatus("unexpected")).toBe("unknown");
+    expect(shouldApplyTwilioMessageStatus("queued", "delivered")).toBe(true);
+    expect(shouldApplyTwilioMessageStatus("delivered", "sent")).toBe(false);
+    expect(shouldApplyTwilioMessageStatus("read", "delivered")).toBe(false);
   });
 
   it("validates Twilio webhook signatures from url and sorted form params", () => {

@@ -18,6 +18,21 @@ function formatTime(value: string | null) {
   }).format(new Date(value));
 }
 
+
+function deliveryLabel(status: string) {
+  const labels: Record<string, string> = {
+    accepted: "Aceita",
+    queued: "Na fila",
+    sending: "Enviando",
+    sent: "Enviada",
+    delivered: "Entregue",
+    read: "Lida",
+    failed: "Falhou",
+    undelivered: "Nao entregue"
+  };
+  return labels[status.toLowerCase()] ?? status;
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
   const body = (await response.json().catch(() => ({}))) as T & { error?: string };
@@ -196,6 +211,9 @@ export function WhatsAppInbox({
                   <p className="whitespace-pre-wrap break-words">{message.body}</p>
                   <p className={`mt-1 text-right text-[11px] ${outbound ? "text-slate-800" : "text-slate-500"}`}>
                     {formatTime(message.occurredAt)}
+                    {outbound && message.providerStatus
+                      ? ` | ${deliveryLabel(message.providerStatus)}`
+                      : ""}
                   </p>
                 </div>
               </div>

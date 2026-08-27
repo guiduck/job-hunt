@@ -664,3 +664,16 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 
 - [x] Provide a shared OpenSSL-enabled Docker runtime for the freelance web app and worker.
 - [x] Document full-stack Compose restart semantics and separate extension build handling.
+
+
+## 2026-08-26 - WhatsApp Delivery Diagnostics
+
+- [x] Distinguish local credential presence from Twilio sender validation.
+- [x] Mark all-failed outreach batches as failed and preserve the provider diagnostic on repeated approval.
+
+## 2026-08-27 - WhatsApp Inbox Delivery Reconciliation
+
+- [x] Persist Twilio-accepted bulk first contacts as outbound inbox conversations.
+- [x] Receive signed Twilio delivery callbacks and expose delivery/read/failure state in message bubbles.
+- [x] Provide an idempotent backfill for Twilio sends created before inbox persistence was fixed.
+- [ ] Add media messages and optional event-driven realtime fanout when polling is no longer sufficient.
