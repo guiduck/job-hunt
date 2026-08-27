@@ -705,3 +705,10 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Block duplicates only after provider acceptance creates a sent event.
 - [x] Compare the exact normalized recipient during both batch creation and approval.
 - [x] Provide a guarded local-history reset for the GFig test lead.
+
+
+## 2026-08-27 - Global WhatsApp Retest Reset
+
+- [x] Preview all leads currently blocked by confirmed WhatsApp first-contact history.
+- [x] Require explicit `--confirm-all` before clearing the global contacted set.
+- [x] Preserve inbox conversations, replies, lead records, and provider audit logs.

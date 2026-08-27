@@ -18,7 +18,8 @@
     "prisma:seed": "prisma db seed",
     "whatsapp:backfill-inbox": "tsx scripts/backfill-whatsapp-inbox.ts",
     "whatsapp:normalize-lead-phones": "tsx scripts/normalize-lead-phones.ts",
-    "whatsapp:reset-gfig-test-lead": "tsx scripts/reset-gfig-test-lead.ts"
+    "whatsapp:reset-gfig-test-lead": "tsx scripts/reset-gfig-test-lead.ts",
+    "whatsapp:reset-all-contacted-leads": "tsx scripts/reset-all-whatsapp-contacted-leads.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

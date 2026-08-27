@@ -81,3 +81,22 @@ docker compose --env-file .env.local exec -T web npm run whatsapp:reset-gfig-tes
 
 The command requires exactly one lead named `GFig Software Factory Sandbox`; otherwise it aborts.
 It does not delete Twilio message logs and does not affect any other lead.
+
+
+## Resetting every contacted WhatsApp lead
+
+Use this only when intentionally restarting first-contact testing for every lead. Preview first:
+
+```bash
+docker compose --env-file .env.local exec -T web npm run whatsapp:reset-all-contacted-leads
+```
+
+The preview lists every affected lead and the number of blocking sent events. Confirm globally with:
+
+```bash
+docker compose --env-file .env.local exec -T web npm run whatsapp:reset-all-contacted-leads -- --confirm-all
+```
+
+This removes only WhatsApp first-contact `sent` events used by duplicate protection and releases
+items linked as `duplicate_blocked`. Leads, inbox conversations/messages, and Twilio logs are
+preserved. Afterward, close any open review modal and create a fresh selection.

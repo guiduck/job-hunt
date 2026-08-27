@@ -215,3 +215,10 @@ Preserve the distinction between preparation and actual provider acceptance: gen
 queued, interrupted, and failed items must not be presented as already contacted. Only a persisted
 sent event for the same normalized recipient may block another first-contact attempt. Any future
 retry/override UI must remain explicit and auditable, and must not weaken this default protection.
+
+
+## Global WhatsApp Retest Maintenance
+
+Preserve the preview-first global reset command for exceptional test resets. Production-facing retry
+features should prefer per-lead operator overrides with an audit marker instead of deleting sent
+events globally. Inbox conversations and provider logs must remain immutable during dedupe resets.

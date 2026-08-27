@@ -1162,3 +1162,12 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
   local outreach/inbox history while preserving all other leads and Twilio audit logs.
 - Validation: TypeScript passed and the complete unit suite passed with 93 tests.
 - Migration: not required for this correction; the previously added phone-integrity migration remains required.
+
+
+## 2026-08-27 - Global WhatsApp Contact-History Reset
+
+- Added preview-first `whatsapp:reset-all-contacted-leads` maintenance command.
+- Explicit `--confirm-all` removes every WhatsApp first-contact sent event used by duplicate
+  protection and releases linked duplicate-blocked items.
+- Inbox conversations/messages, lead records, and Twilio logs remain preserved.
+- TypeScript validation passed.
