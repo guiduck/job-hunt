@@ -1212,3 +1212,11 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - Current first-contact templates replace the prior Twilio Content SIDs in place. Portuguese uses `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID`; English uses `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN`. No `*_V2` environment variables remain in runtime code or documentation.
 - Production webhook signature validation uses `TWILIO_WEBHOOK_BASE_URL=https://freelance.gfig.space`; Twilio itself remains configured with the full inbound endpoint `/api/twilio/whatsapp/webhook` over HTTP POST.
 - Merge validation: Prisma Client generation passed, TypeScript passed, 7 focused files passed with 31 tests, and the optimized Next.js production build passed.
+
+## 2026-09-01 - Redis VPS Port Conflict
+
+- Removed the freelance Redis host-port publication because another VPS project owns host port
+  `6379`.
+- Freelance services still connect through `REDIS_URL=redis://redis:6379` on the internal Compose
+  network; the Redis data volume remains unchanged.
+- Host port `3001` remains assigned to the WhatsApp realtime service and the Caddy `/ws` proxy.

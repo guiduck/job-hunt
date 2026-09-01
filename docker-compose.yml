@@ -105,8 +105,6 @@ services:
     image: redis:7-alpine
     container_name: opportunity_desk_freelance_redis
     command: redis-server --appendonly yes
-    ports:
-      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - freelance_redis_data:/data
     healthcheck:

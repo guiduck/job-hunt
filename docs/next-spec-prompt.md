@@ -232,3 +232,9 @@ retry/override UI must remain explicit and auditable, and must not weaken this d
 Preserve the preview-first global reset command for exceptional test resets. Production-facing retry
 features should prefer per-lead operator overrides with an audit marker instead of deleting sent
 events globally. Inbox conversations and provider logs must remain immutable during dedupe resets.
+
+## VPS Redis Network Invariant
+
+Preserve Redis as an internal-only Compose dependency addressed by `redis://redis:6379`. Do not
+publish container port `6379` on the VPS host; multiple projects may run independent Redis services
+on the same server. Keep public realtime traffic routed through Caddy `/ws` to host port `3001`.

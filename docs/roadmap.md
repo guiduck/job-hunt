@@ -742,3 +742,8 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Standardize current PT/EN Twilio template delivery on the existing unsuffixed SID variables.
 - [x] Document the production webhook base URL separately from the full Twilio inbound endpoint.
 - [x] Validate the reconciled app with Prisma generation, TypeScript, focused tests, and a production build.
+
+## 2026-09-01 - VPS Redis Isolation
+
+- [x] Keep freelance Redis reachable only through the Compose network at `redis:6379`.
+- [x] Stop publishing host port `6379`, avoiding collisions with Redis instances from other VPS projects.
