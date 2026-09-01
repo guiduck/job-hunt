@@ -56,7 +56,7 @@ describe("bulk generation context", () => {
         offerTitle: "sites e landing pages focados em conversao",
         landingPagePrice: "2500",
         installments: 6,
-        deliveryTime: "15 dias"
+        deliveryTime: "15 days"
       } as never,
       diagnosis: sanitizeWhatsAppTemplateVariable("o site pode explicar melhor os serviços e facilitar o pedido de orçamento.\nlinha extra"),
       language: "pt-BR"
@@ -88,7 +88,8 @@ describe("bulk generation context", () => {
       lead,
       settings: {
         sellerName: "Guilherme",
-        landingPagePriceUsd: "1000"
+        landingPagePriceUsd: "1000",
+        deliveryTime: "15 dias"
       } as never,
       diagnosis: "the service offer and contact path could be clearer for potential customers.",
       language: "en"

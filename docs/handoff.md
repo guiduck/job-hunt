@@ -1108,6 +1108,107 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - New drafts use `primeiro_contato_site_v2` for Portuguese and `first_contact_website_v2` for English. The approved copy presents Guilherme as a web developer who built the analysis tool, connects an evidence-backed weakness to a predefined service category, includes price/timeline/payment terms, offers a low-cost prototype, invites a brief conversation, and signs with the configured portfolio URL.
 - The v2 mapping has 10 variables: seller name, business, niche, city/region, predefined service category, lead diagnosis, starting price, delivery estimate, payment terms, and portfolio/company website. Diagnosis remains single-line, evidence-constrained, and capped at 240 characters to keep the final message concise and within provider limits.
 - Service-category selection is deterministic across institutional website, landing-page conversion, technical SEO/local presence, website performance, user experience/service presentation, customer-service automation, and custom management system. Only available lead status, classification reasons, and operator notes participate.
-- V2 delivery requires `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_V2` or `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN_V2`. Legacy v1 SIDs remain supported for already-generated v1 drafts; v2 never falls back to a v1 SID.
+- The replacement templates use `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID` for Portuguese and `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN` for English. Updating those values replaces the previous templates in place; no version-suffixed environment variables are used.
 - No database migration required. The Templates page and seed definition expose the new bodies and 10-variable mapping.
 - Validation: focused generation/provider tests passed (2 files, 14 tests); full `tsc --noEmit` and the optimized Next.js production build passed. A broader UI run also surfaced three pre-existing stale assertions that still expect the former bulk-action labels/result formatting; the current component renders `Send 1` and status-only result rows.
+## 2026-08-26 - WhatsApp Sender Diagnostics
+
+- Twilio error 63007 was isolated to sender/account configuration, after template-variable validation succeeded.
+- WhatsApp readiness now states that environment values are present without claiming Twilio remotely validated sender ownership or ONLINE status.
+- Batches with only failed deliveries now finish as `failed`; repeated approval reports the stored provider failure instead of returning an empty result and does not retry automatically.
+- Validation: focused provider/status tests passed (11 tests) and TypeScript passed.
+
+## 2026-08-27 - WhatsApp Inbox Outbound Reconciliation
+
+- Fixed the bulk approval path so every Twilio-accepted WhatsApp send creates the outbound inbox
+  conversation/message immediately; previously only direct inbox replies called the persistence service.
+- Added `POST /api/twilio/whatsapp/status` with Twilio signature validation and monotonic delivery
+  reconciliation for `sent`, `delivered`, `read`, `failed`, and `undelivered`.
+- Added provider-status labels to outbound inbox bubbles and the idempotent
+  `npm run whatsapp:backfill-inbox` command for already-sent bulk messages.
+- Authentication was not the cause of the empty inbox: the current unconnected flow and its batches
+  both use the configured fallback owner (`DEFAULT_FREELANCE_USER_ID` or `local-operator`).
+- Validation: web TypeScript passed, production build passed, and 3 focused test files passed with
+  14 tests before the monotonic-status assertions were added; final focused validation is required.
+- Migration: not required.
+
+## 2026-08-27 - Brazilian WhatsApp Ninth-Digit Guard
+
+- Centralized Brazilian E.164 normalization and now applies it when leads are saved, bulk recipients
+  are prepared, inbox addresses are matched, and immediately before Twilio receives the `To` value.
+- Legacy mobile `+556182724656` is sent as `whatsapp:+5561982724656`; Brazilian landlines and the
+  configured Twilio `From` sender remain unchanged.
+- Added `npm run whatsapp:normalize-lead-phones` to repair existing lead records idempotently.
+- Historical delivery records are intentionally immutable; a past `delivered` status must be checked
+  by Twilio Message SID and is not silently reclassified after phone repair.
+- Migration: not required.
+
+## 2026-08-27 - WhatsApp Delivery-Time Localization
+
+- Fixed Twilio template variable 7 so a saved `deliveryTime` such as `15 days` becomes `15 dias`
+  for `pt-BR`, while `15 dias` becomes `15 days` for English.
+- The approved Twilio templates remain unchanged because the complete timeline is already variable
+  `{{7}}`; the defect was in local variable construction.
+- Existing generated drafts are immutable snapshots and must be regenerated to receive the fix.
+- Validation: focused WhatsApp generation/provider/phone/inbox suite passed with 17 tests; TypeScript passed.
+- Migration: not required.
+
+## 2026-08-27 - Database Phone Integrity And Reply Test Readiness
+
+- Added migration `20260827000100_brazilian_phone_integrity`: repairs legacy Brazilian mobile
+  numbers, including GFig `+556182724656` to `+5561982724656`, and adds general E.164 plus
+  Brazil-specific phone/WhatsApp check constraints.
+- Invalid Brazilian contacts that cannot be normalized are cleared instead of remaining sendable.
+- Duplicate first-contact protection now keys the blocking event to the actual recipient, allowing
+  one corrected-number send while still blocking repeats to the same destination.
+- The final Twilio provider rejects invalid recipients locally before making an HTTP request.
+- Migration SQL was validated against PostgreSQL: repaired GFig correctly, preserved a US E.164
+  number, and rejected insertion of the old incomplete Brazilian mobile.
+- Migration: required.
+
+
+## 2026-08-27 - Accurate WhatsApp Contacted State And Test Reset
+
+- Draft generation was confirmed not to be the direct blocker: it writes only a `generated` event.
+- Fixed duplicate detection so interrupted `queued_send` records no longer appear as already
+  contacted; only provider-accepted `sent` events block another first contact.
+- Initial batch review now compares the exact normalized recipient, matching the approval-time guard.
+- Added a guarded GFig-only reset command with preview mode and explicit `--confirm`; it clears the
+  local outreach/inbox history while preserving all other leads and Twilio audit logs.
+- Validation: TypeScript passed and the complete unit suite passed with 93 tests.
+- Migration: not required for this correction; the previously added phone-integrity migration remains required.
+
+
+## 2026-08-27 - Global WhatsApp Contact-History Reset
+
+- Added preview-first `whatsapp:reset-all-contacted-leads` maintenance command.
+- Explicit `--confirm-all` removes every WhatsApp first-contact sent event used by duplicate
+  protection and releases linked duplicate-blocked items.
+- Inbox conversations/messages, lead records, and Twilio logs remain preserved.
+- TypeScript validation passed.
+
+## 2026-08-27 - WhatsApp Inbound Realtime And Unread Notifications
+
+- Replaced fragile manual Twilio signature handling with the official Twilio validator and public
+  URL reconstruction for Caddy/reverse-proxy deployments. Production should set
+  `TWILIO_WEBHOOK_BASE_URL=https://freelance.gfig.space`.
+- Added Redis pub/sub plus a dedicated `whatsapp-realtime` WebSocket service. PostgreSQL remains the
+  source of truth; Redis events contain identifiers/reasons only and trigger API refreshes.
+- The inbox now receives immediate updates, reconnects with backoff, and polls every 30 seconds as a
+  fallback. It shows total/per-conversation unread badges and opt-in browser notifications.
+- Opening a conversation clears its local unread count. No persistent "unanswered" state was added.
+- Caddy must route `/ws` to `127.0.0.1:3001` before the general Next.js proxy.
+- Validation: TypeScript passed; the 4 focused webhook/signature tests passed; Compose config passed;
+  the Redis -> WebSocket broadcast was exercised locally; and the production build generated a
+  valid `.next/BUILD_ID`.
+- The complete existing test suite still has 4 stale integration assertions expecting the previous
+  bulk-review labels/details (`Approve Email delivery`, `Approve WhatsApp delivery`, and the old
+  per-item delivery text). The current component renders `Send 1` and compact result text. These
+  failures are outside the inbox change and should be updated in a separate test-alignment pass.
+
+## 2026-09-01 - Master Reconciliation And Current Twilio Template SIDs
+
+- Reconciled local commit `786f85d` with `origin/master` through `68be9a3`, preserving both the full-width/resizable inbox work and the remote realtime, unread notification, delivery-status, phone-integrity, and operational tooling changes.
+- Current first-contact templates replace the prior Twilio Content SIDs in place. Portuguese uses `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID`; English uses `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN`. No `*_V2` environment variables remain in runtime code or documentation.
+- Production webhook signature validation uses `TWILIO_WEBHOOK_BASE_URL=https://freelance.gfig.space`; Twilio itself remains configured with the full inbound endpoint `/api/twilio/whatsapp/webhook` over HTTP POST.
+- Merge validation: Prisma Client generation passed, TypeScript passed, 7 focused files passed with 31 tests, and the optimized Next.js production build passed.

@@ -1,7 +1,8 @@
-import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { OwnerScope } from "./repositories";
+import { normalizeOutreachPhone } from "./phone-normalization";
+import { publishWhatsAppRealtimeEvent } from "./whatsapp-realtime";
 
 const WHATSAPP_PREFIX = "whatsapp:";
 
@@ -16,6 +17,55 @@ type TwilioInboundPayload = {
   SmsStatus?: string;
   MessageStatus?: string;
 };
+
+type TwilioStatusPayload = {
+  MessageSid?: string;
+  SmsSid?: string;
+  SmsMessageSid?: string;
+  MessageStatus?: string;
+  SmsStatus?: string;
+  ErrorCode?: string;
+  ErrorMessage?: string;
+  EventType?: string;
+};
+
+const TWILIO_MESSAGE_STATUSES = new Set([
+  "accepted",
+  "queued",
+  "sending",
+  "sent",
+  "delivered",
+  "read",
+  "failed",
+  "undelivered"
+]);
+
+export function normalizeTwilioMessageStatus(value?: string | null) {
+  const status = value?.trim().toLowerCase() ?? "";
+  return TWILIO_MESSAGE_STATUSES.has(status) ? status : "unknown";
+}
+
+const TWILIO_STATUS_RANK: Record<string, number> = {
+  unknown: -1,
+  accepted: 0,
+  queued: 1,
+  sending: 2,
+  sent: 3,
+  delivered: 4,
+  failed: 4,
+  undelivered: 4,
+  read: 5
+};
+
+export function shouldApplyTwilioMessageStatus(current: string | null | undefined, next: string) {
+  const currentStatus = normalizeTwilioMessageStatus(current);
+  const nextStatus = normalizeTwilioMessageStatus(next);
+  if (nextStatus === "unknown") return false;
+  if (currentStatus === "failed" || currentStatus === "undelivered" || currentStatus === "read") {
+    return currentStatus === nextStatus;
+  }
+  return TWILIO_STATUS_RANK[nextStatus] >= TWILIO_STATUS_RANK[currentStatus];
+}
 
 export type WhatsAppConversationView = {
   id: string;
@@ -46,8 +96,7 @@ export function normalizeWhatsAppAddress(value?: string | null) {
   const withoutPrefix = value.trim().toLowerCase().startsWith(WHATSAPP_PREFIX)
     ? value.trim().slice(WHATSAPP_PREFIX.length)
     : value.trim();
-  const normalized = withoutPrefix.replace(/[()\s-]/g, "");
-  return normalized.startsWith("+") ? normalized : normalized ? `+${normalized}` : "";
+  return normalizeOutreachPhone(withoutPrefix) ?? "";
 }
 
 function fallbackOwnerUserId() {
@@ -80,27 +129,6 @@ async function findConversationLead(userId: string, leadId: string | null, conta
     if (lead) return lead;
   }
   return findLeadForPhone(userId, contactPhone);
-}
-
-export function isValidTwilioWebhookSignature(input: {
-  url: string;
-  params: Record<string, string>;
-  signature: string | null;
-  authToken?: string;
-}) {
-  if (process.env.TWILIO_DISABLE_WEBHOOK_VALIDATION === "true") return true;
-  if (!input.authToken || !input.signature) return false;
-  const sorted = Object.keys(input.params)
-    .sort()
-    .map((key) => `${key}${input.params[key]}`)
-    .join("");
-  const expected = crypto
-    .createHmac("sha1", input.authToken)
-    .update(`${input.url}${sorted}`)
-    .digest("base64");
-  const expectedBuffer = Buffer.from(expected);
-  const actualBuffer = Buffer.from(input.signature);
-  return expectedBuffer.length === actualBuffer.length && crypto.timingSafeEqual(expectedBuffer, actualBuffer);
 }
 
 export async function recordInboundTwilioWhatsAppMessage(payload: TwilioInboundPayload) {
@@ -145,7 +173,7 @@ export async function recordInboundTwilioWhatsAppMessage(payload: TwilioInboundP
     }
   });
 
-  return prisma.whatsAppMessage.create({
+  const message = await prisma.whatsAppMessage.create({
     data: {
       userId,
       conversationId: conversation.id,
@@ -160,6 +188,12 @@ export async function recordInboundTwilioWhatsAppMessage(payload: TwilioInboundP
       payload: payload as Prisma.InputJsonObject
     }
   });
+  await publishWhatsAppRealtimeEvent({
+    userId,
+    conversationId: conversation.id,
+    reason: "inbound"
+  });
+  return message;
 }
 
 export async function recordOutboundWhatsAppMessage(input: {
@@ -210,7 +244,7 @@ export async function recordOutboundWhatsAppMessage(input: {
     }
   });
 
-  return prisma.whatsAppMessage.create({
+  const message = await prisma.whatsAppMessage.create({
     data: {
       userId: input.userId,
       conversationId: conversation.id,
@@ -225,6 +259,83 @@ export async function recordOutboundWhatsAppMessage(input: {
       payload: (input.payload ?? {}) as Prisma.InputJsonObject
     }
   });
+  await publishWhatsAppRealtimeEvent({
+    userId: input.userId,
+    conversationId: conversation.id,
+    reason: "outbound"
+  });
+  return message;
+}
+
+export async function recordTwilioWhatsAppStatus(payload: TwilioStatusPayload) {
+  const providerMessageId = payload.MessageSid ?? payload.SmsMessageSid ?? payload.SmsSid;
+  const providerStatus = normalizeTwilioMessageStatus(
+    payload.EventType?.toUpperCase() === "READ"
+      ? "read"
+      : payload.MessageStatus ?? payload.SmsStatus
+  );
+  if (!providerMessageId || providerStatus === "unknown") {
+    throw new Error("Twilio status callback is missing a valid message SID or status.");
+  }
+
+  const existingMessage = await prisma.whatsAppMessage.findUnique({
+    where: {
+      providerName_providerMessageId: { providerName: "twilio", providerMessageId }
+    }
+  });
+  if (shouldApplyTwilioMessageStatus(existingMessage?.providerStatus, providerStatus)) {
+    await prisma.whatsAppMessage.updateMany({
+      where: { providerName: "twilio", providerMessageId },
+      data: { providerStatus, payload: payload as Prisma.InputJsonObject }
+    });
+  }
+
+  const item = await prisma.bulkOutreachItem.findFirst({
+    where: { providerName: "twilio", providerMessageId }
+  });
+  if (item) {
+    const applyToItem = shouldApplyTwilioMessageStatus(item.providerStatus, providerStatus);
+    const effectiveStatus = applyToItem
+      ? providerStatus
+      : normalizeTwilioMessageStatus(item.providerStatus);
+    const failed = effectiveStatus === "failed" || effectiveStatus === "undelivered";
+    if (applyToItem) {
+      await prisma.bulkOutreachItem.update({
+        where: { id: item.id },
+        data: {
+          status: failed ? "failed_send" : item.status,
+          providerStatus,
+          providerErrorCode: failed ? payload.ErrorCode ?? "twilio_delivery_failed" : null,
+          providerErrorMessage: failed
+            ? payload.ErrorMessage ?? ("Twilio reported " + providerStatus + ".")
+            : null
+        }
+      });
+    }
+
+    if (!existingMessage && item.message) {
+      await recordOutboundWhatsAppMessage({
+        userId: item.userId,
+        leadId: item.leadId,
+        to: item.recipientWhatsapp ?? item.recipientPhone ?? "",
+        from: process.env.TWILIO_WHATSAPP_FROM ?? "",
+        body: item.message,
+        providerMessageId,
+        providerStatus: effectiveStatus,
+        payload
+      });
+    }
+  }
+
+  if (existingMessage) {
+    await publishWhatsAppRealtimeEvent({
+      userId: existingMessage.userId,
+      conversationId: existingMessage.conversationId,
+      reason: "status"
+    });
+  }
+
+  return { providerMessageId, providerStatus };
 }
 
 export async function listWhatsAppConversations(scope: OwnerScope): Promise<WhatsAppConversationView[]> {

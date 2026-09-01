@@ -1,3 +1,4 @@
+import { normalizeOutreachPhone } from "@/lib/freelance/phone-normalization";
 import { scrubProviderPayload } from "./outreach-diagnostics";
 import type {
   ChannelReadiness,
@@ -12,8 +13,6 @@ type TwilioWhatsAppProviderOptions = {
   from: string;
   templateContentSid?: string;
   templateContentSidEn?: string;
-  templateContentSidV2?: string;
-  templateContentSidEnV2?: string;
   dailyLimit: number;
   readiness: ChannelReadiness;
   fetchImpl?: typeof fetch;
@@ -24,12 +23,6 @@ function withWhatsappPrefix(value: string) {
 }
 
 function selectTemplateContentSid(options: TwilioWhatsAppProviderOptions, input: WhatsAppSendInput) {
-  const isV2 = input.templateName === "primeiro_contato_site_v2" || input.templateName === "first_contact_website_v2";
-  if (isV2) {
-    return input.templateLanguage === "en"
-      ? options.templateContentSidEnV2
-      : options.templateContentSidV2;
-  }
   if (input.templateLanguage === "en") {
     return options.templateContentSidEn;
   }
@@ -89,21 +82,25 @@ export function createTwilioWhatsAppProvider(
     },
     async send(input: WhatsAppSendInput) {
       try {
+        const normalizedTo = normalizeOutreachPhone(input.to);
+        if (!normalizedTo) {
+          return {
+            status: "failed_send",
+            providerName: "twilio",
+            diagnosticCode: "invalid_phone",
+            diagnosticMessage: "The WhatsApp recipient is not a valid E.164 phone number."
+          };
+        }
         const body = new URLSearchParams({
           From: withWhatsappPrefix(options.from),
-          To: withWhatsappPrefix(input.to)
+          To: withWhatsappPrefix(normalizedTo)
         });
         const templateContentSid = selectTemplateContentSid(options, input);
         if (input.templateVariables) {
           if (!templateContentSid) {
-            const isV2 = input.templateName === "primeiro_contato_site_v2" || input.templateName === "first_contact_website_v2";
-            const envName = isV2
-              ? input.templateLanguage === "en"
-                ? "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN_V2"
-                : "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_V2"
-              : input.templateLanguage === "en"
-                ? "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN"
-                : "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID";
+            const envName = input.templateLanguage === "en"
+              ? "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN"
+              : "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID";
             return {
               status: "failed_send",
               providerName: "twilio",

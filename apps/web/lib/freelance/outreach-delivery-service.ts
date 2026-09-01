@@ -15,6 +15,7 @@ import type {
 } from "@/lib/providers/outreach-provider";
 import { findDuplicateFirstContactOutreach } from "./duplicate-outreach-service";
 import { recordOutboundWhatsAppMessage } from "./whatsapp-conversation-service";
+import { deliveryBatchStatus } from "./constants";
 import {
   freelanceRepositories,
   recomputeBulkOutreachBatchCounters,
@@ -175,6 +176,24 @@ async function persistDeliveryResult(input: {
     }
   });
 
+
+  if (sent && item.channel === "whatsapp") {
+    try {
+      await recordOutboundWhatsAppMessage({
+        userId: input.userId,
+        leadId: item.leadId,
+        to: item.recipientWhatsapp ?? item.recipientPhone ?? "",
+        from: process.env.TWILIO_WHATSAPP_FROM ?? "",
+        body: item.message ?? "",
+        providerMessageId: input.result.providerMessageId,
+        providerStatus: input.result.providerStatus,
+        payload: input.result.safePayload
+      });
+    } catch (error) {
+      console.error("Unable to record bulk WhatsApp message in inbox.", error);
+    }
+  }
+
   return item;
 }
 
@@ -232,6 +251,16 @@ export async function approveBulkOutreachBatch(
       });
       continue;
     }
+    if (item.status === "failed_send") {
+      results.push({
+        itemId: item.id,
+        status: "failed_send",
+        providerName: item.providerName ?? undefined,
+        diagnosticCode: item.providerErrorCode ?? undefined,
+        diagnosticMessage: item.providerErrorMessage ?? undefined
+      });
+      continue;
+    }
     if (!canSendItem(item)) {
       continue;
     }
@@ -239,7 +268,8 @@ export async function approveBulkOutreachBatch(
       leadId: item.leadId,
       campaignId: item.campaignId,
       channel: item.channel,
-      stage: batch.stage
+      stage: batch.stage,
+      recipient: item.recipientEmail ?? item.recipientWhatsapp ?? item.recipientPhone
     });
     if (duplicate) {
       await freelanceRepositories.bulkOutreachItems.update({
@@ -341,8 +371,7 @@ export async function approveBulkOutreachBatch(
   }
 
   const counters = await recomputeBulkOutreachBatchCounters(batch.id);
-  const status =
-    counters.sentCount > 0 && counters.failedSendCount === 0 ? "sent" : counters.sentCount > 0 ? "partially_sent" : "approved";
+  const status = deliveryBatchStatus(counters);
   const completed = await freelanceRepositories.bulkOutreachBatches.update({
     where: { id: batch.id },
     data: {

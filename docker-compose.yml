@@ -101,6 +101,20 @@ services:
       api:
         condition: service_healthy
 
+  redis:
+    image: redis:7-alpine
+    container_name: opportunity_desk_freelance_redis
+    command: redis-server --appendonly yes
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - freelance_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   web:
     build:
       context: .
@@ -121,6 +135,8 @@ services:
       SERPAPI_API_KEY: ${SERPAPI_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       AI_FREELANCE_MODEL: ${AI_FREELANCE_MODEL:-gpt-4o-mini}
+      REDIS_URL: redis://redis:6379
+      TWILIO_WEBHOOK_BASE_URL: ${TWILIO_WEBHOOK_BASE_URL:-}
     command: >
       sh -c "npm install --include=dev &&
              npx prisma generate &&
@@ -131,6 +147,8 @@ services:
       - "${WEB_PORT:-3000}:3000"
     depends_on:
       freelance-postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   web-worker:
@@ -159,6 +177,39 @@ services:
       freelance-postgres:
         condition: service_healthy
 
+  whatsapp-realtime:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: opportunity-desk-web-runtime:node22
+    container_name: opportunity_desk_freelance_whatsapp_realtime
+    working_dir: /app/apps/web
+    env_file:
+      - .env.local
+    volumes:
+      - .:/app
+    environment:
+      REDIS_URL: redis://redis:6379
+      WHATSAPP_REALTIME_PORT: 3001
+      FREELANCE_WEB_APP_BASE_URL: ${FREELANCE_WEB_APP_BASE_URL:-http://localhost:3000}
+    command: >
+      sh -c "npm install --include=dev &&
+             npm run realtime"
+    ports:
+      - "127.0.0.1:${WHATSAPP_REALTIME_PORT:-3001}:3001"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3001/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      redis:
+        condition: service_healthy
+
   freelance-postgres:
     image: postgres:16-alpine
     container_name: opportunity_desk_freelance_postgres
@@ -181,3 +232,4 @@ services:
 volumes:
   postgres_data:
   freelance_postgres_data:
+  freelance_redis_data:

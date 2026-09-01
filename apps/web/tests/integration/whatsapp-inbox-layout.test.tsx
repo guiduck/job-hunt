@@ -20,7 +20,14 @@ const conversations = [
 
 describe("WhatsApp inbox layout", () => {
   it("places a prominent unread indicator before truncated conversation content", () => {
-    vi.stubGlobal("fetch", vi.fn());
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ conversations, messages: [] }), { status: 200 })
+        )
+      )
+    );
     render(
       <WhatsAppInbox
         initialConversations={conversations}
@@ -39,7 +46,14 @@ describe("WhatsApp inbox layout", () => {
   });
 
   it("exposes a keyboard-resizable separator", () => {
-    vi.stubGlobal("fetch", vi.fn());
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ conversations, messages: [] }), { status: 200 })
+        )
+      )
+    );
     render(
       <WhatsAppInbox
         initialConversations={conversations}

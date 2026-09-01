@@ -678,5 +678,67 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Replace the generic v1 first-contact copy with the approved PT/EN v2 positioning and direct conversation CTA.
 - [x] Add a closed service-category taxonomy and keep the lead-specific diagnosis tied to supplied evidence.
 - [x] Add the configured portfolio/company website to the signature and preserve localized pricing/payment behavior.
-- [x] Introduce versioned PT/EN ContentSid configuration so v2 cannot be sent through a legacy 9-variable SID.
-- [ ] Register and approve both v2 bodies in the Twilio Console, then configure the returned SIDs on the VPS before enabling v2 delivery.
+- [x] Replace the PT/EN ContentSid values through the existing unsuffixed environment variables.
+- [ ] Approve both replacement bodies in the Twilio Console before enabling business-initiated delivery.
+## 2026-08-26 - WhatsApp Delivery Diagnostics
+
+- [x] Distinguish local credential presence from Twilio sender validation.
+- [x] Mark all-failed outreach batches as failed and preserve the provider diagnostic on repeated approval.
+
+## 2026-08-27 - WhatsApp Inbox Delivery Reconciliation
+
+- [x] Persist Twilio-accepted bulk first contacts as outbound inbox conversations.
+- [x] Receive signed Twilio delivery callbacks and expose delivery/read/failure state in message bubbles.
+- [x] Provide an idempotent backfill for Twilio sends created before inbox persistence was fixed.
+- [x] Add Redis/WebSocket event fanout with a slow polling fallback.
+- [x] Add per-conversation unread counts and opt-in browser notifications cleared when opened.
+- [ ] Add media messages and attachments.
+
+## 2026-08-27 - WhatsApp Inbound Realtime And Unread State
+
+- [x] Validate Twilio signatures against the exact public webhook URL behind Caddy.
+- [x] Persist inbound messages before publishing a generic Redis update event.
+- [x] Route `/ws` to a dedicated realtime service without exposing Redis publicly.
+- [x] Keep PostgreSQL as the source of truth and use 30-second polling only as a fallback.
+
+## 2026-08-27 - Brazilian WhatsApp Number Hardening
+
+- [x] Normalize legacy eight-digit Brazilian mobile numbers at ingestion and final Twilio delivery.
+- [x] Preserve Brazilian landlines and the exact configured Twilio sender.
+- [x] Provide an idempotent repair command for existing lead records.
+- [ ] Consider Twilio Lookup validation before first contact when volume justifies the extra API cost.
+
+## 2026-08-27 - WhatsApp Timeline Localization
+
+- [x] Localize numeric day timelines in Twilio variable 7 for Portuguese and English templates.
+- [x] Preserve arbitrary operator-entered timeline text when it is not a simple day/dia expression.
+- [x] Cover both PT from English settings and EN from Portuguese settings in generation tests.
+
+## 2026-08-27 - Database Phone Integrity
+
+- [x] Repair legacy Brazilian mobile numbers in a Prisma migration.
+- [x] Enforce general E.164 and Brazil-specific phone shapes in PostgreSQL.
+- [x] Allow corrected-recipient testing without disabling same-recipient duplicate protection.
+- [x] Validate the migration behavior against a real PostgreSQL instance.
+
+
+## 2026-08-27 - Accurate First-Contact Deduplication
+
+- [x] Keep generated drafts retryable and exclude interrupted queued attempts from contacted state.
+- [x] Block duplicates only after provider acceptance creates a sent event.
+- [x] Compare the exact normalized recipient during both batch creation and approval.
+- [x] Provide a guarded local-history reset for the GFig test lead.
+
+
+## 2026-08-27 - Global WhatsApp Retest Reset
+
+- [x] Preview all leads currently blocked by confirmed WhatsApp first-contact history.
+- [x] Require explicit `--confirm-all` before clearing the global contacted set.
+- [x] Preserve inbox conversations, replies, lead records, and provider audit logs.
+
+## 2026-09-01 - Master And Twilio Configuration Reconciliation
+
+- [x] Merge the local first-contact template and inbox layout work with the latest remote realtime, delivery-status, phone-integrity, and operations changes.
+- [x] Standardize current PT/EN Twilio template delivery on the existing unsuffixed SID variables.
+- [x] Document the production webhook base URL separately from the full Twilio inbound endpoint.
+- [x] Validate the reconciled app with Prisma generation, TypeScript, focused tests, and a production build.

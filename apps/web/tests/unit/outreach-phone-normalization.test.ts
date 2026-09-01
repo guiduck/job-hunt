@@ -11,4 +11,10 @@ describe("outreach phone normalization", () => {
     expect(normalizeOutreachPhone("+55 61 3060-0506")).toBe("+556130600506");
     expect(normalizeOutreachPhone("+55 61 99819-8403")).toBe("+5561998198403");
   });
+
+  it("validates Brazilian and international E.164 lengths", () => {
+    expect(normalizeOutreachPhone("+55 61 1234-5678")).toBeNull();
+    expect(normalizeOutreachPhone("+1 (415) 555-2671", "United States")).toBe("+14155552671");
+    expect(normalizeOutreachPhone("123", "United States")).toBeNull();
+  });
 });

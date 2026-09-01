@@ -63,6 +63,17 @@ export const bulkOutreachBatchStatuses = [
   "partially_sent",
   "sent"
 ] as const;
+
+export function deliveryBatchStatus(counters: {
+  sentCount: number;
+  failedSendCount: number;
+}) {
+  if (counters.sentCount > 0 && counters.failedSendCount > 0) return "partially_sent" as const;
+  if (counters.sentCount > 0) return "sent" as const;
+  if (counters.failedSendCount > 0) return "failed" as const;
+  return "approved" as const;
+}
+
 export const bulkOutreachItemStatuses = [
   "queued",
   "generating",

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { recordInboundTwilioWhatsAppMessage } from "@/lib/freelance/whatsapp-conversation-service";
+import { recordTwilioWhatsAppStatus } from "@/lib/freelance/whatsapp-conversation-service";
 import { validateTwilioWebhookRequest } from "@/lib/freelance/twilio-webhook-security";
 
 export async function POST(request: Request) {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   });
 
   if (!validation.valid) {
-    console.error("Rejected Twilio WhatsApp webhook signature", {
+    console.error("Rejected Twilio WhatsApp status signature", {
       candidates: validation.candidates,
       hasSignature: Boolean(request.headers.get("x-twilio-signature")),
       hasAuthToken: Boolean(process.env.TWILIO_AUTH_TOKEN),
@@ -25,18 +25,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const message = await recordInboundTwilioWhatsAppMessage(params);
-    console.info("Recorded inbound Twilio WhatsApp message", {
-      providerMessageId: message.providerMessageId,
-      conversationId: message.conversationId,
-      validatedUrl: validation.validatedUrl
-    });
+    await recordTwilioWhatsAppStatus(params);
   } catch (error) {
-    console.error("Unable to record inbound WhatsApp message", error);
-    return NextResponse.json({ error: "Unable to record inbound WhatsApp message." }, { status: 400 });
+    console.error("Unable to record WhatsApp delivery status", error);
+    return NextResponse.json({ error: "Unable to record WhatsApp delivery status." }, { status: 400 });
   }
 
-  return new Response("<Response></Response>", {
-    headers: { "Content-Type": "text/xml" }
-  });
+  return new Response(null, { status: 200 });
 }

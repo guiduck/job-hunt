@@ -157,11 +157,11 @@ Recent extension hotfix: when LinkedIn renders `Candidatar-se` as `BUTTON.jobs-a
 
 ## Freelance WhatsApp Template Follow-up Candidate
 
-Recent implementation: apps/web generates new first-contact WhatsApp outreach with `primeiro_contato_site_v2` and its evidence-backed 10-variable mapping. Portuguese v2 delivery requires `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_V2`; legacy `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID` remains available only for already-generated v1 drafts. Future Spec Kit work should focus on delivery-status callbacks, operator-visible template/readiness diagnostics, and switching from template first contact to freeform AI follow-up after the lead replies. Preserve the existing checkbox bulk outreach flow and the safe no-v2-to-v1 fallback rule.
+Recent implementation: apps/web generates first-contact WhatsApp outreach with `primeiro_contato_site_v2` and its evidence-backed 10-variable mapping. Portuguese delivery uses the current value of `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID`. Future Spec Kit work should focus on delivery-status callbacks, operator-visible template/readiness diagnostics, and switching from template first contact to freeform AI follow-up after the lead replies. Preserve the existing checkbox bulk outreach flow.
 
 ## Freelance WhatsApp English Template Note
 
-Recent web implementation: first-contact WhatsApp v2 supports one versioned Twilio Content SID per language. Use `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_V2` for Portuguese and `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN_V2` for English. Keep the unsuffixed v1 variables only for legacy generated drafts. Future specs should preserve `twilioWhatsAppTemplate.templateName`, `templateLanguage`, the same 10-variable mapping across PT/EN v2 templates, and the existing checkbox bulk outreach approval flow.
+Recent web implementation: first-contact WhatsApp supports one current Twilio Content SID per language. Use `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID` for Portuguese and `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN` for English, replacing older values in place. Future specs should preserve `twilioWhatsAppTemplate.templateName`, `templateLanguage`, the same 10-variable mapping across PT/EN templates, and the existing checkbox bulk outreach approval flow.
 
 ## Freelance WhatsApp Inbox Follow-up Candidate
 
@@ -170,7 +170,7 @@ Recent web implementation: apps/web has a Twilio WhatsApp inbox MVP backed by `W
 
 ## Freelance WhatsApp Delivery Status And Retry Candidate
 
-Specify the next Freelance WhatsApp hardening slice: receive Twilio delivery status callbacks, persist queued/sent/delivered/failed transitions, surface the Twilio error code and safe diagnostic in the review modal and inbox, and define an explicit operator-confirmed retry path for previously contacted test leads. Preserve the exact versioned PT/EN v2 ContentSid mapping, the 10 validated ContentVariables, legacy v1 draft compatibility, automatic lead-language selection, eligibility skipping, and the checkbox-to-floating-action-to-review-modal workflow.
+Specify the next Freelance WhatsApp hardening slice: receive Twilio delivery status callbacks, persist queued/sent/delivered/failed transitions, surface the Twilio error code and safe diagnostic in the review modal and inbox, and define an explicit operator-confirmed retry path for previously contacted test leads. Preserve the PT/EN ContentSid mapping through the two unsuffixed environment variables, the 10 validated ContentVariables, automatic lead-language selection, eligibility skipping, and the checkbox-to-floating-action-to-review-modal workflow.
 
 
 ## Next Candidate: Immutable Web Images And Zero-Downtime Deployment
@@ -180,3 +180,55 @@ Specify a production deployment flow that builds immutable web images, runs data
 ## Freelance WhatsApp Inbox Layout Note
 
 Recent web implementation makes `/inbox` full-width, constrains long conversation rows without horizontal scrolling, places unread counters on the left, strengthens hover/selected contrast, and adds an accessible resizable desktop divider. Preserve these layout and keyboard behaviors in future inbox work. The next functional slice should still prioritize Twilio delivery-status callbacks, attachment/media support, and multi-user conversation assignment rather than replacing the current inbox surface.
+## Next Candidate: Twilio Sender Preflight
+
+Specify a safe Twilio sender preflight that checks the configured Account SID against the Senders API, verifies that `TWILIO_WHATSAPP_FROM` is present and ONLINE, caches only non-secret status metadata, and surfaces actionable configuration diagnostics before an operator approves delivery.
+
+## Freelance WhatsApp Inbox Reconciliation Note
+
+Preserve immediate inbox persistence for every Twilio-accepted bulk WhatsApp message, signed inbound
+and delivery-status webhooks, monotonic status transitions, and the idempotent historical backfill.
+A future inbox spec may add media, assignment, and search while preserving the current
+Redis/WebSocket invalidation path and 30-second polling fallback.
+
+## Freelance WhatsApp Realtime And Unread Note
+
+The inbox now uses Redis pub/sub and a dedicated WebSocket service for immediate invalidation, with
+PostgreSQL as the source of truth and a 30-second polling fallback. Preserve Twilio signature
+validation against the exact public webhook URL behind Caddy. Unread badges represent inbound
+messages not yet opened; opening the conversation clears them. Future work may add media,
+assignment, search, and mobile push, but must not reinterpret unread as unanswered.
+
+## Brazilian WhatsApp Phone Integrity Note
+
+Preserve shared E.164 normalization for Brazilian legacy mobile numbers at lead ingestion, review,
+inbox matching, and final provider submission. Never rewrite `TWILIO_WHATSAPP_FROM`; it must remain
+the exact sender registered by Twilio. Historical delivery records must not be silently rewritten.
+
+## WhatsApp Timeline Language Note
+
+Twilio first-contact variable 7 contains the full estimated timeline. Preserve deterministic
+localization so numeric day values use `dias` in `pt-BR` and `days` in English, regardless of the
+language in which the shared seller setting was originally stored.
+
+## Database Phone Constraint Note
+
+Preserve PostgreSQL E.164 constraints and the stricter Brazilian fixed/mobile shape. New country
+support should add explicit country-aware normalization without weakening Brazilian validation.
+Duplicate outreach protection must compare the actual recipient so corrected contacts can be retried
+without enabling repeated sends to the same address.
+
+
+## WhatsApp Contacted-State Invariant
+
+Preserve the distinction between preparation and actual provider acceptance: generated, edited,
+queued, interrupted, and failed items must not be presented as already contacted. Only a persisted
+sent event for the same normalized recipient may block another first-contact attempt. Any future
+retry/override UI must remain explicit and auditable, and must not weaken this default protection.
+
+
+## Global WhatsApp Retest Maintenance
+
+Preserve the preview-first global reset command for exceptional test resets. Production-facing retry
+features should prefer per-lead operator overrides with an audit marker instead of deleting sent
+events globally. Inbox conversations and provider logs must remain immutable during dedupe resets.
