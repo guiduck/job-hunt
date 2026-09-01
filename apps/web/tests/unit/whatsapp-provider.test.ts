@@ -159,6 +159,75 @@ describe("whatsapp provider", () => {
     expect(body.get("ContentVariables")).toBe(JSON.stringify({ "1": "there", "2": "Guilherme" }));
     expect(body.has("Body")).toBe(false);
   });
+  it("selects the versioned ContentSid for v2 templates without reusing the legacy SID", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ sid: "SM_TEMPLATE_V2", status: "queued" }), { status: 201 })
+    );
+    const provider = createTwilioWhatsAppProvider({
+      accountSid: "AC123",
+      authToken: "secret-token",
+      from: "+15555550000",
+      templateContentSid: "HX_PT_V1",
+      templateContentSidV2: "HX_PT_V2",
+      dailyLimit: 500,
+      readiness: {
+        channel: "whatsapp",
+        providerName: "twilio",
+        status: "ready",
+        requiredEnvVars: [],
+        missingEnvVars: []
+      },
+      fetchImpl
+    });
+
+    await provider.send({
+      to: "+15555550123",
+      message: "Preview only",
+      templateName: "primeiro_contato_site_v2",
+      templateLanguage: "pt-BR",
+      templateVariables: { "1": "Guilherme", "10": "www.gfig.space" },
+      metadata: { userId: "user_1", batchId: "batch_1", itemId: "item_1", leadId: "lead_1" }
+    });
+
+    const request = fetchImpl.mock.calls[0]?.[1] as RequestInit;
+    const body = request.body as URLSearchParams;
+    expect(body.get("ContentSid")).toBe("HX_PT_V2");
+  });
+
+  it("blocks a v2 template when only the legacy SID is configured", async () => {
+    const fetchImpl = vi.fn();
+    const provider = createTwilioWhatsAppProvider({
+      accountSid: "AC123",
+      authToken: "secret-token",
+      from: "+15555550000",
+      templateContentSid: "HX_PT_V1",
+      dailyLimit: 500,
+      readiness: {
+        channel: "whatsapp",
+        providerName: "twilio",
+        status: "ready",
+        requiredEnvVars: [],
+        missingEnvVars: []
+      },
+      fetchImpl
+    });
+
+    await expect(
+      provider.send({
+        to: "+15555550123",
+        message: "Preview only",
+        templateName: "primeiro_contato_site_v2",
+        templateLanguage: "pt-BR",
+        templateVariables: { "1": "Guilherme", "10": "www.gfig.space" },
+        metadata: { userId: "user_1", batchId: "batch_1", itemId: "item_1", leadId: "lead_1" }
+      })
+    ).resolves.toMatchObject({
+      status: "failed_send",
+      diagnosticCode: "missing_whatsapp_template_sid",
+      diagnosticMessage: expect.stringContaining("TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_V2")
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
   it("blocks empty or multiline template variables before calling Twilio", async () => {
     const fetchImpl = vi.fn();
     const provider = createTwilioWhatsAppProvider({

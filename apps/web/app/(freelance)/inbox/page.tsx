@@ -14,7 +14,7 @@ export default async function InboxPage() {
   const messages = selectedId ? await listWhatsAppMessages(scope, selectedId) : [];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="w-full min-w-0 space-y-5">
       <div>
         <p className="text-sm font-medium uppercase tracking-[0.18em] text-cyan-300">Inbox</p>
         <h1 className="mt-3 text-3xl font-semibold">WhatsApp conversations</h1>

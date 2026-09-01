@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildBulkCommercialDraft,
+  buildWhatsAppFirstContactFallbackDiagnosis,
+  buildWhatsAppFirstContactServiceCategory,
   buildWhatsAppFirstContactTemplateDraft,
   sanitizeWhatsAppTemplateVariable
 } from "@/lib/generation/commercial-message-builder";
@@ -56,21 +58,29 @@ describe("bulk generation context", () => {
         installments: 6,
         deliveryTime: "15 dias"
       } as never,
-      customText: sanitizeWhatsAppTemplateVariable("o site pode explicar melhor os servicos e facilitar o pedido de orcamento pelo celular.\nlinha extra"),
+      diagnosis: sanitizeWhatsAppTemplateVariable("o site pode explicar melhor os serviços e facilitar o pedido de orçamento.\nlinha extra"),
       language: "pt-BR"
     });
 
     expect(draft.templateVariables).toMatchObject({
-      "1": "pessoal",
-      "2": "Guilherme",
-      "3": "Example Clinic",
-      "5": "sites e landing pages focados em conversao",
-      "6": "a partir de R$ 2500",
-      "7": "15 dias",
-      "8": "6x sem juros"
+      "1": "Guilherme",
+      "2": "Example Clinic",
+      "3": "Clinic",
+      "4": "Austin",
+      "5": "landing page e conversão",
+      "6": "o site pode explicar melhor os serviços e facilitar o pedido de orçamento. linha extra",
+      "7": "R$ 2.500",
+      "8": "15 dias",
+      "9": "6x sem juros",
+      "10": "www.gfig.space"
     });
-    expect(draft.templateVariables["9"]).not.toContain("\n");
-    expect(draft.message).toContain("a partir de R$ 2500");
+    expect(draft.templateVariables["6"]).not.toContain("\n");
+    expect(Object.keys(draft.templateVariables)).toEqual([
+      "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"
+    ]);
+    expect(draft.message).toContain("Sites e landing pages começam em R$ 2.500");
+    expect(draft.message).toContain("Eu desenvolvi uma ferramenta de análise avançada");
+    expect(draft.message).toMatch(/Obrigado pela atenção\.$/);
   });
 
   it("builds English WhatsApp first-contact template variables for non-Brazil leads", () => {
@@ -80,22 +90,40 @@ describe("bulk generation context", () => {
         sellerName: "Guilherme",
         landingPagePriceUsd: "1000"
       } as never,
-      customText: "the contact path could be clearer for mobile visitors looking for an estimate.",
+      diagnosis: "the service offer and contact path could be clearer for potential customers.",
       language: "en"
     });
 
-    expect(draft.templateName).toBe("first_contact_website_v1");
+    expect(draft.templateName).toBe("first_contact_website_v2");
     expect(draft.templateLanguage).toBe("en");
     expect(draft.templateVariables).toMatchObject({
-      "1": "there",
-      "2": "Guilherme",
-      "3": "Example Clinic",
-      "4": "Clinic in Austin",
-      "5": "conversion-focused websites and landing pages",
-      "6": "starting at US$ 1000",
-      "7": "15 days",
-      "8": "payment terms defined after scope review"
+      "1": "Guilherme",
+      "2": "Example Clinic",
+      "3": "Clinic",
+      "4": "Austin",
+      "5": "landing-page conversion",
+      "6": "the service offer and contact path could be clearer for potential customers.",
+      "7": "US$ 1,000",
+      "8": "15 days",
+      "9": "payment terms defined after scope review",
+      "10": "www.gfig.space"
     });
-    expect(draft.message).toContain("starting at US$ 1000");
+    expect(draft.message).toContain("Websites and landing pages start at US$ 1,000");
+    expect(draft.message).toMatch(/Thank you for your time\.$/);
+  });
+
+  it("maps a lead without a website to the predefined website service and evidence-based diagnosis", () => {
+    const leadWithoutWebsite = {
+      ...(lead as unknown as Record<string, unknown>),
+      websiteStatus: "no_site",
+      classificationReasons: ["No website URL was available for this lead."]
+    } as never;
+
+    expect(buildWhatsAppFirstContactServiceCategory(leadWithoutWebsite, "pt-BR")).toBe(
+      "website institucional e apresentação dos serviços"
+    );
+    expect(buildWhatsAppFirstContactFallbackDiagnosis(leadWithoutWebsite, "pt-BR")).toContain(
+      "a empresa ainda não possui um website próprio"
+    );
   });
 });

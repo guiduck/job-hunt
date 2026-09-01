@@ -16,13 +16,13 @@ export const seedCommercialTemplates = [
   },
   {
     id: "system-first_contact-twilio",
-    name: "WhatsApp first contact - approved Twilio template",
+    name: "WhatsApp first contact - Twilio template v2",
     stage: "first_contact" as const,
     category: "twilio_first_contact",
     channel: "whatsapp",
     bodyTemplate: WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY,
     variablesSchema: {
-      required: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+      required: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
       optional: []
     }
   },

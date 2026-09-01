@@ -237,6 +237,31 @@ docker compose restart api worker web web-worker
 docker compose ps
 ```
 
+## Ativar Templates WhatsApp V2
+
+Cadastre e aprove na Twilio os templates `primeiro_contato_site_v2` e
+`first_contact_website_v2`, ambos com as 10 variaveis exibidas na pagina `/templates`.
+Depois de receber os SIDs `HX...`, adicione-os ao `.env.local` da VPS sem remover os SIDs v1:
+
+```dotenv
+TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_V2=HX_PORTUGUES_V2
+TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN_V2=HX_INGLES_V2
+```
+
+Atualize apenas os servicos do app Freelance, preservando os volumes nomeados:
+
+```bash
+cd /srv/projects/job-hunt/job-hunt
+git status --short
+git pull origin master
+docker compose --env-file .env.local up -d --build web web-worker
+docker compose --env-file .env.local ps
+docker compose --env-file .env.local logs --tail 100 web web-worker
+```
+
+Nao ha migration para essa alteracao. Enquanto os SIDs v2 nao estiverem configurados, novos
+rascunhos v2 ficam bloqueados de forma segura e nao usam os SIDs v1 por engano.
+
 ## Corrigir Push Com Arquivos De Cache
 
 Arquivos de `.next/`, `node_modules/`, `.turbo/`, `.plasmo/`, `*.tsbuildinfo` e caches parecidos nao

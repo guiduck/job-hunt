@@ -1094,3 +1094,20 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - Installed OpenSSL and CA certificates in the image so Prisma can detect the supported runtime library.
 - Full VPS restarts should use `docker compose --env-file .env.local`; named database volumes must be preserved.
 - The Chrome extension is not a Compose service. Build it separately from `apps/extension` and reload the generated unpacked extension in Chrome.
+
+## 2026-08-28 - Freelance WhatsApp Inbox Full-Width Resizable Layout
+
+- The Freelance `/inbox` now uses the full available page width and a viewport-filling conversation panel instead of the previous `max-w-6xl` constraint.
+- The conversation list now contains long business names, timestamps, and previews without horizontal scrolling. Unread counters appear in a fixed, prominent left column; hover, keyboard focus, and selected states have stronger contrast.
+- On desktop, the conversation list and message view are separated by a draggable divider. The separator also supports Left/Right arrows, Shift for a larger step, Home/End, and double-click reset; mobile keeps the stacked layout.
+- No API, database, Twilio provider, or message-template behavior changed. No migration required.
+- Validation: focused `whatsapp-inbox-layout.test.tsx` passed (2 tests); full `tsc --noEmit` and the optimized Next.js production build passed after local Prisma Client generation.
+
+## 2026-08-28 - Freelance WhatsApp First Contact Template V2
+
+- New drafts use `primeiro_contato_site_v2` for Portuguese and `first_contact_website_v2` for English. The approved copy presents Guilherme as a web developer who built the analysis tool, connects an evidence-backed weakness to a predefined service category, includes price/timeline/payment terms, offers a low-cost prototype, invites a brief conversation, and signs with the configured portfolio URL.
+- The v2 mapping has 10 variables: seller name, business, niche, city/region, predefined service category, lead diagnosis, starting price, delivery estimate, payment terms, and portfolio/company website. Diagnosis remains single-line, evidence-constrained, and capped at 240 characters to keep the final message concise and within provider limits.
+- Service-category selection is deterministic across institutional website, landing-page conversion, technical SEO/local presence, website performance, user experience/service presentation, customer-service automation, and custom management system. Only available lead status, classification reasons, and operator notes participate.
+- V2 delivery requires `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_V2` or `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN_V2`. Legacy v1 SIDs remain supported for already-generated v1 drafts; v2 never falls back to a v1 SID.
+- No database migration required. The Templates page and seed definition expose the new bodies and 10-variable mapping.
+- Validation: focused generation/provider tests passed (2 files, 14 tests); full `tsc --noEmit` and the optimized Next.js production build passed. A broader UI run also surfaced three pre-existing stale assertions that still expect the former bulk-action labels/result formatting; the current component renders `Send 1` and status-only result rows.

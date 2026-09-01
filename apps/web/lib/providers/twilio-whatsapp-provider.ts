@@ -12,6 +12,8 @@ type TwilioWhatsAppProviderOptions = {
   from: string;
   templateContentSid?: string;
   templateContentSidEn?: string;
+  templateContentSidV2?: string;
+  templateContentSidEnV2?: string;
   dailyLimit: number;
   readiness: ChannelReadiness;
   fetchImpl?: typeof fetch;
@@ -22,6 +24,12 @@ function withWhatsappPrefix(value: string) {
 }
 
 function selectTemplateContentSid(options: TwilioWhatsAppProviderOptions, input: WhatsAppSendInput) {
+  const isV2 = input.templateName === "primeiro_contato_site_v2" || input.templateName === "first_contact_website_v2";
+  if (isV2) {
+    return input.templateLanguage === "en"
+      ? options.templateContentSidEnV2
+      : options.templateContentSidV2;
+  }
   if (input.templateLanguage === "en") {
     return options.templateContentSidEn;
   }
@@ -88,14 +96,19 @@ export function createTwilioWhatsAppProvider(
         const templateContentSid = selectTemplateContentSid(options, input);
         if (input.templateVariables) {
           if (!templateContentSid) {
+            const isV2 = input.templateName === "primeiro_contato_site_v2" || input.templateName === "first_contact_website_v2";
+            const envName = isV2
+              ? input.templateLanguage === "en"
+                ? "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN_V2"
+                : "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_V2"
+              : input.templateLanguage === "en"
+                ? "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN"
+                : "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID";
             return {
               status: "failed_send",
               providerName: "twilio",
               diagnosticCode: "missing_whatsapp_template_sid",
-              diagnosticMessage:
-                input.templateLanguage === "en"
-                  ? "Configure TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN before sending an English first-contact template."
-                  : "Configure TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID before sending a Portuguese first-contact template."
+              diagnosticMessage: `Configure ${envName} before sending this first-contact template.`
             };
           }
           const invalidKeys = invalidTemplateVariables(input.templateVariables);

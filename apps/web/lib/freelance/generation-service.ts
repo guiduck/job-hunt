@@ -1,7 +1,8 @@
 import { Prisma } from "@prisma/client";
 import {
   buildCommercialMessage,
-  buildWhatsAppFirstContactFallbackCustomText,
+  buildWhatsAppFirstContactFallbackDiagnosis,
+  buildWhatsAppFirstContactServiceCategory,
   buildWhatsAppFirstContactTemplateDraft,
   detectLeadMessageLanguage,
   formatCommercialMessageForChannel,
@@ -293,24 +294,26 @@ export async function buildAiCommercialDraft({
   const fallback = buildCommercialMessage({ lead, template, settings });
   const context = buildLeadContext({ lead, settings, template, channel });
   if (channel === "whatsapp") {
-    const fallbackCustomText = buildWhatsAppFirstContactFallbackCustomText(lead, targetLanguage);
-    const generatedCustomText = await generateAiText({
-      fallback: fallbackCustomText,
+    const serviceCategory = buildWhatsAppFirstContactServiceCategory(lead, targetLanguage);
+    const fallbackDiagnosis = buildWhatsAppFirstContactFallbackDiagnosis(lead, targetLanguage);
+    const generatedDiagnosis = await generateAiText({
+      fallback: fallbackDiagnosis,
       context,
       system:
         "You write one short WhatsApp template variable for first-contact commercial outreach. Use only supplied lead evidence. Do not invent audit results, guarantees, discounts, testimonials, private data, or sensitive claims.",
       instruction:
         targetLanguage === "pt-BR"
-          ? `Gere apenas uma frase curta em portugues do Brasil para a variavel customText do template de primeiro contato. Limite maximo: ${WHATSAPP_FIRST_CONTACT_CUSTOM_TEXT_MAX_LENGTH} caracteres. Nao use quebras de linha, Markdown, links, emojis, saudacao, assinatura, preco ou prazo. Fale de uma oportunidade observavel para melhorar clareza, presenca online, contato, orcamento ou conversao.`
-          : `Generate only one short English sentence for the customText variable in the first-contact template. Maximum length: ${WHATSAPP_FIRST_CONTACT_CUSTOM_TEXT_MAX_LENGTH} characters. Do not use line breaks, Markdown, links, emojis, greeting, signature, price, or timeline. Mention an observable opportunity to improve clarity, online presence, contact flow, quote requests, or conversion.`
+          ? `Gere apenas um diagnostico curto em portugues do Brasil para a variavel de ponto fraco do template de primeiro contato. Categoria de servico predefinida: ${serviceCategory}. Limite maximo: ${WHATSAPP_FIRST_CONTACT_CUSTOM_TEXT_MAX_LENGTH} caracteres. Use somente evidencias fornecidas sobre o lead e conecte o problema a essa categoria. Explique uma consequencia comercial plausivel sem prometer resultados. Nao use quebras de linha, Markdown, links, emojis, saudacao, assinatura, preco ou prazo.`
+          : `Generate only one short English diagnosis for the weakness variable in the first-contact template. Predefined service category: ${serviceCategory}. Maximum length: ${WHATSAPP_FIRST_CONTACT_CUSTOM_TEXT_MAX_LENGTH} characters. Use only supplied lead evidence and connect the weakness to that category. Explain a plausible business consequence without promising results. Do not use line breaks, Markdown, links, emojis, greeting, signature, price, or timeline.`
     });
     const templateDraft = buildWhatsAppFirstContactTemplateDraft({
       lead,
       settings,
-      customText: sanitizeWhatsAppTemplateVariable(
-        generatedCustomText,
+      diagnosis: sanitizeWhatsAppTemplateVariable(
+        generatedDiagnosis,
         WHATSAPP_FIRST_CONTACT_CUSTOM_TEXT_MAX_LENGTH
       ),
+      serviceCategory,
       language: targetLanguage
     });
 

@@ -121,6 +121,11 @@ function getWhatsAppTemplateLanguage(item: BulkOutreachItem) {
   const template = getTwilioWhatsAppTemplate(item);
   return template?.templateLanguage === "en" ? "en" : "pt-BR";
 }
+
+function getWhatsAppTemplateName(item: BulkOutreachItem) {
+  const template = getTwilioWhatsAppTemplate(item);
+  return typeof template?.templateName === "string" ? template.templateName : undefined;
+}
 function providerForChannel(channel: OutreachChannel, provider?: EmailOutreachProvider | WhatsAppOutreachProvider) {
   if (provider) return provider;
   if (channel === "email") return createEmailProvider();
@@ -313,6 +318,7 @@ export async function approveBulkOutreachBatch(
             to: item.recipientWhatsapp ?? item.recipientPhone ?? "",
             message: item.message ?? "",
             templateVariables: getWhatsAppTemplateVariables(item),
+            templateName: getWhatsAppTemplateName(item),
             templateLanguage: getWhatsAppTemplateLanguage(item),
             metadata: { userId, batchId: batch.id, itemId: item.id, leadId: item.leadId }
           });

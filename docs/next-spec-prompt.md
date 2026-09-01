@@ -157,11 +157,11 @@ Recent extension hotfix: when LinkedIn renders `Candidatar-se` as `BUTTON.jobs-a
 
 ## Freelance WhatsApp Template Follow-up Candidate
 
-Recent implementation: apps/web can send first-contact WhatsApp outreach through a Twilio approved content template when `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID` is configured. Future Spec Kit work should focus on delivery-status callbacks, operator-visible template/readiness diagnostics, and switching from template first contact to freeform AI follow-up after the lead replies. Preserve the existing checkbox bulk outreach flow and do not remove the deterministic `primeiro_contato_site_v1` variable mapping.
+Recent implementation: apps/web generates new first-contact WhatsApp outreach with `primeiro_contato_site_v2` and its evidence-backed 10-variable mapping. Portuguese v2 delivery requires `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_V2`; legacy `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID` remains available only for already-generated v1 drafts. Future Spec Kit work should focus on delivery-status callbacks, operator-visible template/readiness diagnostics, and switching from template first contact to freeform AI follow-up after the lead replies. Preserve the existing checkbox bulk outreach flow and the safe no-v2-to-v1 fallback rule.
 
 ## Freelance WhatsApp English Template Note
 
-Recent web implementation: first-contact WhatsApp now supports one Twilio Content SID per language. Keep `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID` for Portuguese and use `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN` for the English template. Future specs should preserve `twilioWhatsAppTemplate.templateLanguage`, the same 9-variable mapping across PT/EN templates, and the existing checkbox bulk outreach approval flow.
+Recent web implementation: first-contact WhatsApp v2 supports one versioned Twilio Content SID per language. Use `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_V2` for Portuguese and `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN_V2` for English. Keep the unsuffixed v1 variables only for legacy generated drafts. Future specs should preserve `twilioWhatsAppTemplate.templateName`, `templateLanguage`, the same 10-variable mapping across PT/EN v2 templates, and the existing checkbox bulk outreach approval flow.
 
 ## Freelance WhatsApp Inbox Follow-up Candidate
 
@@ -170,9 +170,13 @@ Recent web implementation: apps/web has a Twilio WhatsApp inbox MVP backed by `W
 
 ## Freelance WhatsApp Delivery Status And Retry Candidate
 
-Specify the next Freelance WhatsApp hardening slice: receive Twilio delivery status callbacks, persist queued/sent/delivered/failed transitions, surface the Twilio error code and safe diagnostic in the review modal and inbox, and define an explicit operator-confirmed retry path for previously contacted test leads. Preserve the exact PT/EN ContentSid mapping, the 9 validated ContentVariables, automatic lead-language selection, eligibility skipping, and the checkbox-to-floating-action-to-review-modal workflow.
+Specify the next Freelance WhatsApp hardening slice: receive Twilio delivery status callbacks, persist queued/sent/delivered/failed transitions, surface the Twilio error code and safe diagnostic in the review modal and inbox, and define an explicit operator-confirmed retry path for previously contacted test leads. Preserve the exact versioned PT/EN v2 ContentSid mapping, the 10 validated ContentVariables, legacy v1 draft compatibility, automatic lead-language selection, eligibility skipping, and the checkbox-to-floating-action-to-review-modal workflow.
 
 
 ## Next Candidate: Immutable Web Images And Zero-Downtime Deployment
 
 Specify a production deployment flow that builds immutable web images, runs database bootstrap as a one-off task, performs health checks before traffic switches, and avoids stale Next.js Server Action requests during releases.
+
+## Freelance WhatsApp Inbox Layout Note
+
+Recent web implementation makes `/inbox` full-width, constrains long conversation rows without horizontal scrolling, places unread counters on the left, strengthens hover/selected contrast, and adds an accessible resizable desktop divider. Preserve these layout and keyboard behaviors in future inbox work. The next functional slice should still prioritize Twilio delivery-status callbacks, attachment/media support, and multi-user conversation assignment rather than replacing the current inbox surface.

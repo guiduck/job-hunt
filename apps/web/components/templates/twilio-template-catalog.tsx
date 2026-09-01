@@ -12,15 +12,15 @@ const templates = [
     language: "Portuguese (BR)",
     name: WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME,
     body: WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY,
-    envName: "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID",
-    configured: Boolean(process.env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID)
+    envName: "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_V2",
+    configured: Boolean(process.env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_V2)
   },
   {
     language: "English",
     name: WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME_EN,
     body: WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY_EN,
-    envName: "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN",
-    configured: Boolean(process.env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN)
+    envName: "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN_V2",
+    configured: Boolean(process.env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN_V2)
   }
 ];
 
@@ -32,7 +32,8 @@ export function TwilioTemplateCatalog() {
           WhatsApp first contact
         </h2>
         <p className="mt-1 text-sm text-slate-400">
-          Approved Twilio templates. Language is selected automatically from the lead market.
+          Active Twilio templates. Language is selected automatically from the lead market. V2 SIDs
+          are required before delivery.
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">

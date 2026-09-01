@@ -62,6 +62,8 @@ export function createWhatsAppProvider(
       from: config.displayAddress ?? "",
       templateContentSid: config.templateContentSid,
       templateContentSidEn: config.templateContentSidEn,
+      templateContentSidV2: config.templateContentSidV2,
+      templateContentSidEnV2: config.templateContentSidEnV2,
       dailyLimit: config.dailyLimit,
       readiness
     });

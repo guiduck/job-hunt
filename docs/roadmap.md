@@ -664,3 +664,19 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 
 - [x] Provide a shared OpenSSL-enabled Docker runtime for the freelance web app and worker.
 - [x] Document full-stack Compose restart semantics and separate extension build handling.
+
+## 2026-08-28 - Freelance WhatsApp Inbox Layout Hardening
+
+- [x] Expand `/inbox` across the full available application width and useful viewport height.
+- [x] Remove horizontal scrolling from long conversation rows with constrained grid columns and ellipsis.
+- [x] Move unread counters to a prominent left-side position and strengthen hover, focus, and selected-state contrast.
+- [x] Add an accessible, pointer- and keyboard-resizable desktop divider between the conversation list and message view.
+- Next inbox hardening remains delivery-status callbacks, media/attachments, multi-user assignment, and optional live-update fanout.
+
+## 2026-08-28 - Freelance WhatsApp First Contact V2
+
+- [x] Replace the generic v1 first-contact copy with the approved PT/EN v2 positioning and direct conversation CTA.
+- [x] Add a closed service-category taxonomy and keep the lead-specific diagnosis tied to supplied evidence.
+- [x] Add the configured portfolio/company website to the signature and preserve localized pricing/payment behavior.
+- [x] Introduce versioned PT/EN ContentSid configuration so v2 cannot be sent through a legacy 9-variable SID.
+- [ ] Register and approve both v2 bodies in the Twilio Console, then configure the returned SIDs on the VPS before enabling v2 delivery.

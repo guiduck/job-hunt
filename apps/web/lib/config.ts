@@ -18,7 +18,9 @@ const configSchema = z.object({
   twilioAuthToken: z.string().optional(),
   twilioWhatsappFrom: z.string().optional(),
   twilioWhatsappTemplateContentSid: z.string().optional(),
-  twilioWhatsappTemplateContentSidEn: z.string().optional()
+  twilioWhatsappTemplateContentSidEn: z.string().optional(),
+  twilioWhatsappTemplateContentSidV2: z.string().optional(),
+  twilioWhatsappTemplateContentSidEnV2: z.string().optional()
 });
 
 export type AppConfig = z.infer<typeof configSchema>;
@@ -45,7 +47,9 @@ export function getAppConfig(env: EnvMap = process.env): AppConfig {
     twilioAuthToken: env.TWILIO_AUTH_TOKEN,
     twilioWhatsappFrom: env.TWILIO_WHATSAPP_FROM,
     twilioWhatsappTemplateContentSid: env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID,
-    twilioWhatsappTemplateContentSidEn: env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN
+    twilioWhatsappTemplateContentSidEn: env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN,
+    twilioWhatsappTemplateContentSidV2: env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_V2,
+    twilioWhatsappTemplateContentSidEnV2: env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN_V2
   });
 }
 
@@ -57,6 +61,8 @@ export type ChannelRuntimeConfig = {
   displayAddress?: string;
   templateContentSid?: string;
   templateContentSidEn?: string;
+  templateContentSidV2?: string;
+  templateContentSidEnV2?: string;
 };
 
 function missingEnvVars(env: EnvMap, names: string[]) {
@@ -93,6 +99,8 @@ export function getWhatsappChannelConfig(env: EnvMap = process.env): ChannelRunt
     missingEnvVars: missingEnvVars(env, requiredEnvVars),
     displayAddress: appConfig.twilioWhatsappFrom,
     templateContentSid: appConfig.twilioWhatsappTemplateContentSid,
-    templateContentSidEn: appConfig.twilioWhatsappTemplateContentSidEn
+    templateContentSidEn: appConfig.twilioWhatsappTemplateContentSidEn,
+    templateContentSidV2: appConfig.twilioWhatsappTemplateContentSidV2,
+    templateContentSidEnV2: appConfig.twilioWhatsappTemplateContentSidEnV2
   };
 }
