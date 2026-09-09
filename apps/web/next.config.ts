@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  reactStrictMode: true
+  reactStrictMode: true,
+  output: "standalone",
+  experimental: {
+    cpus: 2
+  }
 };
 
 export default nextConfig;

@@ -2,6 +2,8 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: opportunity_desk_postgres
+    restart: unless-stopped
+    mem_limit: 1g
     env_file:
       - .env.local
     environment:
@@ -19,8 +21,13 @@ services:
       retries: 5
 
   api:
-    image: python:3.12-slim
+    build:
+      context: apps/api
+      dockerfile: Dockerfile
+    image: opportunity-desk-api:python312
     container_name: opportunity_desk_api
+    restart: unless-stopped
+    mem_limit: 1536m
     working_dir: /app/apps/api
     env_file:
       - .env.local
@@ -44,10 +51,11 @@ services:
       PASSWORD_RESET_TOKEN_TTL_MINUTES: ${PASSWORD_RESET_TOKEN_TTL_MINUTES:-30}
       DEFAULT_LOCAL_USER_EMAIL: ${DEFAULT_LOCAL_USER_EMAIL:-local@example.com}
       DEFAULT_LOCAL_USER_DISPLAY_NAME: ${DEFAULT_LOCAL_USER_DISPLAY_NAME:-Local Operator}
+      API_MAX_REQUESTS_PER_PROCESS: ${API_MAX_REQUESTS_PER_PROCESS:-10000}
     command: >
-      sh -c "pip install -e . &&
-             alembic upgrade head &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000
+             --limit-max-requests $${API_MAX_REQUESTS_PER_PROCESS}"
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     healthcheck:
@@ -56,17 +64,22 @@ services:
           "CMD-SHELL",
           "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)\"",
         ]
-      interval: 10s
+      interval: 30s
       timeout: 5s
       retries: 12
+      start_period: 15s
     depends_on:
       postgres:
         condition: service_healthy
 
   worker:
-    image: python:3.12-slim
+    build:
+      context: apps/worker
+      dockerfile: Dockerfile
+    image: opportunity-desk-worker:python312
     container_name: opportunity_desk_linkedin_job_worker
     restart: unless-stopped
+    mem_limit: 1g
     working_dir: /app/apps/worker
     env_file:
       - .env.local
@@ -95,8 +108,7 @@ services:
       GOOGLE_AUTH_SUCCESS_REDIRECT_URL: ${GOOGLE_AUTH_SUCCESS_REDIRECT_URL:-http://localhost:8000/health}
       DEFAULT_LOCAL_USER_EMAIL: ${DEFAULT_LOCAL_USER_EMAIL:-local@example.com}
     command: >
-      sh -c "pip install -e . &&
-             python -m app.main"
+      python -m app.main
     depends_on:
       postgres:
         condition: service_healthy
@@ -104,9 +116,13 @@ services:
         condition: service_healthy
 
   email-worker:
-    image: python:3.12-slim
+    build:
+      context: apps/worker
+      dockerfile: Dockerfile
+    image: opportunity-desk-worker:python312
     container_name: opportunity_desk_email_worker
     restart: unless-stopped
+    mem_limit: 512m
     working_dir: /app/apps/worker
     env_file:
       - .env.local
@@ -124,8 +140,7 @@ services:
       GMAIL_OAUTH_SCOPES: ${GMAIL_OAUTH_SCOPES:-https://www.googleapis.com/auth/gmail.send}
       DEFAULT_LOCAL_USER_EMAIL: ${DEFAULT_LOCAL_USER_EMAIL:-local@example.com}
     command: >
-      sh -c "pip install -e . &&
-             python -m app.jobs.email_sending_loop"
+      python -m app.jobs.email_sending_loop
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,6 +150,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: opportunity_desk_freelance_redis
+    restart: unless-stopped
+    mem_limit: 256m
     command: redis-server --appendonly yes
     volumes:
       - freelance_redis_data:/data
@@ -146,15 +163,16 @@ services:
 
   web:
     build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    image: opportunity-desk-web-runtime:node22
+      context: apps/web
+      dockerfile: Dockerfile
+      target: web-runtime
+    image: opportunity-desk-web:node22
     container_name: opportunity_desk_freelance_web
+    restart: unless-stopped
+    mem_limit: 768m
     working_dir: /app/apps/web
     env_file:
       - .env.local
-    volumes:
-      - .:/app
     environment:
       DATABASE_URL: postgresql://${FREELANCE_POSTGRES_USER:-scrapper}:${FREELANCE_POSTGRES_PASSWORD:-scrapper}@freelance-postgres:5432/${FREELANCE_POSTGRES_DB:-freelance_app}
       FREELANCE_AUTH_API_BASE_URL: ${FREELANCE_AUTH_API_BASE_URL:-http://api:8000}
@@ -166,31 +184,58 @@ services:
       AI_FREELANCE_MODEL: ${AI_FREELANCE_MODEL:-gpt-4o-mini}
       REDIS_URL: redis://redis:6379
       TWILIO_WEBHOOK_BASE_URL: ${TWILIO_WEBHOOK_BASE_URL:-}
-    command: >
-      sh -c "npm install --include=dev &&
-             npx prisma generate &&
-             npm run db:bootstrap &&
-             npm run build &&
-             npm run start -- --hostname 0.0.0.0 --port 3000"
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    command: node server.js
     ports:
       - "${WEB_PORT:-3000}:3000"
     depends_on:
-      freelance-postgres:
-        condition: service_healthy
+      web-bootstrap:
+        condition: service_completed_successfully
       redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3000').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))\"",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  web-bootstrap:
+    build:
+      context: apps/web
+      dockerfile: Dockerfile
+      target: worker-runtime
+    image: opportunity-desk-web-worker:node22
+    container_name: opportunity_desk_freelance_web_bootstrap
+    restart: "no"
+    mem_limit: 512m
+    working_dir: /app/apps/web
+    env_file:
+      - .env.local
+    environment:
+      DATABASE_URL: postgresql://${FREELANCE_POSTGRES_USER:-scrapper}:${FREELANCE_POSTGRES_PASSWORD:-scrapper}@freelance-postgres:5432/${FREELANCE_POSTGRES_DB:-freelance_app}
+    command: npm run db:bootstrap
+    depends_on:
+      freelance-postgres:
         condition: service_healthy
 
   web-worker:
     build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    image: opportunity-desk-web-runtime:node22
+      context: apps/web
+      dockerfile: Dockerfile
+      target: worker-runtime
+    image: opportunity-desk-web-worker:node22
     container_name: opportunity_desk_freelance_web_worker
+    restart: unless-stopped
+    mem_limit: 768m
     working_dir: /app/apps/web
     env_file:
       - .env.local
-    volumes:
-      - .:/app
     environment:
       DATABASE_URL: postgresql://${FREELANCE_POSTGRES_USER:-scrapper}:${FREELANCE_POSTGRES_PASSWORD:-scrapper}@freelance-postgres:5432/${FREELANCE_POSTGRES_DB:-freelance_app}
       FREELANCE_MAPS_PROVIDER: ${FREELANCE_MAPS_PROVIDER:-mock}
@@ -199,31 +244,29 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       AI_FREELANCE_MODEL: ${AI_FREELANCE_MODEL:-gpt-4o-mini}
     command: >
-      sh -c "npm install --include=dev &&
-             npx prisma generate &&
-             npm run worker"
+      npm run worker
     depends_on:
-      freelance-postgres:
-        condition: service_healthy
+      web-bootstrap:
+        condition: service_completed_successfully
 
   whatsapp-realtime:
     build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    image: opportunity-desk-web-runtime:node22
+      context: apps/web
+      dockerfile: Dockerfile
+      target: worker-runtime
+    image: opportunity-desk-web-worker:node22
     container_name: opportunity_desk_freelance_whatsapp_realtime
+    restart: unless-stopped
+    mem_limit: 256m
     working_dir: /app/apps/web
     env_file:
       - .env.local
-    volumes:
-      - .:/app
     environment:
       REDIS_URL: redis://redis:6379
       WHATSAPP_REALTIME_PORT: 3001
       FREELANCE_WEB_APP_BASE_URL: ${FREELANCE_WEB_APP_BASE_URL:-http://localhost:3000}
     command: >
-      sh -c "npm install --include=dev &&
-             npm run realtime"
+      npm run realtime
     ports:
       - "127.0.0.1:${WHATSAPP_REALTIME_PORT:-3001}:3001"
     healthcheck:
@@ -242,6 +285,8 @@ services:
   freelance-postgres:
     image: postgres:16-alpine
     container_name: opportunity_desk_freelance_postgres
+    restart: unless-stopped
+    mem_limit: 768m
     env_file:
       - .env.local
     environment:

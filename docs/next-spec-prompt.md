@@ -187,7 +187,12 @@ checkbox-to-floating-action-to-review-modal workflow.
 
 ## Next Candidate: Immutable Web Images And Zero-Downtime Deployment
 
-Specify a production deployment flow that builds immutable web images, runs database bootstrap as a one-off task, performs health checks before traffic switches, and avoids stale Next.js Server Action requests during releases.
+The current Compose deployment now builds a standalone immutable Next image, runs database bootstrap
+as a one-off dependency, and exposes container health checks. Specify the remaining zero-downtime
+release slice: build/tag images before touching the active services, keep the previous web/API
+revision available until the new health checks pass, switch Caddy upstreams atomically, define an
+automatic rollback, and avoid stale Next.js Server Action requests across revisions. Also split a
+minimal Node worker/realtime package so it does not carry the full web development dependency tree.
 
 ## Freelance WhatsApp Inbox Layout Note
 

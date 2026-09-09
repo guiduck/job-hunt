@@ -30,9 +30,9 @@ states such as `sent`, `delivered`, `read`, `failed`, and `undelivered`.
 cd /srv/projects/job-hunt/job-hunt
 git pull
 docker compose --env-file .env.local up -d --build --force-recreate redis web web-worker whatsapp-realtime
-docker compose --env-file .env.local exec -T web npm run prisma:migrate
-docker compose --env-file .env.local exec -T web npm run whatsapp:normalize-lead-phones
-docker compose --env-file .env.local exec -T web npm run whatsapp:backfill-inbox
+docker compose --env-file .env.local run --rm -T web-bootstrap npm run prisma:migrate
+docker compose --env-file .env.local run --rm -T web-bootstrap npm run whatsapp:normalize-lead-phones
+docker compose --env-file .env.local run --rm -T web-bootstrap npm run whatsapp:backfill-inbox
 docker compose --env-file .env.local ps
 ```
 
@@ -96,14 +96,14 @@ recipient. Interrupted `queued_send` attempts and failed sends remain retryable.
 To inspect the local GFig test history without changing data:
 
 ```bash
-docker compose --env-file .env.local exec -T web npm run whatsapp:reset-gfig-test-lead
+docker compose --env-file .env.local run --rm -T web-bootstrap npm run whatsapp:reset-gfig-test-lead
 ```
 
 To delete only that lead's local outreach items/events and inbox conversation, then return it to
 `new` for another test:
 
 ```bash
-docker compose --env-file .env.local exec -T web npm run whatsapp:reset-gfig-test-lead -- --confirm
+docker compose --env-file .env.local run --rm -T web-bootstrap npm run whatsapp:reset-gfig-test-lead -- --confirm
 ```
 
 The command requires exactly one lead named `GFig Software Factory Sandbox`; otherwise it aborts.
@@ -115,13 +115,13 @@ It does not delete Twilio message logs and does not affect any other lead.
 Use this only when intentionally restarting first-contact testing for every lead. Preview first:
 
 ```bash
-docker compose --env-file .env.local exec -T web npm run whatsapp:reset-all-contacted-leads
+docker compose --env-file .env.local run --rm -T web-bootstrap npm run whatsapp:reset-all-contacted-leads
 ```
 
 The preview lists every affected lead and the number of blocking sent events. Confirm globally with:
 
 ```bash
-docker compose --env-file .env.local exec -T web npm run whatsapp:reset-all-contacted-leads -- --confirm-all
+docker compose --env-file .env.local run --rm -T web-bootstrap npm run whatsapp:reset-all-contacted-leads -- --confirm-all
 ```
 
 This removes only WhatsApp first-contact `sent` events used by duplicate protection and releases

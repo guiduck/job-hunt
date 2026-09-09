@@ -783,3 +783,14 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Stop publishing host port `6379`, avoiding collisions with Redis instances from other VPS projects.
 - [x] Reconcile current `origin/master` with the niche portfolio and 11-variable outreach
   templates, preserving both feature sets and validating the combined production build.
+
+## 2026-09-09 - VPS Memory And Container Recovery
+
+- [x] Identify the API/Uvicorn process as the actual OOM victim instead of adding PM2 around Docker.
+- [x] Stop loading full candidate descriptions and JSON payloads during every counter reconciliation.
+- [x] Add restart policies and conservative memory ceilings to all permanent Compose services.
+- [x] Bake Python dependencies and the standalone Next production build into immutable images.
+- [x] Run freelance database bootstrap as a one-shot dependency before the web and prospecting worker.
+- [ ] Monitor API RSS, container restart count, swap use, and kernel OOM events for seven days after deploy.
+- [ ] Split the Node prospecting/realtime runtime into a smaller package if worker-image transfer time
+  becomes material on the VPS.

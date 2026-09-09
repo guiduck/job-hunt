@@ -1,3 +1,4 @@
+from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from app.schemas.job_search_run import JobSearchRunCreate
@@ -63,3 +64,4 @@ def test_ai_filter_counters_reconcile_service_created_candidates(
     assert refreshed.ai_filter_skipped_count == 1
     assert refreshed.duplicate_count == 1
     assert refreshed.ai_filter_status == "failed"
+    assert "candidates" in inspect(refreshed).unloaded

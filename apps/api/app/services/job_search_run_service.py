@@ -522,7 +522,7 @@ def list_job_search_runs(
 def get_job_search_run(db: Session, run_id: str, user: User | None = None) -> JobSearchRun | None:
     statement = (
         select(JobSearchRun)
-        .options(selectinload(JobSearchRun.candidates), selectinload(JobSearchRun.collection_inputs))
+        .options(selectinload(JobSearchRun.collection_inputs))
         .where(JobSearchRun.id == run_id)
     )
     if user:
@@ -762,7 +762,23 @@ def aggregate_provider_status(candidates: list[JobSearchCandidate]) -> str:
 
 
 def reconcile_run_counters(run: JobSearchRun) -> None:
-    candidates = list(run.candidates)
+    db = Session.object_session(run)
+    if db is None:
+        raise RuntimeError("Job search run must be attached to a database session")
+
+    # Candidate rows contain large descriptions, evidence, and JSON payloads. Counter
+    # reconciliation only needs these compact status columns, so do not materialize
+    # the complete relationship for every candidate received by the API.
+    candidates = list(
+        db.execute(
+            select(
+                JobSearchCandidate.outcome,
+                JobSearchCandidate.provider_status,
+                JobSearchCandidate.analysis_status,
+                JobSearchCandidate.ai_filter_status,
+            ).where(JobSearchCandidate.run_id == run.id)
+        ).all()
+    )
     run.inspected_count = len(candidates)
     run.accepted_count = sum(1 for candidate in candidates if candidate.outcome == JobCandidateOutcome.ACCEPTED.value)
     run.duplicate_count = sum(1 for candidate in candidates if candidate.outcome == JobCandidateOutcome.DUPLICATE.value)

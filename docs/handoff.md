@@ -1242,7 +1242,7 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
   values that are exactly R$ 2,500; other customized prices remain unchanged.
 - Validation: 75 test files / 157 tests and the Next.js production build passed. Local migration
   execution remains pending because Docker Desktop/PostgreSQL was not running; deploy it on the VPS
-  with `docker compose --env-file .env.local exec web npx prisma migrate deploy`.
+  with `docker compose --env-file .env.local run --rm web-bootstrap npx prisma migrate deploy`.
 
 ## 2026-09-03 - Freelance Portfolio By Niche And Twilio Template
 
@@ -1287,3 +1287,20 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
   11, PT/EN portfolio v2 templates and the R$ 1,800 Brazilian base price.
 - Validation: Prisma Client generation passed, 76 test files / 161 tests passed, TypeScript passed,
   and the optimized Next.js build includes `/portfolio` and its API route.
+
+## 2026-09-09 - VPS OOM Containment And Immutable Runtime Images
+
+- Confirmed from the VPS kernel journal that Dockerized `uvicorn` was OOM-killed twice after its
+  anonymous RSS reached about 6.2 GiB; the current container inspection was clean because deployment
+  recreation reset its state and restart counter.
+- Removed eager loading of full candidate text/JSON rows from run lookup and changed counter
+  reconciliation to select only outcome/provider/analysis/filter status columns.
+- Added immutable Python dependency images and a standalone Next server image. Node/Python package
+  installation and `next build` no longer occur on ordinary service restarts.
+- Added a one-shot `web-bootstrap` service, Docker `unless-stopped` supervision, health checks,
+  bounded memory, and graceful Uvicorn recycling after 10,000 requests.
+- PM2 is intentionally not part of this stack; Docker Compose remains the only process supervisor.
+- Validation: focused API tests passed (4), Compose config passed, API/worker images built, and the
+  standalone Next production build and image completed. The Node worker target was reduced to
+  production-only dependencies; its complete Docker build path passed with cache-only output after
+  the local Docker registry proved slow while exporting its dependency layer.

@@ -57,11 +57,13 @@ Rode:
 docker compose up -d --build
 ```
 
-Isso baixa/recria os containers necessarios e inicia tudo em segundo plano.
+Isso constroi/recria os containers necessarios e inicia tudo em segundo plano. Dependencias Python,
+dependencias Node, Prisma Client e o build do Next ficam dentro das imagens; eles nao sao mais
+instalados ou compilados toda vez que um processo reinicia.
 
-O servico `web` roda o app Next.js freelance em modo producao dentro do Docker: instala dependencias,
-gera Prisma Client, executa bootstrap idempotente, faz `next build` e serve com `next start` na porta
-3000. Evite usar `next dev` na VPS; o modo dev/Turbopack e apenas para desenvolvimento local.
+O servico `web-bootstrap` executa o bootstrap idempotente do banco uma vez e termina com codigo 0.
+Depois dele, `web` serve a imagem standalone do Next na porta 3000. Ver o bootstrap como `Exited (0)`
+e normal. Evite usar `next dev` na VPS; o modo dev/Turbopack e apenas para desenvolvimento local.
 
 O inbox do WhatsApp tambem sobe `redis` e `whatsapp-realtime`. O Caddy deve encaminhar `/ws` para
 `127.0.0.1:3001`; veja `docs/vps-proxy-and-domains.md`.
@@ -76,6 +78,7 @@ FREELANCE_GOOGLE_AUTH_SUCCESS_REDIRECT_URL=https://freelance.gfig.space/auth/goo
 TWILIO_WEBHOOK_BASE_URL=https://freelance.gfig.space
 TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID=HX87b32be62ddc6b41889cd859aaf574e2
 TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN=HX7eb26809469ce00dc40fa188dd95c856
+API_MAX_REQUESTS_PER_PROCESS=10000
 ```
 
 Preserve the existing `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and
@@ -171,27 +174,28 @@ docker compose exec api alembic upgrade head
 Para aplicar migrations do Prisma no banco freelance da VPS:
 
 ```bash
-docker compose exec web npx prisma migrate deploy
+docker compose run --rm web-bootstrap npx prisma migrate deploy
 ```
 
 Para popular/atualizar seeds, como nichos e templates iniciais:
 
 ```bash
-docker compose exec web npm run prisma:seed
+docker compose run --rm web-bootstrap npm run prisma:seed
 ```
 
-Se o container `web` ainda estiver recriando ou nao estiver rodando, use:
+O servidor `web` e uma imagem standalone enxuta e nao contem a CLI do Prisma. Para migrations,
+seeds e scripts operacionais, use sempre o container de ferramentas `web-bootstrap`:
 
 ```bash
-docker compose run --rm web npx prisma migrate deploy
-docker compose run --rm web npm run prisma:seed
+docker compose run --rm web-bootstrap npx prisma migrate deploy
+docker compose run --rm web-bootstrap npm run prisma:seed
 ```
 
 Nao use `npx prisma db push` na VPS. Use apenas `migrate deploy`.
 
 ## Reiniciar Servicos
 
-Depois das migrations:
+Para reiniciar sem reconstruir imagens:
 
 ```bash
 docker compose restart api worker email-worker web web-worker whatsapp-realtime
@@ -202,6 +206,34 @@ Se algum servico nao existir na VPS ainda, rode apenas os que existem, ou rode:
 ```bash
 docker compose up -d --build
 ```
+
+Nao rode `docker compose restart ...` logo depois de `docker compose up -d --build`: o `up` ja
+recriou os servicos alterados. Um segundo restart so adiciona indisponibilidade.
+
+## Memoria, OOM E Erro 502
+
+Os servicos continuam sendo supervisionados pelo Docker Compose; nao instale PM2 para a API ou para
+o Next. Todos os servicos permanentes usam `restart: unless-stopped`, e os limites de memoria evitam
+que um unico processo consuma toda a VPS. A API tem limite de 1536 MiB e reciclagem graciosa a cada
+10.000 requisicoes. O valor pode ser alterado em `.env.local` por
+`API_MAX_REQUESTS_PER_PROCESS`, mas o padrao deve ser mantido ate haver medicao suficiente.
+
+O incidente de 8 de setembro de 2026 foi um OOM real: o kernel matou `uvicorn` quando seu RSS
+anonimo chegou a aproximadamente 6,2 GiB. O caminho de gravacao de candidatos carregava todos os
+textos e JSONs da busca a cada novo candidato apenas para recalcular contadores; agora consulta
+somente quatro colunas pequenas de status.
+
+Comandos seguros de diagnostico:
+
+```bash
+free -h
+docker stats --no-stream
+journalctl -k --since "7 days ago" --no-pager | grep -Ei "oom|out of memory|killed process" | tail -n 60
+docker inspect -f '{{.Name}} restarts={{.RestartCount}} oom={{.State.OOMKilled}} status={{.State.Status}} exit={{.State.ExitCode}}' $(docker ps -aq)
+```
+
+Depois de recriar um container, `RestartCount=0` e `OOMKilled=false` descrevem apenas a instancia
+nova; consulte o journal do kernel para confirmar incidentes anteriores.
 
 ## Conferir Se Esta Vivo
 
@@ -294,13 +326,18 @@ ssh root@216.158.236.156
 cd /srv/projects/job-hunt/job-hunt
 git status --short
 git pull origin master
-docker compose up -d --build
-docker compose exec api alembic upgrade head
-docker compose exec web npx prisma migrate deploy
-docker compose exec web npm run prisma:seed
-docker compose restart api worker email-worker web web-worker whatsapp-realtime
-docker compose ps
+docker compose --env-file .env.local restart api
+docker stats --no-stream
+docker compose --env-file .env.local build
+docker compose --env-file .env.local up -d --remove-orphans
+docker compose --env-file .env.local run --rm web-bootstrap npx prisma migrate deploy
+docker compose --env-file .env.local run --rm web-bootstrap npm run prisma:seed
+docker compose --env-file .env.local ps
 ```
+
+O primeiro `restart api` libera a memoria acumulada antes do build e e especialmente importante no
+primeiro deploy desta correcao. Nos deploys seguintes, as dependencias e o Next serao reaproveitados
+do cache de camadas. Preserve sempre os volumes nomeados dos dois bancos e do Redis.
 
 ## Substituir Templates WhatsApp
 
