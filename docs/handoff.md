@@ -1304,3 +1304,6 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
   standalone Next production build and image completed. The Node worker target was reduced to
   production-only dependencies; its complete Docker build path passed with cache-only output after
   the local Docker registry proved slow while exporting its dependency layer.
+- The first VPS build exposed a Docker Compose parallel-export race because three services targeted
+  the same `opportunity-desk-web-worker:node22` image tag. Bootstrap, prospecting worker, realtime,
+  shared worker and email worker now publish distinct tags while reusing deduplicated layers.

@@ -791,6 +791,7 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Add restart policies and conservative memory ceilings to all permanent Compose services.
 - [x] Bake Python dependencies and the standalone Next production build into immutable images.
 - [x] Run freelance database bootstrap as a one-shot dependency before the web and prospecting worker.
+- [x] Give parallel Compose build services distinct image tags to prevent same-tag export races.
 - [ ] Monitor API RSS, container restart count, swap use, and kernel OOM events for seven days after deploy.
 - [ ] Split the Node prospecting/realtime runtime into a smaller package if worker-image transfer time
   becomes material on the VPS.

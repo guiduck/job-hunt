@@ -61,6 +61,9 @@ Isso constroi/recria os containers necessarios e inicia tudo em segundo plano. D
 dependencias Node, Prisma Client e o build do Next ficam dentro das imagens; eles nao sao mais
 instalados ou compilados toda vez que um processo reinicia.
 
+Cada servico que participa do build possui uma tag de imagem propria. As camadas continuam
+deduplicadas pelo Docker, mas builds paralelos nao disputam a mesma tag de saida.
+
 O servico `web-bootstrap` executa o bootstrap idempotente do banco uma vez e termina com codigo 0.
 Depois dele, `web` serve a imagem standalone do Next na porta 3000. Ver o bootstrap como `Exited (0)`
 e normal. Evite usar `next dev` na VPS; o modo dev/Turbopack e apenas para desenvolvimento local.

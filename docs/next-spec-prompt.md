@@ -193,6 +193,8 @@ release slice: build/tag images before touching the active services, keep the pr
 revision available until the new health checks pass, switch Caddy upstreams atomically, define an
 automatic rollback, and avoid stale Next.js Server Action requests across revisions. Also split a
 minimal Node worker/realtime package so it does not carry the full web development dependency tree.
+Preserve distinct output image tags for services built in parallel; shared Docker layers may be
+deduplicated, but multiple Compose services must not concurrently export the same final tag.
 
 ## Freelance WhatsApp Inbox Layout Note
 

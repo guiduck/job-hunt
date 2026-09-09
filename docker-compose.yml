@@ -119,7 +119,7 @@ services:
     build:
       context: apps/worker
       dockerfile: Dockerfile
-    image: opportunity-desk-worker:python312
+    image: opportunity-desk-email-worker:python312
     container_name: opportunity_desk_email_worker
     restart: unless-stopped
     mem_limit: 512m
@@ -210,7 +210,7 @@ services:
       context: apps/web
       dockerfile: Dockerfile
       target: worker-runtime
-    image: opportunity-desk-web-worker:node22
+    image: opportunity-desk-web-bootstrap:node22
     container_name: opportunity_desk_freelance_web_bootstrap
     restart: "no"
     mem_limit: 512m
@@ -254,7 +254,7 @@ services:
       context: apps/web
       dockerfile: Dockerfile
       target: worker-runtime
-    image: opportunity-desk-web-worker:node22
+    image: opportunity-desk-whatsapp-realtime:node22
     container_name: opportunity_desk_freelance_whatsapp_realtime
     restart: unless-stopped
     mem_limit: 256m
