@@ -192,6 +192,39 @@ describe("whatsapp provider", () => {
     expect(body.get("ContentVariables")).toBe(JSON.stringify({ "1": "there", "2": "Guilherme" }));
     expect(body.has("Body")).toBe(false);
   });
+  it("uses the current unsuffixed ContentSid for replacement templates", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ sid: "SM_TEMPLATE_V2", status: "queued" }), { status: 201 })
+    );
+    const provider = createTwilioWhatsAppProvider({
+      accountSid: "AC123",
+      authToken: "secret-token",
+      from: "+15555550000",
+      templateContentSid: "HX_PT_CURRENT",
+      dailyLimit: 500,
+      readiness: {
+        channel: "whatsapp",
+        providerName: "twilio",
+        status: "ready",
+        requiredEnvVars: [],
+        missingEnvVars: []
+      },
+      fetchImpl
+    });
+
+    await provider.send({
+      to: "+15555550123",
+      message: "Preview only",
+      templateName: "primeiro_contato_site_v2",
+      templateLanguage: "pt-BR",
+      templateVariables: { "1": "Guilherme", "10": "www.gfig.space" },
+      metadata: { userId: "user_1", batchId: "batch_1", itemId: "item_1", leadId: "lead_1" }
+    });
+
+    const request = fetchImpl.mock.calls[0]?.[1] as RequestInit;
+    const body = request.body as URLSearchParams;
+    expect(body.get("ContentSid")).toBe("HX_PT_CURRENT");
+  });
   it("blocks empty or multiline template variables before calling Twilio", async () => {
     const fetchImpl = vi.fn();
     const provider = createTwilioWhatsAppProvider({

@@ -1095,7 +1095,22 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - Full VPS restarts should use `docker compose --env-file .env.local`; named database volumes must be preserved.
 - The Chrome extension is not a Compose service. Build it separately from `apps/extension` and reload the generated unpacked extension in Chrome.
 
+## 2026-08-28 - Freelance WhatsApp Inbox Full-Width Resizable Layout
 
+- The Freelance `/inbox` now uses the full available page width and a viewport-filling conversation panel instead of the previous `max-w-6xl` constraint.
+- The conversation list now contains long business names, timestamps, and previews without horizontal scrolling. Unread counters appear in a fixed, prominent left column; hover, keyboard focus, and selected states have stronger contrast.
+- On desktop, the conversation list and message view are separated by a draggable divider. The separator also supports Left/Right arrows, Shift for a larger step, Home/End, and double-click reset; mobile keeps the stacked layout.
+- No API, database, Twilio provider, or message-template behavior changed. No migration required.
+- Validation: focused `whatsapp-inbox-layout.test.tsx` passed (2 tests); full `tsc --noEmit` and the optimized Next.js production build passed after local Prisma Client generation.
+
+## 2026-08-28 - Freelance WhatsApp First Contact Template V2
+
+- New drafts use `primeiro_contato_site_v2` for Portuguese and `first_contact_website_v2` for English. The approved copy presents Guilherme as a web developer who built the analysis tool, connects an evidence-backed weakness to a predefined service category, includes price/timeline/payment terms, offers a low-cost prototype, invites a brief conversation, and signs with the configured portfolio URL.
+- The v2 mapping has 10 variables: seller name, business, niche, city/region, predefined service category, lead diagnosis, starting price, delivery estimate, payment terms, and portfolio/company website. Diagnosis remains single-line, evidence-constrained, and capped at 240 characters to keep the final message concise and within provider limits.
+- Service-category selection is deterministic across institutional website, landing-page conversion, technical SEO/local presence, website performance, user experience/service presentation, customer-service automation, and custom management system. Only available lead status, classification reasons, and operator notes participate.
+- The replacement templates use `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID` for Portuguese and `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN` for English. Updating those values replaces the previous templates in place; no version-suffixed environment variables are used.
+- No database migration required. The Templates page and seed definition expose the new bodies and 10-variable mapping.
+- Validation: focused generation/provider tests passed (2 files, 14 tests); full `tsc --noEmit` and the optimized Next.js production build passed. A broader UI run also surfaced three pre-existing stale assertions that still expect the former bulk-action labels/result formatting; the current component renders `Send 1` and status-only result rows.
 ## 2026-08-26 - WhatsApp Sender Diagnostics
 
 - Twilio error 63007 was isolated to sender/account configuration, after template-variable validation succeeded.
@@ -1248,3 +1263,27 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
   reaches `approved`.
 - Validation: 75 test files / 157 tests passed, TypeScript passed, and the Next.js production build
   completed with both `/portfolio` and `/api/freelance/portfolio/[nicheId]` in the route manifest.
+## 2026-09-01 - Master Reconciliation And Current Twilio Template SIDs
+
+- Reconciled local commit `786f85d` with `origin/master` through `68be9a3`, preserving both the full-width/resizable inbox work and the remote realtime, unread notification, delivery-status, phone-integrity, and operational tooling changes.
+- Current first-contact templates replace the prior Twilio Content SIDs in place. Portuguese uses `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID`; English uses `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN`. No `*_V2` environment variables remain in runtime code or documentation.
+- Production webhook signature validation uses `TWILIO_WEBHOOK_BASE_URL=https://freelance.gfig.space`; Twilio itself remains configured with the full inbound endpoint `/api/twilio/whatsapp/webhook` over HTTP POST.
+- Merge validation: Prisma Client generation passed, TypeScript passed, 7 focused files passed with 31 tests, and the optimized Next.js production build passed.
+
+## 2026-09-01 - Redis VPS Port Conflict
+
+- Removed the freelance Redis host-port publication because another VPS project owns host port
+  `6379`.
+- Freelance services still connect through `REDIS_URL=redis://redis:6379` on the internal Compose
+  network; the Redis data volume remains unchanged.
+- Host port `3001` remains assigned to the WhatsApp realtime service and the Caddy `/ws` proxy.
+
+## 2026-09-09 - Master Reconciled With Portfolio Outreach
+
+- Reconciled local commit `9a7f2b6` with current `origin/master`, preserving the remote inbox,
+  realtime, delivery-status, phone-integrity, Docker-port and operational changes.
+- The resulting first-contact contract keeps the remote automatic service category and
+  evidence-based diagnosis, while adding the niche demo in variable 10, seller contact in variable
+  11, PT/EN portfolio v2 templates and the R$ 1,800 Brazilian base price.
+- Validation: Prisma Client generation passed, 76 test files / 161 tests passed, TypeScript passed,
+  and the optimized Next.js build includes `/portfolio` and its API route.

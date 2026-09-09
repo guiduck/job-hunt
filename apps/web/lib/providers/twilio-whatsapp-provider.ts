@@ -98,14 +98,14 @@ export function createTwilioWhatsAppProvider(
         const templateContentSid = selectTemplateContentSid(options, input);
         if (input.templateVariables) {
           if (!templateContentSid) {
+            const envName = input.templateLanguage === "en"
+              ? "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN"
+              : "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID";
             return {
               status: "failed_send",
               providerName: "twilio",
               diagnosticCode: "missing_whatsapp_template_sid",
-              diagnosticMessage:
-                input.templateLanguage === "en"
-                  ? "Configure TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN before sending an English first-contact template."
-                  : "Configure TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID before sending a Portuguese first-contact template."
+              diagnosticMessage: `Configure ${envName} before sending this first-contact template.`
             };
           }
           const invalidKeys = invalidTemplateVariables(input.templateVariables);

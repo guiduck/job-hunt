@@ -665,7 +665,21 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Provide a shared OpenSSL-enabled Docker runtime for the freelance web app and worker.
 - [x] Document full-stack Compose restart semantics and separate extension build handling.
 
+## 2026-08-28 - Freelance WhatsApp Inbox Layout Hardening
 
+- [x] Expand `/inbox` across the full available application width and useful viewport height.
+- [x] Remove horizontal scrolling from long conversation rows with constrained grid columns and ellipsis.
+- [x] Move unread counters to a prominent left-side position and strengthen hover, focus, and selected-state contrast.
+- [x] Add an accessible, pointer- and keyboard-resizable desktop divider between the conversation list and message view.
+- Next inbox hardening remains delivery-status callbacks, media/attachments, multi-user assignment, and optional live-update fanout.
+
+## 2026-08-28 - Freelance WhatsApp First Contact V2
+
+- [x] Replace the generic v1 first-contact copy with the approved PT/EN v2 positioning and direct conversation CTA.
+- [x] Add a closed service-category taxonomy and keep the lead-specific diagnosis tied to supplied evidence.
+- [x] Add the configured portfolio/company website to the signature and preserve localized pricing/payment behavior.
+- [x] Replace the PT/EN ContentSid values through the existing unsuffixed environment variables.
+- [ ] Approve both replacement bodies in the Twilio Console before enabling business-initiated delivery.
 ## 2026-08-26 - WhatsApp Delivery Diagnostics
 
 - [x] Distinguish local credential presence from Twilio sender validation.
@@ -756,3 +770,16 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Submit `primeiro_contato_site_portfolio_v2` and
   `first_contact_website_portfolio_v2` to Twilio/WhatsApp approval as MARKETING.
 - [ ] Confirm both v2 templates reach `approved` before deploying their Content SIDs to VPS.
+## 2026-09-01 - Master And Twilio Configuration Reconciliation
+
+- [x] Merge the local first-contact template and inbox layout work with the latest remote realtime, delivery-status, phone-integrity, and operations changes.
+- [x] Standardize current PT/EN Twilio template delivery on the existing unsuffixed SID variables.
+- [x] Document the production webhook base URL separately from the full Twilio inbound endpoint.
+- [x] Validate the reconciled app with Prisma generation, TypeScript, focused tests, and a production build.
+
+## 2026-09-01 - VPS Redis Isolation
+
+- [x] Keep freelance Redis reachable only through the Compose network at `redis:6379`.
+- [x] Stop publishing host port `6379`, avoiding collisions with Redis instances from other VPS projects.
+- [x] Reconcile current `origin/master` with the niche portfolio and 11-variable outreach
+  templates, preserving both feature sets and validating the combined production build.

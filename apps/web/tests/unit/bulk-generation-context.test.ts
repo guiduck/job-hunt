@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildBulkCommercialDraft,
+  buildWhatsAppFirstContactFallbackDiagnosis,
+  buildWhatsAppFirstContactServiceCategory,
   buildWhatsAppFirstContactTemplateDraft,
   sanitizeWhatsAppTemplateVariable
 } from "@/lib/generation/commercial-message-builder";
@@ -56,7 +58,7 @@ describe("bulk generation context", () => {
         installments: 6,
         deliveryTime: "15 days"
       } as never,
-      customText: sanitizeWhatsAppTemplateVariable("o site pode explicar melhor os servicos e facilitar o pedido de orcamento pelo celular.\nlinha extra"),
+      diagnosis: sanitizeWhatsAppTemplateVariable("o site pode explicar melhor os serviços e facilitar o pedido de orçamento.\nlinha extra"),
       language: "pt-BR"
     });
 
@@ -66,7 +68,8 @@ describe("bulk generation context", () => {
       "2": "Example Clinic",
       "3": "Clinic",
       "4": "Austin",
-      "5": "presença online e conversão",
+      "5": "landing page e conversão",
+      "6": "o site pode explicar melhor os serviços e facilitar o pedido de orçamento. linha extra",
       "7": "R$ 1.800",
       "8": "15 dias",
       "9": "6x sem juros",
@@ -74,8 +77,13 @@ describe("bulk generation context", () => {
       "11": "Pode responder por aqui."
     });
     expect(draft.templateVariables["6"]).not.toContain("\n");
+    expect(Object.keys(draft.templateVariables)).toEqual([
+      "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"
+    ]);
+    expect(draft.message).toContain("Sites e landing pages começam em R$ 1.800");
+    expect(draft.message).toContain("Eu desenvolvi uma ferramenta de análise avançada");
     expect(draft.message).toContain("websites, landing pages, sistemas personalizados e automações de atendimento");
-    expect(draft.message).toContain("começam em R$ 1.800");
+    expect(draft.message).toMatch(/Obrigado pela atenção\.$/);
   });
 
   it("builds English WhatsApp first-contact template variables for non-Brazil leads", () => {
@@ -86,7 +94,7 @@ describe("bulk generation context", () => {
         landingPagePriceUsd: "1000",
         deliveryTime: "15 dias"
       } as never,
-      customText: "the contact path could be clearer for mobile visitors looking for an estimate.",
+      diagnosis: "the service offer and contact path could be clearer for potential customers.",
       language: "en"
     });
 
@@ -97,7 +105,8 @@ describe("bulk generation context", () => {
       "2": "Example Clinic",
       "3": "Clinic",
       "4": "Austin",
-      "5": "online presence and conversion",
+      "5": "landing-page conversion",
+      "6": "the service offer and contact path could be clearer for potential customers.",
       "7": "US$ 1,000",
       "8": "15 days",
       "9": "defined after scope review",
@@ -106,7 +115,8 @@ describe("bulk generation context", () => {
     });
     expect(draft.templateVariables["6"]).toContain("contact path");
     expect(draft.message).toContain("websites, landing pages, custom business systems, and customer-service automations");
-    expect(draft.message).toContain("start at US$ 1,000");
+    expect(draft.message).toContain("Websites and landing pages start at US$ 1,000");
+    expect(draft.message).toMatch(/Thank you for your time\.$/);
   });
 
   it("places the niche demo in the free first-contact section", () => {
@@ -123,12 +133,28 @@ describe("bulk generation context", () => {
         }
       } as never,
       settings,
-      customText: "the booking path could be clearer.",
+      diagnosis: "the booking path could be clearer.",
       language: "en"
     });
 
     expect(draft.templateVariables["10"]).toBe("https://clinic-demo.example.com");
     expect(draft.templateVariables["10"]).not.toContain("github.com");
+    expect(draft.templateVariables["11"]).toContain("https://portfolio.example.com");
     expect(draft.message).toContain("https://clinic-demo.example.com");
+  });
+
+  it("maps a lead without a website to the predefined website service and evidence-based diagnosis", () => {
+    const leadWithoutWebsite = {
+      ...(lead as unknown as Record<string, unknown>),
+      websiteStatus: "no_site",
+      classificationReasons: ["No website URL was available for this lead."]
+    } as never;
+
+    expect(buildWhatsAppFirstContactServiceCategory(leadWithoutWebsite, "pt-BR")).toBe(
+      "website institucional e apresentação dos serviços"
+    );
+    expect(buildWhatsAppFirstContactFallbackDiagnosis(leadWithoutWebsite, "pt-BR")).toContain(
+      "a empresa ainda não possui um website próprio"
+    );
   });
 });

@@ -35,7 +35,8 @@ export function TwilioTemplateCatalog() {
           WhatsApp first contact
         </h2>
         <p className="mt-1 text-sm text-slate-400">
-          Approved Twilio templates. Language is selected automatically from the lead market.
+          Active Twilio templates. Language is selected automatically from the lead market. The
+          configured SIDs are the current replacement templates used for delivery.
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">

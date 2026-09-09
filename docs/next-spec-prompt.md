@@ -157,7 +157,7 @@ Recent extension hotfix: when LinkedIn renders `Candidatar-se` as `BUTTON.jobs-a
 
 ## Freelance WhatsApp Template Follow-up Candidate
 
-Recent implementation: apps/web can send first-contact WhatsApp outreach through a Twilio approved content template when `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID` is configured. Future Spec Kit work should focus on delivery-status callbacks, operator-visible template/readiness diagnostics, and switching from template first contact to freeform AI follow-up after the lead replies. Preserve the existing checkbox bulk outreach flow and do not remove the deterministic `primeiro_contato_site_v1` variable mapping.
+Recent implementation: apps/web generates first-contact WhatsApp outreach with `primeiro_contato_site_v2` and its evidence-backed 10-variable mapping. Portuguese delivery uses the current value of `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID`. Future Spec Kit work should focus on delivery-status callbacks, operator-visible template/readiness diagnostics, and switching from template first contact to freeform AI follow-up after the lead replies. Preserve the existing checkbox bulk outreach flow.
 
 ## Freelance WhatsApp English Template Note
 
@@ -189,7 +189,9 @@ checkbox-to-floating-action-to-review-modal workflow.
 
 Specify a production deployment flow that builds immutable web images, runs database bootstrap as a one-off task, performs health checks before traffic switches, and avoids stale Next.js Server Action requests during releases.
 
+## Freelance WhatsApp Inbox Layout Note
 
+Recent web implementation makes `/inbox` full-width, constrains long conversation rows without horizontal scrolling, places unread counters on the left, strengthens hover/selected contrast, and adds an accessible resizable desktop divider. Preserve these layout and keyboard behaviors in future inbox work. The next functional slice should still prioritize Twilio delivery-status callbacks, attachment/media support, and multi-user conversation assignment rather than replacing the current inbox surface.
 ## Next Candidate: Twilio Sender Preflight
 
 Specify a safe Twilio sender preflight that checks the configured Account SID against the Senders API, verifies that `TWILIO_WHATSAPP_FROM` is present and ONLINE, caches only non-secret status metadata, and surfaces actionable configuration diagnostics before an operator approves delivery.
@@ -265,3 +267,9 @@ an optional branded public portfolio page with unguessable or explicitly publish
 pages must never expose GitHub repositories or internal notes unless the operator opts in. Keep
 human approval, exact recipient deduplication, the shared PT/EN 11-variable mapping (demo URL in
 variable 10 and seller contact in variable 11), and current Twilio delivery-status auditing intact.
+
+## VPS Redis Network Invariant
+
+Preserve Redis as an internal-only Compose dependency addressed by `redis://redis:6379`. Do not
+publish container port `6379` on the VPS host; multiple projects may run independent Redis services
+on the same server. Keep public realtime traffic routed through Caddy `/ws` to host port `3001`.

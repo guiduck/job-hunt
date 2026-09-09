@@ -16,7 +16,7 @@ export const seedCommercialTemplates = [
   },
   {
     id: "system-first_contact-twilio",
-    name: "WhatsApp first contact - approved Twilio template",
+    name: "WhatsApp first contact - Twilio template v2",
     stage: "first_contact" as const,
     category: "twilio_first_contact",
     channel: "whatsapp",

@@ -23,10 +23,12 @@ Postgres full-time: 127.0.0.1:5432 -> postgres:5432
 Freelance web:      0.0.0.0:3000   -> web:3000
 Postgres freelance: 127.0.0.1:5433 -> freelance-postgres:5432
 WhatsApp realtime:  127.0.0.1:3001 -> whatsapp-realtime:3001
-Redis freelance:    127.0.0.1:6379 -> redis:6379
+Redis freelance:    rede interna do Compose -> redis:6379
 ```
 
-Os bancos nao devem ser expostos publicamente. Acesso remoto a Postgres deve ser via tunel SSH.
+Redis nao publica uma porta no host para evitar conflitos com outros projetos da VPS. Os servicos
+do projeto continuam acessando-o por `redis://redis:6379` na rede interna do Compose. Os bancos nao
+devem ser expostos publicamente. Acesso remoto a Postgres deve ser via tunel SSH.
 
 ## Conferir API Publica
 
