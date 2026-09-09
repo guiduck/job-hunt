@@ -16,6 +16,7 @@ export const freelanceRepositories = {
   nicheCandidates: prisma.nicheCandidate,
   nicheAuditRuns: prisma.nicheAuditRun,
   nicheAuditFindings: prisma.nicheAuditFinding,
+  nichePortfolioExamples: prisma.nichePortfolioExample,
   campaigns: prisma.freelanceCampaign,
   jobs: prisma.prospectingJob,
   leads: prisma.freelanceLead,

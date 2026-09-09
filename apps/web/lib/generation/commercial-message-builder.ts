@@ -2,6 +2,8 @@ import type {
   CommercialTemplate,
   FreelanceCampaign,
   FreelanceLead,
+  FreelanceNiche,
+  NichePortfolioExample,
   SellerSettings
 } from "@prisma/client";
 import {
@@ -21,7 +23,10 @@ export {
 } from "@/lib/freelance/whatsapp-template-definition";
 
 
-type LeadWithCampaign = FreelanceLead & { campaign: FreelanceCampaign };
+type LeadWithCampaign = FreelanceLead & {
+  campaign: FreelanceCampaign;
+  niche?: (FreelanceNiche & { portfolioExamples?: NichePortfolioExample[] }) | null;
+};
 type TargetLanguage = "pt-BR" | "en";
 export type OutreachChannel = "email" | "whatsapp";
 
@@ -71,7 +76,7 @@ function languageDefaults(language: TargetLanguage, settings: SellerSettings | n
   if (language === "pt-BR") {
     return {
       demoUrl: "o link do demo",
-      offerPrice: settings?.landingPagePrice ? `a partir de R$ ${String(settings.landingPagePrice)}` : "a partir de R$ 2500",
+      offerPrice: settings?.landingPagePrice ? `a partir de R$ ${String(settings.landingPagePrice)}` : "a partir de R$ 1800",
       installments: settings?.installments ? `ate ${String(settings.installments)}x sem juros` : "ate 6x sem juros",
       deliveryTime: localizeDeliveryTime(settings?.deliveryTime, language),
       offerTitle: settings?.offerTitle ?? "uma landing page focada em conversao",
@@ -114,14 +119,50 @@ function requiredWhatsAppTemplateVariable(value: unknown, fallback: string, maxL
 }
 
 function formatBrlPrice(value: unknown) {
-  if (!value) return "a partir de R$ 2500";
-  const text = String(value).replace(/\.00$/, "").trim();
-  return `a partir de R$ ${text}`;
+  const numericValue = Number(value ?? 1800);
+  const amount = Number.isFinite(numericValue)
+    ? new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(numericValue)
+    : String(value).trim();
+  return `R$ ${amount}`;
+}
+
+function formatUsdPrice(value: unknown) {
+  const numericValue = Number(value ?? 1000);
+  const amount = Number.isFinite(numericValue)
+    ? new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(numericValue)
+    : String(value).trim();
+  return `US$ ${amount}`;
 }
 
 function formatInstallments(value: unknown) {
   if (!value) return "6x sem juros";
   return `${String(value).trim()}x sem juros`;
+}
+
+export function getLeadPortfolioExample(lead: LeadWithCampaign) {
+  return lead.niche?.portfolioExamples?.[0] ?? null;
+}
+
+function buildPortfolioDemoUrl(lead: LeadWithCampaign, language: TargetLanguage) {
+  const example = getLeadPortfolioExample(lead);
+  const demoUrl = example?.demoUrl?.trim();
+  if (!demoUrl) {
+    return language === "pt-BR" ? "posso enviar a demo por aqui" : "I can send the demo here";
+  }
+
+  return demoUrl;
+}
+
+function buildSellerContact(settings: SellerSettings | null, language: TargetLanguage) {
+  const links = [
+    settings?.companyWebsite?.trim(),
+    settings?.portfolioUrl?.trim(),
+    settings?.sellerLinkedinUrl?.trim(),
+    settings?.sellerEmail?.trim(),
+    settings?.sellerWhatsapp?.trim()
+  ].filter((value): value is string => Boolean(value));
+
+  return links.join(" | ") || (language === "pt-BR" ? "Pode responder por aqui." : "You can reply here.");
 }
 
 export function buildWhatsAppFirstContactFallbackCustomText(
@@ -158,45 +199,51 @@ export function buildWhatsAppFirstContactTemplateDraft({
   const templateBody =
     language === "pt-BR" ? WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY : WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY_EN;
   const city = lead.city?.trim() || (language === "pt-BR" ? "sua cidade" : "your city");
-  const marketContext = language === "pt-BR" ? `${niche} em ${city}` : `${niche} in ${city}`;
-  const offerTitle =
-    language === "pt-BR"
-      ? settings?.offerTitle?.trim() || "sites e landing pages focados em conversao"
-      : "conversion-focused websites and landing pages";
   const price =
     language === "pt-BR"
       ? formatBrlPrice(settings?.landingPagePrice)
-      : defaults.offerPrice;
+      : formatUsdPrice(settings?.landingPagePriceUsd);
   const deliveryTime = defaults.deliveryTime;
   const paymentTerms =
-    language === "pt-BR" ? formatInstallments(settings?.installments) : "payment terms defined after scope review";
+    language === "pt-BR" ? formatInstallments(settings?.installments) : "defined after scope review";
+  const portfolioDemoUrl = buildPortfolioDemoUrl(lead, language);
   const variables: Record<string, string> = {
-    "1": language === "pt-BR" ? "pessoal" : "there",
-    "2": requiredWhatsAppTemplateVariable(settings?.sellerName, defaults.sellerName, 120),
-    "3": requiredWhatsAppTemplateVariable(
+    "1": requiredWhatsAppTemplateVariable(settings?.sellerName, defaults.sellerName, 120),
+    "2": requiredWhatsAppTemplateVariable(
       lead.businessName,
       language === "pt-BR" ? "sua empresa" : "your business",
       160
     ),
-    "4": requiredWhatsAppTemplateVariable(marketContext, city, 180),
-    "5": requiredWhatsAppTemplateVariable(
-      offerTitle,
-      language === "pt-BR" ? "sites focados em conversao" : "conversion-focused websites",
-      180
+    "3": requiredWhatsAppTemplateVariable(
+      niche,
+      language === "pt-BR" ? "negócio local" : "local business",
+      160
     ),
-    "6": requiredWhatsAppTemplateVariable(price, defaults.offerPrice, 80),
-    "7": requiredWhatsAppTemplateVariable(deliveryTime, defaults.deliveryTime, 80),
-    "8": requiredWhatsAppTemplateVariable(
-      paymentTerms,
-      language === "pt-BR" ? "6x sem juros" : "payment terms defined after scope review",
-      120
-    ),
-    "9": requiredWhatsAppTemplateVariable(
+    "4": requiredWhatsAppTemplateVariable(city, language === "pt-BR" ? "sua cidade" : "your city", 160),
+    "5": language === "pt-BR" ? "presença online e conversão" : "online presence and conversion",
+    "6": requiredWhatsAppTemplateVariable(
       customText,
       language === "pt-BR"
-        ? "a presenca online pode deixar os servicos e o contato mais claros para novos clientes."
+        ? "a presença online pode deixar os serviços e o contato mais claros para novos clientes."
         : "the online presence could make services and contact paths clearer for new customers.",
       WHATSAPP_FIRST_CONTACT_CUSTOM_TEXT_MAX_LENGTH
+    ),
+    "7": requiredWhatsAppTemplateVariable(price, defaults.offerPrice, 80),
+    "8": requiredWhatsAppTemplateVariable(deliveryTime, defaults.deliveryTime, 80),
+    "9": requiredWhatsAppTemplateVariable(
+      paymentTerms,
+      language === "pt-BR" ? "6x sem juros" : "defined after scope review",
+      120
+    ),
+    "10": requiredWhatsAppTemplateVariable(
+      portfolioDemoUrl,
+      language === "pt-BR" ? "posso enviar a demo por aqui" : "I can send the demo here",
+      500
+    ),
+    "11": requiredWhatsAppTemplateVariable(
+      buildSellerContact(settings, language),
+      language === "pt-BR" ? "Pode responder por aqui." : "You can reply here.",
+      500
     )
   };
 
@@ -239,9 +286,11 @@ export function buildCommercialMessage({
     business_name: lead.businessName,
     niche: lead.category ?? lead.campaign.nicheNameSnapshot,
     city: lead.city,
-    demo_url: lead.demoUrl ?? defaults.demoUrl,
+    demo_url: getLeadPortfolioExample(lead)?.demoUrl ?? lead.demoUrl ?? defaults.demoUrl,
+    niche_demo_url: getLeadPortfolioExample(lead)?.demoUrl ?? "",
+    niche_repository_url: getLeadPortfolioExample(lead)?.repositoryUrl ?? "",
     offer_price: defaults.offerPrice,
-    base_price_brl: settings?.landingPagePrice ? String(settings.landingPagePrice) : "2500",
+    base_price_brl: settings?.landingPagePrice ? String(settings.landingPagePrice) : "1800",
     base_price_usd: settings?.landingPagePriceUsd ? String(settings.landingPagePriceUsd) : "1000",
     advanced_price_range_brl: settings?.advancedPriceRangeBrl ?? "3000-5000",
     advanced_price_range_usd: settings?.advancedPriceRangeUsd ?? "1200-2000",

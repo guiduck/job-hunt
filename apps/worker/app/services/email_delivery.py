@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -11,9 +12,31 @@ from sqlalchemy.orm import Session
 from app.services.gmail_provider import GmailAttachment, GmailProvider, GmailSendInput
 
 EMAIL_RE = re.compile(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,63}$")
+logger = logging.getLogger(__name__)
 
 
-def process_pending_send_requests(db: Session, provider: GmailProvider | None = None, limit: int = 5) -> int:
+def process_pending_send_requests(
+    db: Session,
+    provider: GmailProvider | None = None,
+    limit: int = 5,
+    stale_after_minutes: int = 15,
+) -> int:
+    now = datetime.now(UTC)
+    recovered = db.execute(
+        text(
+            """
+            UPDATE send_requests
+            SET status = 'queued', error_code = 'delivery_recovered',
+                error_message = 'Recovered after an interrupted delivery attempt.', updated_at = :now
+            WHERE status = 'sending' AND updated_at < :cutoff
+            """
+        ),
+        {"now": now, "cutoff": now - timedelta(minutes=stale_after_minutes)},
+    )
+    if recovered.rowcount:
+        logger.warning("Recovered %s stale email send request(s).", recovered.rowcount)
+    db.commit()
+
     rows = (
         db.execute(
             text(
@@ -47,6 +70,8 @@ def process_pending_send_requests(db: Session, provider: GmailProvider | None = 
         )
         if claim.rowcount != 1:
             continue
+        db.commit()
+        logger.info("Claimed email send request %s for Gmail delivery.", row["id"])
         attachment = _load_attachment(db, row["resume_attachment_id"], row["user_id"])
         if row["resume_attachment_id"] and attachment is None:
             _record_failure(db, row, "resume_unavailable", "Selected resume is no longer available.")
@@ -75,8 +100,10 @@ def process_pending_send_requests(db: Session, provider: GmailProvider | None = 
         )
         if result.success:
             _record_success(db, row, result.provider_message_id)
+            logger.info("Email send request %s was accepted by Gmail.", row["id"])
         else:
             _record_failure(db, row, result.error_code or "gmail_send_failed", result.error_message or "Gmail send failed.")
+            logger.error("Email send request %s failed with code %s.", row["id"], result.error_code or "gmail_send_failed")
         processed += 1
     db.commit()
     return processed
@@ -163,7 +190,9 @@ def _record_success(db: Session, row, provider_message_id: str | None) -> None:
         text(
             """
             UPDATE send_requests
-            SET status = 'sent', sent_at = :now, provider_message_id = :provider_message_id, updated_at = :now
+            SET status = 'sent', sent_at = :now, failed_at = NULL,
+                provider_message_id = :provider_message_id,
+                error_code = NULL, error_message = NULL, updated_at = :now
             WHERE id = :id
             """
         ),

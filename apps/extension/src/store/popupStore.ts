@@ -13,6 +13,7 @@ import {
   deleteFieldAssistantActivation as apiDeleteFieldAssistantActivation,
   disconnectGoogleOAuth,
   getCurrentUser,
+  getBulkEmail,
   getJobSearchPreference,
   getLatestCareerPageRun,
   getLatestLinkedInJobsExternalRun,
@@ -235,7 +236,8 @@ type PopupState = {
     opportunityId: string,
     payload: { recipient_email?: string | null; subject?: string | null; body?: string | null; is_skipped?: boolean }
   ) => Promise<void>
-  approveBulkSend: () => Promise<void>
+  approveBulkSend: () => Promise<BulkSendBatch | null>
+  refreshBulkSendStatus: () => Promise<BulkSendBatch | null>
 }
 
 const DEFAULT_CAPTURE_PROGRESS: CaptureProgress = {
@@ -1647,14 +1649,30 @@ export const usePopupStore = create<PopupState>((set, get) => ({
 
   approveBulkSend: async () => {
     const { bulkPreview } = get()
-    if (!bulkPreview) return
+    if (!bulkPreview) return null
     set({ loading: true, error: null })
     try {
-      set({ bulkPreview: await approveBulkEmail(bulkPreview.id) })
+      const approved = await approveBulkEmail(bulkPreview.id)
+      set({ bulkPreview: approved })
+      return approved
     } catch (error) {
       set({ error: error instanceof Error ? error.message : "Could not approve bulk email." })
+      return null
     } finally {
       set({ loading: false })
+    }
+  },
+
+  refreshBulkSendStatus: async () => {
+    const { bulkPreview } = get()
+    if (!bulkPreview) return null
+    try {
+      const refreshed = await getBulkEmail(bulkPreview.id)
+      set({ bulkPreview: refreshed })
+      return refreshed
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : "Could not refresh email delivery status." })
+      return null
     }
   }
 }))

@@ -194,6 +194,10 @@ class BulkSendItem(BaseModel):
     is_skipped: bool = False
     ai_error_code: str | None = None
     retryable: bool = False
+    delivery_status: SendRequestStatus | None = None
+    delivery_error_code: str | None = None
+    delivery_error_message: str | None = None
+    provider_message_id: str | None = None
 
 
 class BulkSendBatch(BaseModel):

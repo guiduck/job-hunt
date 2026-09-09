@@ -589,6 +589,10 @@ export type BulkSendItem = {
   is_skipped: boolean
   ai_error_code: string | null
   retryable: boolean
+  delivery_status: "approved" | "queued" | "sending" | "sent" | "failed" | "cancelled" | null
+  delivery_error_code: string | null
+  delivery_error_message: string | null
+  provider_message_id: string | null
 }
 
 export type BulkSendBatch = {

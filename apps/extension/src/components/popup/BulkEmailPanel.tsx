@@ -12,6 +12,7 @@ export function BulkEmailPanel({ onClose, selectedIds }: { onClose?: () => void;
   const generateAIBulkSend = usePopupStore((state) => state.generateAIBulkSend)
   const updateBulkSendItem = usePopupStore((state) => state.updateBulkSendItem)
   const approveBulkSend = usePopupStore((state) => state.approveBulkSend)
+  const refreshBulkSendStatus = usePopupStore((state) => state.refreshBulkSendStatus)
   const activeTemplates = useMemo(
     () => emailTemplates.filter((item) => item.template_kind === "job_application" && item.is_active),
     [emailTemplates]
@@ -74,10 +75,37 @@ export function BulkEmailPanel({ onClose, selectedIds }: { onClose?: () => void;
       return
     }
     setActionFeedbackTone("info")
-    setActionFeedback("Sending reviewed emails...")
-    await approveBulkSend()
-    setActionFeedbackTone("success")
-    setActionFeedback(`SEND submitted: ${sendableCount} email(s) were queued for Gmail delivery. Check each job history for sent/failed status.`)
+    setActionFeedback("Emails queued. Waiting for Gmail delivery confirmation...")
+    let latest = await approveBulkSend()
+    if (!latest) {
+      setActionFeedbackTone("error")
+      setActionFeedback("The send request could not be queued. Check the API error and try again.")
+      return
+    }
+
+    for (let attempt = 0; attempt < 15; attempt += 1) {
+      const deliveries = latest.items.filter((item) => item.send_request_id)
+      const pending = deliveries.filter((item) => !item.delivery_status || ["approved", "queued", "sending"].includes(item.delivery_status))
+      const failed = deliveries.filter((item) => item.delivery_status === "failed")
+      if (deliveries.length > 0 && pending.length === 0) {
+        if (failed.length > 0) {
+          const firstFailure = failed[0]
+          setActionFeedbackTone("error")
+          setActionFeedback(
+            `${deliveries.length - failed.length} sent, ${failed.length} failed. ${firstFailure.delivery_error_message || firstFailure.delivery_error_code || "Gmail delivery failed."}`
+          )
+        } else {
+          setActionFeedbackTone("success")
+          setActionFeedback(`Confirmed: Gmail accepted ${deliveries.length} email(s).`)
+        }
+        return
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 2000))
+      latest = (await refreshBulkSendStatus()) || latest
+    }
+
+    setActionFeedbackTone("info")
+    setActionFeedback("Delivery is still pending after 30 seconds. The emails are not confirmed as sent; check the email worker status.")
   }
 
   function editValues(item: NonNullable<typeof bulkPreview>["items"][number]) {
@@ -118,6 +146,7 @@ export function BulkEmailPanel({ onClose, selectedIds }: { onClose?: () => void;
     )
   )
   const retryableGenerationFailures = bulkPreview?.items.some((item) => item.outcome === "ai_generation_failed" && item.retryable) || false
+  const alreadySubmitted = bulkPreview?.items.some((item) => Boolean(item.send_request_id)) || false
 
   return (
     <section className="card bulk-email-panel">
@@ -181,8 +210,8 @@ export function BulkEmailPanel({ onClose, selectedIds }: { onClose?: () => void;
           type="button">
           {loading ? "Working..." : mode === "ai" ? "Generate review" : "Preview review"}
         </button>
-        <button className="primary-button send-button" disabled={loading || !bulkPreview?.sendable_count} onClick={() => void approveReviewedItems()} type="button">
-          {loading ? "Sending..." : "SEND"}
+        <button className="primary-button send-button" disabled={loading || !bulkPreview?.sendable_count || alreadySubmitted} onClick={() => void approveReviewedItems()} type="button">
+          {loading ? "Sending..." : alreadySubmitted ? "SUBMITTED" : "SEND"}
         </button>
       </div>
       {generationProgress ? <p className="message">{generationProgress}</p> : null}
@@ -216,11 +245,14 @@ export function BulkEmailPanel({ onClose, selectedIds }: { onClose?: () => void;
                 <li className="stack-card" key={item.opportunity_id}>
                   <div className="bulk-item-heading">
                     <strong>{item.recipient_email || "Missing recipient"}</strong>
-                    <span className={`progress-badge progress-badge--${item.status || "completed"}`}>{item.status || "completed"}</span>
+                    <span className={`progress-badge progress-badge--${item.delivery_status || item.status || "completed"}`}>
+                      {item.delivery_status || item.status || "completed"}
+                    </span>
                   </div>
                   <span>{item.subject || item.outcome}</span>
                   {item.reason ? <span>{item.reason}</span> : null}
                   {item.ai_error_code ? <span>Error code: {item.ai_error_code}</span> : null}
+                  {item.delivery_error_message ? <span className="message--error">{item.delivery_error_message}</span> : null}
                   {item.body ? <p>{expanded ? item.body : `${item.body.slice(0, 140)}${item.body.length > 140 ? "..." : ""}`}</p> : null}
                   <div className="detail-actions">
                     <button className="secondary-button" onClick={() => setExpandedId(expanded ? null : item.opportunity_id)} type="button">

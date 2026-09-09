@@ -57,7 +57,15 @@ export async function generateBulkOutreachBatch(scope: OwnerScope, batchId: stri
           ? { in: ["queued", "generation_failed", "generated"] }
           : { in: ["queued", "generated"] }
       },
-      include: { lead: { include: { campaign: true, websiteAnalyses: true } } },
+      include: {
+        lead: {
+          include: {
+            campaign: true,
+            websiteAnalyses: true,
+            niche: { include: { portfolioExamples: { where: { userId }, take: 1 } } }
+          }
+        }
+      },
       orderBy: { createdAt: "asc" }
     })
   ]);

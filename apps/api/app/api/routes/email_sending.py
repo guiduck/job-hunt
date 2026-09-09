@@ -153,6 +153,17 @@ def approve_bulk_email(
     return approve_bulk_send(db, batch_id, user=user)
 
 
+@router.get("/bulk-email/{batch_id}", response_model=BulkSendBatch)
+def get_bulk_email(
+    batch_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> BulkSendBatch:
+    from app.services.bulk_email_service import get_bulk_send_batch
+
+    return get_bulk_send_batch(db, batch_id, user=user)
+
+
 @router.get("/opportunities/{opportunity_id}/email-history", response_model=list[OutreachEvent])
 def get_email_history(
     opportunity_id: str,

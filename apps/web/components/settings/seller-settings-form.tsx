@@ -87,7 +87,7 @@ export function SellerSettingsForm({
         <Input name="sellerLinkedinUrl" defaultValue={settings?.sellerLinkedinUrl ?? ""} placeholder="LinkedIn profile URL" />
         <Input name="defaultCountry" defaultValue={settings?.defaultCountry ?? "Brazil"} placeholder="Country" />
         <Input name="defaultCurrency" defaultValue={settings?.defaultCurrency ?? "BRL"} placeholder="Currency" />
-        <Input name="landingPagePrice" defaultValue={String(settings?.landingPagePrice ?? "2500")} placeholder="Base landing page price BRL, e.g. 2500" />
+        <Input name="landingPagePrice" defaultValue={String(settings?.landingPagePrice ?? "1800")} placeholder="Base landing page price BRL, e.g. 1800" />
         <Input name="landingPagePriceUsd" defaultValue={String(settings?.landingPagePriceUsd ?? "1000")} placeholder="Base landing page price USD, e.g. 1000" />
         <Input name="installments" defaultValue={String(settings?.installments ?? "6")} placeholder="BR installments, e.g. 6" />
         <Input name="deliveryTime" defaultValue={settings?.deliveryTime ?? "15 days"} placeholder="Base delivery time, e.g. 15 days" />

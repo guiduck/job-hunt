@@ -76,9 +76,13 @@ describe("bulk outreach selection UI", () => {
 
     render(<LeadTable leads={leads} />);
     fireEvent.click(screen.getByLabelText("Select Example Clinic"));
-    fireEvent.click(screen.getByRole("button", { name: /Generate Email/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review email for 1 selected leads" })
+    );
 
-    await waitFor(() => expect(screen.getByText("Batch created")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Generate 1 Email draft" })).toBeInTheDocument()
+    );
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "/api/freelance/bulk-outreach",
       expect.objectContaining({
@@ -121,13 +125,14 @@ describe("bulk outreach selection UI", () => {
 
     render(<LeadTable leads={leads} />);
     fireEvent.click(screen.getByLabelText("Select Second Studio"));
-    fireEvent.click(screen.getByRole("button", { name: /Generate Email/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review email for 1 selected leads" })
+    );
 
     await waitFor(() =>
-      expect(screen.getByText(/No selected leads have saved email addresses/i)).toBeInTheDocument()
+      expect(screen.getByText(/No eligible leads\. Skipped: 1 without contact\./i)).toBeInTheDocument()
     );
-    expect(screen.getByText(/do not block eligible leads/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Generate drafts" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Generate 0 Email drafts" })).toBeDisabled();
   });
 
   it("shows generated items and saves review edits", async () => {
@@ -211,9 +216,13 @@ describe("bulk outreach selection UI", () => {
 
     render(<LeadTable leads={leads} />);
     fireEvent.click(screen.getByLabelText("Select Example Clinic"));
-    fireEvent.click(screen.getByRole("button", { name: /Generate Email/i }));
-    await waitFor(() => expect(screen.getByText("Batch created")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Generate drafts" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review email for 1 selected leads" })
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Generate 1 Email draft" })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Generate 1 Email draft" }));
     await waitFor(() => expect(screen.getByLabelText("Recipient email")).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText("Recipient email"), {
       target: { value: "new@example.com" }

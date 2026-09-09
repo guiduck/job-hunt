@@ -503,6 +503,10 @@ export function approveBulkEmail(batchId: string, options?: RequestOptions) {
   return request<BulkSendBatch>(`/bulk-email/${batchId}/approve`, { method: "POST" }, options)
 }
 
+export function getBulkEmail(batchId: string, options?: RequestOptions) {
+  return request<BulkSendBatch>(`/bulk-email/${batchId}`, {}, options)
+}
+
 export function listEmailHistory(opportunityId: string, options?: RequestOptions) {
   return request<OutreachEvent[]>(`/opportunities/${opportunityId}/email-history`, {}, options)
 }

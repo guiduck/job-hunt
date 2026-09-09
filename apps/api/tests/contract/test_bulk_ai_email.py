@@ -9,6 +9,7 @@ from app.services import bulk_email_service
 def test_bulk_ai_generate_review_edit_and_approve(
     client: TestClient,
     auth_headers: dict[str, str],
+    db_session: Session,
     monkeypatch,
     review_ready_job_payload: dict[str, object],
 ) -> None:
@@ -48,6 +49,23 @@ def test_bulk_ai_generate_review_edit_and_approve(
     approved_item = approved.json()["items"][0]
     assert approved_item["send_request_id"]
     assert approved_item["subject"] == "Edited subject"
+    assert approved_item["delivery_status"] == "approved"
+
+    approved_again = client.post(f"/bulk-email/{body['id']}/approve", headers=auth_headers)
+    assert approved_again.status_code == 200
+    assert approved_again.json()["items"][0]["send_request_id"] == approved_item["send_request_id"]
+    assert db_session.query(SendRequest).filter(SendRequest.bulk_batch_id == body["id"]).count() == 1
+
+    send_request = db_session.get(SendRequest, approved_item["send_request_id"])
+    send_request.status = SendRequestStatus.SENT.value
+    send_request.provider_message_id = "gmail-message-1"
+    db_session.commit()
+
+    delivery = client.get(f"/bulk-email/{body['id']}", headers=auth_headers)
+    assert delivery.status_code == 200
+    delivered_item = delivery.json()["items"][0]
+    assert delivered_item["delivery_status"] == "sent"
+    assert delivered_item["provider_message_id"] == "gmail-message-1"
 
 
 def test_bulk_ai_generation_uses_resume_text_and_template_reference(

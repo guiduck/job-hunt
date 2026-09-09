@@ -38,7 +38,7 @@ describe("bulk outreach accessibility", () => {
     expect(screen.getByLabelText("Recipient email")).toBeInTheDocument();
     expect(screen.getByLabelText("Email subject")).toBeInTheDocument();
     expect(screen.getByLabelText("Email body")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Approve Email delivery" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send 1" })).toBeInTheDocument();
   });
 
   it("labels WhatsApp review controls and validation messages", () => {

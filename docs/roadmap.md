@@ -721,3 +721,38 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Preview all leads currently blocked by confirmed WhatsApp first-contact history.
 - [x] Require explicit `--confirm-all` before clearing the global contacted set.
 - [x] Preserve inbox conversations, replies, lead records, and provider audit logs.
+
+## 2026-09-01 - Reliable Bulk Gmail Delivery
+
+- [x] Separate Gmail queue consumption from long-running LinkedIn and career scraping loops.
+- [x] Recover interrupted sending records after a bounded stale timeout.
+- [x] Expose provider delivery state and safe errors per bulk item.
+- [x] Replace optimistic popup success with polling for actual Gmail acceptance.
+- [x] Keep worker lanes alive after transient database/task failures and restart containers after
+  process or host interruption.
+- [ ] Add durable queue metrics and alerts if email volume grows beyond the current Postgres queue.
+
+## 2026-09-03 - Freelance Portfolio By Niche
+
+- [x] Add a Portfolio menu/page listing the complete governed niche catalog.
+- [x] Store one owner-scoped project example per niche with GitHub, demo and internal notes.
+- [x] Prefer the niche demo in generated commercial template variables and AI context.
+- [x] Add an English Twilio first-contact template with a free portfolio section.
+- [x] Submit `first_contact_website_portfolio_v1` to Twilio/WhatsApp approval.
+- [ ] Confirm WhatsApp approval, then deploy the new migration and English Content SID to VPS.
+- [ ] Add a public, branded portfolio index only if sharing one catalog URL becomes useful; current
+  outreach intentionally shares the individual niche demo.
+
+## 2026-09-09 - Twilio Portfolio Template V2
+
+- [x] Restore explicit PT/EN copy for websites, landing pages, custom systems and service
+  automations.
+- [x] Standardize PT/EN first contact on 11 variables with the niche demo URL isolated in variable
+  10 and seller contact in variable 11.
+- [x] Keep variable 7 as a localized amount only, avoiding duplicated price prefixes in rendered
+  messages.
+- [x] Lower the Brazilian base landing-page default from R$ 2,500 to R$ 1,800 while preserving
+  other customized saved prices.
+- [x] Submit `primeiro_contato_site_portfolio_v2` and
+  `first_contact_website_portfolio_v2` to Twilio/WhatsApp approval as MARKETING.
+- [ ] Confirm both v2 templates reach `approved` before deploying their Content SIDs to VPS.

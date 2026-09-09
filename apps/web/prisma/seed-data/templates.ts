@@ -22,7 +22,10 @@ export const seedCommercialTemplates = [
     channel: "whatsapp",
     bodyTemplate: WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY,
     variablesSchema: {
-      required: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+      requiredByLanguage: {
+        "pt-BR": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"],
+        en: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"]
+      },
       optional: []
     }
   },

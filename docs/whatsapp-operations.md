@@ -127,3 +127,31 @@ docker compose --env-file .env.local exec -T web npm run whatsapp:reset-all-cont
 This removes only WhatsApp first-contact `sent` events used by duplicate protection and releases
 items linked as `duplicate_blocked`. Leads, inbox conversations/messages, and Twilio logs are
 preserved. Afterward, close any open review modal and create a fresh selection.
+
+## Portfolio first-contact templates
+
+The current templates are `primeiro_contato_site_portfolio_v2` for Portuguese and
+`first_contact_website_portfolio_v2` for English. Both use the same 11 validated variables:
+seller name, business, niche, city, opportunity area, personalized observation, starting price,
+timeline, payment terms, niche demo URL, and seller links/contact details. Variable `{{10}}`
+contains only the saved public demo URL. The GitHub URL stays in internal generation context and is
+not sent automatically.
+
+Create and submit the template with:
+
+```bash
+cd apps/web
+npm run twilio:register-portfolio-template -- --submit
+```
+
+Check the current WhatsApp review state without creating another template:
+
+```bash
+npm run twilio:portfolio-template-status
+```
+
+After Twilio returns the new Content SIDs, set Portuguese as
+`TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID` and English as
+`TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN`. A `received` or `pending` approval state is not yet
+send-ready; wait for WhatsApp approval before using either template outside the customer-care
+window.

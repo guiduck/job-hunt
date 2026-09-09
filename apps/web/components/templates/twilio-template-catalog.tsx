@@ -4,7 +4,8 @@ import {
   WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY_EN,
   WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME,
   WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME_EN,
-  WHATSAPP_FIRST_CONTACT_VARIABLES
+  WHATSAPP_FIRST_CONTACT_VARIABLES_EN,
+  WHATSAPP_FIRST_CONTACT_VARIABLES_PT
 } from "@/lib/freelance/whatsapp-template-definition";
 
 const templates = [
@@ -13,14 +14,16 @@ const templates = [
     name: WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME,
     body: WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY,
     envName: "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID",
-    configured: Boolean(process.env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID)
+    configured: Boolean(process.env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID),
+    variables: WHATSAPP_FIRST_CONTACT_VARIABLES_PT
   },
   {
     language: "English",
     name: WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME_EN,
     body: WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY_EN,
     envName: "TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN",
-    configured: Boolean(process.env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN)
+    configured: Boolean(process.env.TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN),
+    variables: WHATSAPP_FIRST_CONTACT_VARIABLES_EN
   }
 ];
 
@@ -64,17 +67,17 @@ export function TwilioTemplateCatalog() {
             <pre className="mt-4 whitespace-pre-wrap break-words rounded-md border border-slate-800 bg-slate-900/60 p-3 font-sans text-sm leading-6 text-slate-200">
               {template.body}
             </pre>
+            <div className="mt-3 flex flex-wrap gap-2" aria-label={`${template.language} template variables`}>
+              {template.variables.map(([key, label]) => (
+                <span
+                  key={key}
+                  className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-300"
+                >
+                  {"{{" + key + "}}"} {label}
+                </span>
+              ))}
+            </div>
           </article>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-2" aria-label="WhatsApp template variables">
-        {WHATSAPP_FIRST_CONTACT_VARIABLES.map(([key, label]) => (
-          <span
-            key={key}
-            className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-300"
-          >
-            {"{{" + key + "}}"} {label}
-          </span>
         ))}
       </div>
     </section>

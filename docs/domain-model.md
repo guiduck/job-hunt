@@ -622,6 +622,9 @@ dedicadas, separadas do schema operacional do `Full-time`:
   aprovado quando a referencia ja esta coberta.
 - `niche_audit_runs` e `niche_audit_findings`: snapshots do audit interno que compara catalogo atual,
   baseline de 30 nichos, source evidence, encoding e conflitos como `Imobiliaria`.
+- `niche_portfolio_examples`: um projeto de referencia owner-scoped por `user_id + niche_id`, com
+  nome, URL do repositorio GitHub, URL da demo e notas internas. O catalogo de nichos continua
+  global; os exemplos e links comerciais pertencem ao operador.
 - A gestao US2 do catalogo usa `POST /api/freelance/niches` e
   `PATCH /api/freelance/niches/[nicheId]` para criar/editar/desativar/reativar/mesclar nichos
   aprovados. Essas operacoes nunca reescrevem `niche_name_snapshot` nem

@@ -149,6 +149,29 @@ async function executeFreelanceBulkOutreachMigrationIfNeeded() {
   }
 }
 
+async function executeNichePortfolioMigrationIfNeeded() {
+  const existing = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+    SELECT to_regclass('public.niche_portfolio_examples') IS NOT NULL AS exists
+  `;
+
+  if (existing[0]?.exists) {
+    return;
+  }
+
+  const migrationSql = readFileSync(
+    resolve(process.cwd(), "prisma/migrations/20260903000100_niche_portfolio_examples/migration.sql"),
+    "utf8"
+  );
+  const statements = migrationSql
+    .split(/;\s*(?:\r?\n|$)/)
+    .map((statement) => statement.trim())
+    .filter(Boolean);
+
+  for (const statement of statements) {
+    await prisma.$executeRawUnsafe(statement);
+  }
+}
+
 async function seed() {
   for (const niche of seedNiches) {
     await prisma.freelanceNiche.upsert({
@@ -259,6 +282,7 @@ async function main() {
     await executeNicheCatalogGovernanceMigrationIfNeeded();
     await executeLeadSocialSourceLinksMigrationIfNeeded();
     await executeFreelanceBulkOutreachMigrationIfNeeded();
+    await executeNichePortfolioMigrationIfNeeded();
     await seed();
     console.log("Freelance database bootstrap complete.");
   } finally {
@@ -275,4 +299,3 @@ main()
     await prisma.$disconnect();
     process.exit(1);
   });
-

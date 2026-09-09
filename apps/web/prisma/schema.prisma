@@ -205,6 +205,7 @@ model FreelanceNiche {
   mergedNiches         FreelanceNiche[]      @relation("MergedNiches")
   matchedCandidates    NicheCandidate[]      @relation("CandidateMatchedNiche")
   auditFindings        NicheAuditFinding[]
+  portfolioExamples    NichePortfolioExample[]
 
   @@index([enabled, lifecycleStatus])
   @@index([marketApplicability])
@@ -672,6 +673,23 @@ model WhatsAppConversation {
   @@index([userId, status, lastMessageAt])
   @@index([leadId])
   @@map("whatsapp_conversations")
+}
+
+model NichePortfolioExample {
+  id            String          @id @default(cuid())
+  userId        String          @map("user_id")
+  nicheId       String          @map("niche_id")
+  projectName   String?         @map("project_name")
+  repositoryUrl String?         @map("repository_url")
+  demoUrl       String?         @map("demo_url")
+  notes         String?
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  niche         FreelanceNiche  @relation(fields: [nicheId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, nicheId])
+  @@index([userId, updatedAt])
+  @@map("niche_portfolio_examples")
 }
 
 model WhatsAppMessage {

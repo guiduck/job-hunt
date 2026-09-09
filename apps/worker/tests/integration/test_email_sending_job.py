@@ -1,7 +1,8 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import text
+import pytest
 
 from app.services.email_delivery import process_pending_send_requests
 from app.services.gmail_provider import GmailSendResult
@@ -13,7 +14,14 @@ class FakeProvider:
         return GmailSendResult(True, provider_message_id="gmail-message-1")
 
 
-def test_process_pending_send_request_records_success_and_marks_applied(db_session) -> None:
+@pytest.mark.parametrize(
+    ("initial_status", "updated_at"),
+    [
+        ("approved", datetime.now(UTC)),
+        ("sending", datetime.now(UTC) - timedelta(minutes=20)),
+    ],
+)
+def test_process_pending_send_request_records_success_and_marks_applied(db_session, initial_status, updated_at) -> None:
     now = datetime.now(UTC)
     opportunity_id = str(uuid4())
     template_id = str(uuid4())
@@ -63,10 +71,17 @@ def test_process_pending_send_request_records_success_and_marks_applied(db_sessi
               body_snapshot, resume_snapshot, status, approved_at, created_at, updated_at
             )
             VALUES (:id, :opportunity_id, :template_id, 'job_application', 'jobs@example.com',
-                    'Subject', 'Body', '{}', 'approved', :now, :now, :now)
+                    'Subject', 'Body', '{}', :initial_status, :now, :now, :updated_at)
             """
         ),
-        {"id": request_id, "opportunity_id": opportunity_id, "template_id": template_id, "now": now},
+        {
+            "id": request_id,
+            "opportunity_id": opportunity_id,
+            "template_id": template_id,
+            "initial_status": initial_status,
+            "now": now,
+            "updated_at": updated_at,
+        },
     )
 
     assert process_pending_send_requests(db_session, provider=FakeProvider()) == 1

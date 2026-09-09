@@ -20,6 +20,8 @@
     "whatsapp:normalize-lead-phones": "tsx scripts/normalize-lead-phones.ts",
     "whatsapp:reset-gfig-test-lead": "tsx scripts/reset-gfig-test-lead.ts",
     "whatsapp:reset-all-contacted-leads": "tsx scripts/reset-all-whatsapp-contacted-leads.ts",
+    "twilio:register-portfolio-template": "tsx scripts/register-twilio-portfolio-template.ts",
+    "twilio:portfolio-template-status": "tsx scripts/register-twilio-portfolio-template.ts --status",
     "realtime": "tsx realtime/server.ts"
   },
   "dependencies": {

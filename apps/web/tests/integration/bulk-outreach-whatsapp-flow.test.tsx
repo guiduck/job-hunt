@@ -28,7 +28,7 @@ describe("bulk outreach WhatsApp flow", () => {
     );
 
     expect(screen.getByText(/Configure TWILIO_ACCOUNT_SID/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Approve WhatsApp delivery" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send 1" })).toBeInTheDocument();
   });
 
   it("shows configured WhatsApp delivery outcomes", () => {
@@ -50,6 +50,6 @@ describe("bulk outreach WhatsApp flow", () => {
       />
     );
 
-    expect(screen.getByText(/item_1: sent via twilio/i)).toBeInTheDocument();
+    expect(screen.getByText(/^sent$/i)).toBeInTheDocument();
   });
 });

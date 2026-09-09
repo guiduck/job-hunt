@@ -66,6 +66,7 @@ services:
   worker:
     image: python:3.12-slim
     container_name: opportunity_desk_linkedin_job_worker
+    restart: unless-stopped
     working_dir: /app/apps/worker
     env_file:
       - .env.local
@@ -81,6 +82,7 @@ services:
       RESUME_STORAGE_DIR: ${RESUME_STORAGE_DIR:-/app/.local/resumes}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-gmail}
       EMAIL_SEND_POLL_INTERVAL_SECONDS: ${EMAIL_SEND_POLL_INTERVAL_SECONDS:-5}
+      EMAIL_SEND_STALE_AFTER_MINUTES: ${EMAIL_SEND_STALE_AFTER_MINUTES:-15}
       JOB_AI_FILTERS_ENABLED: ${JOB_AI_FILTERS_ENABLED:-true}
       JOB_AI_FILTER_MODEL_NAME: ${JOB_AI_FILTER_MODEL_NAME:-gpt-4o-mini}
       GMAIL_OAUTH_CLIENT_CONFIG_JSON: ${GMAIL_OAUTH_CLIENT_CONFIG_JSON:-}
@@ -95,6 +97,35 @@ services:
     command: >
       sh -c "pip install -e . &&
              python -m app.main"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+
+  email-worker:
+    image: python:3.12-slim
+    container_name: opportunity_desk_email_worker
+    restart: unless-stopped
+    working_dir: /app/apps/worker
+    env_file:
+      - .env.local
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-scrapper}:${POSTGRES_PASSWORD:-scrapper}@postgres:5432/${POSTGRES_DB:-scrapper_freelance}
+      WORKER_RUN_ONCE: ${WORKER_RUN_ONCE:-false}
+      WORKER_MAX_RUNS_PER_LOOP: ${EMAIL_WORKER_MAX_SENDS_PER_LOOP:-10}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-gmail}
+      EMAIL_SEND_POLL_INTERVAL_SECONDS: ${EMAIL_SEND_POLL_INTERVAL_SECONDS:-5}
+      EMAIL_SEND_STALE_AFTER_MINUTES: ${EMAIL_SEND_STALE_AFTER_MINUTES:-15}
+      GMAIL_OAUTH_CLIENT_CONFIG_JSON: ${GMAIL_OAUTH_CLIENT_CONFIG_JSON:-}
+      GMAIL_OAUTH_CLIENT_SECRETS_FILE: ${DOCKER_GMAIL_OAUTH_CLIENT_SECRETS_FILE:-/app/.local/gmail/client_secret.json}
+      GMAIL_OAUTH_SCOPES: ${GMAIL_OAUTH_SCOPES:-https://www.googleapis.com/auth/gmail.send}
+      DEFAULT_LOCAL_USER_EMAIL: ${DEFAULT_LOCAL_USER_EMAIL:-local@example.com}
+    command: >
+      sh -c "pip install -e . &&
+             python -m app.jobs.email_sending_loop"
     depends_on:
       postgres:
         condition: service_healthy

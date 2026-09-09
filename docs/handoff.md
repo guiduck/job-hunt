@@ -1190,3 +1190,61 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
   bulk-review labels/details (`Approve Email delivery`, `Approve WhatsApp delivery`, and the old
   per-item delivery text). The current component renders `Send 1` and compact result text. These
   failures are outside the inbox change and should be updated in a separate test-alignment pass.
+
+## 2026-09-01 - Gmail Bulk Delivery Reliability
+
+- Bulk email approval was previously presented as success even though it only created send
+  requests; delivery depended on the shared scraper worker reaching its email polling step.
+- Added a dedicated email-worker Compose service, safe recovery of sending rows abandoned for more
+  than 15 minutes, and lifecycle logs for claim, Gmail acceptance, and provider failure.
+- Added GET /bulk-email/{batch_id} with per-item delivery status, safe error, and message ID. The
+  extension now polls this endpoint and reports sent, failed, or still pending.
+- No database migration is required.
+- Validation: worker tests passed (2), API bulk contract tests passed (5), extension TypeScript
+  passed, and Docker Compose config validation passed.
+- Production diagnosis found the shared worker exited on PostgreSQL AdminShutdown after a long
+  372-candidate LinkedIn run. The shared lanes now isolate exceptions, and both worker containers
+  use Docker restart unless-stopped.
+
+## 2026-09-09 - Explicit Service Copy And Dedicated Demo Link
+
+- Restored the full first-contact explanation of websites, landing pages, custom systems and
+  customer-service automations in Portuguese and English.
+- Added a dedicated niche demo URL as variable 10 without replacing the personalized opportunity
+  analysis. Both languages now share an 11-variable contract; seller contact moved to variable 11.
+- Submitted `primeiro_contato_site_portfolio_v2` (Content SID
+  `HX87b32be62ddc6b41889cd859aaf574e2`) and
+  `first_contact_website_portfolio_v2` (Content SID
+  `HX7eb26809469ce00dc40fa188dd95c856`) to WhatsApp as MARKETING. Both requests are currently
+  `pending`.
+- Local language-specific Content SID settings now point to the v2 templates. Do not use them for
+  business-initiated first contact until WhatsApp reports `approved`.
+- Validation: 75 test files / 157 tests passed, TypeScript passed, and the Next.js production build
+  completed successfully.
+- Price variable 7 now contains only the localized amount (`R$ 1.800` or `US$ 1,000`) because
+  the approved body already supplies `começam em` / `start at`; this prevents duplicated wording.
+- The default Brazilian landing-page price is now R$ 1,800. The data migration updates only saved
+  values that are exactly R$ 2,500; other customized prices remain unchanged.
+- Validation: 75 test files / 157 tests and the Next.js production build passed. Local migration
+  execution remains pending because Docker Desktop/PostgreSQL was not running; deploy it on the VPS
+  with `docker compose --env-file .env.local exec web npx prisma migrate deploy`.
+
+## 2026-09-03 - Freelance Portfolio By Niche And Twilio Template
+
+- Added `/portfolio` to the Freelance menu. It lists every governed niche, including disabled
+  entries, and saves one owner-scoped example with project name, GitHub URL, public demo and notes.
+- Added `niche_portfolio_examples` plus idempotent local bootstrap support. The migration was
+  applied successfully to the local Freelance PostgreSQL database.
+- Commercial generation now loads the example belonging to the lead's niche. The public demo is
+  inserted into the first-contact portfolio section and generic `{{demo_url}}`; the repository is
+  available to AI/internal context but is not sent automatically when a demo exists.
+- Replaced the old English 9-variable draft definition with
+  `first_contact_website_portfolio_v1` (10 variables). Variable 9 is the free portfolio section and
+  variable 10 is seller contact/links. Portuguese keeps `primeiro_contato_site_v1` and its
+  9-variable contract.
+- Twilio created Content SID `HX5d3c701ac6090c247504431f9c4b87b1` and accepted the WhatsApp
+  MARKETING approval request with status `received`. Local
+  `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN` points to it; do not send with this SID until approval
+  reaches `approved`.
+- Validation: 75 test files / 157 tests passed, TypeScript passed, and the Next.js production build
+  completed with both `/portfolio` and `/api/freelance/portfolio/[nicheId]` in the route manifest.

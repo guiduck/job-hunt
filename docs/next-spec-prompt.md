@@ -161,7 +161,14 @@ Recent implementation: apps/web can send first-contact WhatsApp outreach through
 
 ## Freelance WhatsApp English Template Note
 
-Recent web implementation: first-contact WhatsApp now supports one Twilio Content SID per language. Keep `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID` for Portuguese and use `TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN` for the English template. Future specs should preserve `twilioWhatsAppTemplate.templateLanguage`, the same 9-variable mapping across PT/EN templates, and the existing checkbox bulk outreach approval flow.
+First-contact WhatsApp supports one Twilio Content SID per language. Keep
+`TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID` for `primeiro_contato_site_portfolio_v2` and use
+`TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN` for `first_contact_website_portfolio_v2`. Both use the
+same 11-variable mapping, with the niche demo URL in variable 10 and seller contact in variable 11.
+Variable 7 must remain a localized amount only because the fixed template body supplies the price
+prefix. The current Brazilian base landing-page default is R$ 1,800.
+Future specs should preserve `twilioWhatsAppTemplate.templateLanguage` and the existing checkbox
+bulk outreach approval flow.
 
 ## Freelance WhatsApp Inbox Follow-up Candidate
 
@@ -170,7 +177,12 @@ Recent web implementation: apps/web has a Twilio WhatsApp inbox MVP backed by `W
 
 ## Freelance WhatsApp Delivery Status And Retry Candidate
 
-Specify the next Freelance WhatsApp hardening slice: receive Twilio delivery status callbacks, persist queued/sent/delivered/failed transitions, surface the Twilio error code and safe diagnostic in the review modal and inbox, and define an explicit operator-confirmed retry path for previously contacted test leads. Preserve the exact PT/EN ContentSid mapping, the 9 validated ContentVariables, automatic lead-language selection, eligibility skipping, and the checkbox-to-floating-action-to-review-modal workflow.
+Specify the next Freelance WhatsApp hardening slice: receive Twilio delivery status callbacks,
+persist queued/sent/delivered/failed transitions, surface the Twilio error code and safe diagnostic
+in the review modal and inbox, and define an explicit operator-confirmed retry path for previously
+contacted test leads. Preserve the exact PT/EN ContentSid mapping, 11 validated variables per
+language, automatic lead-language selection, eligibility skipping, and the
+checkbox-to-floating-action-to-review-modal workflow.
 
 
 ## Next Candidate: Immutable Web Images And Zero-Downtime Deployment
@@ -230,3 +242,26 @@ retry/override UI must remain explicit and auditable, and must not weaken this d
 Preserve the preview-first global reset command for exceptional test resets. Production-facing retry
 features should prefer per-lead operator overrides with an audit marker instead of deleting sent
 events globally. Inbox conversations and provider logs must remain immutable during dedupe resets.
+
+## Gmail Bulk Delivery Invariant
+
+Preserve the dedicated email-worker, atomic send-request claim, stale sending recovery, and the
+read-only bulk delivery status endpoint. UI wording must distinguish AI generation completion,
+queue acceptance, and Gmail provider acceptance. Never mark an opportunity applied or show a sent
+confirmation before the provider returns success. Future work may add queue metrics and alerts
+without moving Gmail delivery back into long-running scraper loops.
+The next queue-hardening spec should add PostgreSQL SKIP LOCKED claims, bounded retry/backoff,
+dead-letter state, per-user fairness and quotas, idempotency keys, and queue age/health metrics.
+
+## Next Candidate: Niche Portfolio Publishing And Outreach Controls
+
+`/speckit-specify` a Freelance follow-up that turns the internal niche project catalog into a
+controlled client-facing workflow. Preserve the owner-scoped `niche_portfolio_examples` model and
+existing campaign/niche snapshots. Add approval-state monitoring for
+`primeiro_contato_site_portfolio_v2` and `first_contact_website_portfolio_v2`, block
+language-specific template delivery until WhatsApp reports `approved`, surface the selected niche
+demo and personalized opportunity observation in the review UI, and define
+an optional branded public portfolio page with unguessable or explicitly published URLs. Public
+pages must never expose GitHub repositories or internal notes unless the operator opts in. Keep
+human approval, exact recipient deduplication, the shared PT/EN 11-variable mapping (demo URL in
+variable 10 and seller contact in variable 11), and current Twilio delivery-status auditing intact.

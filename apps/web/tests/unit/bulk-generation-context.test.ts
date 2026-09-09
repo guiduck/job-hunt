@@ -52,7 +52,7 @@ describe("bulk generation context", () => {
       settings: {
         sellerName: "Guilherme",
         offerTitle: "sites e landing pages focados em conversao",
-        landingPagePrice: "2500",
+        landingPagePrice: "1800",
         installments: 6,
         deliveryTime: "15 days"
       } as never,
@@ -60,17 +60,22 @@ describe("bulk generation context", () => {
       language: "pt-BR"
     });
 
+    expect(draft.templateName).toBe("primeiro_contato_site_portfolio_v2");
     expect(draft.templateVariables).toMatchObject({
-      "1": "pessoal",
-      "2": "Guilherme",
-      "3": "Example Clinic",
-      "5": "sites e landing pages focados em conversao",
-      "6": "a partir de R$ 2500",
-      "7": "15 dias",
-      "8": "6x sem juros"
+      "1": "Guilherme",
+      "2": "Example Clinic",
+      "3": "Clinic",
+      "4": "Austin",
+      "5": "presença online e conversão",
+      "7": "R$ 1.800",
+      "8": "15 dias",
+      "9": "6x sem juros",
+      "10": "posso enviar a demo por aqui",
+      "11": "Pode responder por aqui."
     });
-    expect(draft.templateVariables["9"]).not.toContain("\n");
-    expect(draft.message).toContain("a partir de R$ 2500");
+    expect(draft.templateVariables["6"]).not.toContain("\n");
+    expect(draft.message).toContain("websites, landing pages, sistemas personalizados e automações de atendimento");
+    expect(draft.message).toContain("começam em R$ 1.800");
   });
 
   it("builds English WhatsApp first-contact template variables for non-Brazil leads", () => {
@@ -85,18 +90,45 @@ describe("bulk generation context", () => {
       language: "en"
     });
 
-    expect(draft.templateName).toBe("first_contact_website_v1");
+    expect(draft.templateName).toBe("first_contact_website_portfolio_v2");
     expect(draft.templateLanguage).toBe("en");
     expect(draft.templateVariables).toMatchObject({
-      "1": "there",
-      "2": "Guilherme",
-      "3": "Example Clinic",
-      "4": "Clinic in Austin",
-      "5": "conversion-focused websites and landing pages",
-      "6": "starting at US$ 1000",
-      "7": "15 days",
-      "8": "payment terms defined after scope review"
+      "1": "Guilherme",
+      "2": "Example Clinic",
+      "3": "Clinic",
+      "4": "Austin",
+      "5": "online presence and conversion",
+      "7": "US$ 1,000",
+      "8": "15 days",
+      "9": "defined after scope review",
+      "10": "I can send the demo here",
+      "11": "You can reply here."
     });
-    expect(draft.message).toContain("starting at US$ 1000");
+    expect(draft.templateVariables["6"]).toContain("contact path");
+    expect(draft.message).toContain("websites, landing pages, custom business systems, and customer-service automations");
+    expect(draft.message).toContain("start at US$ 1,000");
+  });
+
+  it("places the niche demo in the free first-contact section", () => {
+    const draft = buildWhatsAppFirstContactTemplateDraft({
+      lead: {
+        ...(lead as unknown as Record<string, unknown>),
+        niche: {
+          portfolioExamples: [
+            {
+              demoUrl: "https://clinic-demo.example.com",
+              repositoryUrl: "https://github.com/example/clinic"
+            }
+          ]
+        }
+      } as never,
+      settings,
+      customText: "the booking path could be clearer.",
+      language: "en"
+    });
+
+    expect(draft.templateVariables["10"]).toBe("https://clinic-demo.example.com");
+    expect(draft.templateVariables["10"]).not.toContain("github.com");
+    expect(draft.message).toContain("https://clinic-demo.example.com");
   });
 });

@@ -24,6 +24,7 @@ class WorkerSettings(BaseSettings):
     email_provider: str = "gmail"
     gmail_oauth_client_config_json: str | None = None
     email_send_poll_interval_seconds: int = 5
+    email_send_stale_after_minutes: int = 15
     gmail_oauth_client_secrets_file: str | None = None
     gmail_oauth_token_file: str | None = None
     gmail_oauth_scopes: str = "https://www.googleapis.com/auth/gmail.send"

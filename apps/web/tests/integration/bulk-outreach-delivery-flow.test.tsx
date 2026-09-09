@@ -27,12 +27,12 @@ describe("bulk outreach delivery flow", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Approve Email delivery" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send 1" }));
 
     expect(onApprove).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/skipped, duplicate, invalid/i)).toBeInTheDocument();
-    expect(screen.getByText(/item_1: sent via resend/i)).toBeInTheDocument();
-    expect(screen.getByText(/item_2: skipped - Skipped by operator./i)).toBeInTheDocument();
+    expect(screen.getByText(/1 ready for draft generation/i)).toBeInTheDocument();
+    expect(screen.getByText(/^sent$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^skipped: Skipped by operator\.$/i)).toBeInTheDocument();
   });
 
   it("shows channel readiness diagnostics for local configuration debugging", () => {

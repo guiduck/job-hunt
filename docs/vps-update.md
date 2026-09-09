@@ -74,7 +74,14 @@ FREELANCE_WEB_APP_BASE_URL=https://freelance.gfig.space
 FREELANCE_AUTH_API_BASE_URL=http://api:8000
 FREELANCE_GOOGLE_AUTH_SUCCESS_REDIRECT_URL=https://freelance.gfig.space/auth/google/callback
 TWILIO_WEBHOOK_BASE_URL=https://freelance.gfig.space
+TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID=HX87b32be62ddc6b41889cd859aaf574e2
+TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN=HX7eb26809469ce00dc40fa188dd95c856
 ```
+
+Preserve the existing `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and
+`TWILIO_WHATSAPP_FROM` values. The Content SIDs above belong to
+`primeiro_contato_site_portfolio_v2` and `first_contact_website_portfolio_v2`. Do not use them
+for business-initiated first contact until their WhatsApp approval status is `approved`.
 
 ## Bancos Separados
 
@@ -187,7 +194,7 @@ Nao use `npx prisma db push` na VPS. Use apenas `migrate deploy`.
 Depois das migrations:
 
 ```bash
-docker compose restart api worker web web-worker whatsapp-realtime
+docker compose restart api worker email-worker web web-worker whatsapp-realtime
 ```
 
 Se algum servico nao existir na VPS ainda, rode apenas os que existem, ou rode:
@@ -225,6 +232,59 @@ Se a web estiver na porta padrao:
 curl http://localhost:3000
 ```
 
+## Diagnosticar E-Mail Que Aparece Como Enviado Mas Nao Chega Ao Gmail
+
+O bulk da extensao cria uma fila na API. A confirmacao final vem do email-worker, que envia pelo
+Gmail e atualiza cada item para sent ou failed. O status completed da revisao significa apenas que
+o texto foi gerado.
+
+Na VPS, use sempre o mesmo arquivo de ambiente da instalacao:
+
+~~~bash
+cd /srv/projects/job-hunt/job-hunt
+docker compose --env-file .env.local ps api worker email-worker postgres
+docker compose --env-file .env.local logs --since 24h email-worker
+~~~
+
+Confira a fila e os erros sem imprimir tokens OAuth:
+
+~~~bash
+docker compose --env-file .env.local exec -T postgres sh -c 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+SELECT status, COUNT(*) FROM send_requests GROUP BY status ORDER BY status;
+SELECT id, recipient_email, status, error_code, LEFT(error_message, 200) AS error,
+       created_at, updated_at
+FROM send_requests
+ORDER BY created_at DESC
+LIMIT 20;
+SELECT display_email, auth_status, last_checked_at, token_updated_at, updated_at
+FROM sending_provider_accounts
+WHERE provider_name = 'gmail';
+SQL
+~~~
+
+Antes de iniciar o email-worker pela primeira vez, revise a consulta acima. Todos os registros antigos
+em approved, queued ou sending poderao ser enviados assim que o servico subir. Nao inicie o servico
+ate confirmar que esse backlog ainda deve ser entregue.
+
+Depois de atualizar o codigo e revisar o backlog, suba o processador dedicado e acompanhe o primeiro
+teste:
+
+~~~bash
+docker compose --env-file .env.local up -d --build --force-recreate api worker email-worker
+docker compose --env-file .env.local logs -f --tail 100 email-worker
+~~~
+
+Resultados esperados:
+
+- approved ou queued: aguardando um worker.
+- sending: tentativa em andamento; registros abandonados por mais de 15 minutos voltam para a fila.
+- sent: a API do Gmail aceitou a mensagem e retornou um message ID.
+- failed: leia error_code e error_message; reconecte o Google se a autorizacao estiver expirada.
+
+O popup agora consulta GET /bulk-email/{batch_id} por 30 segundos e so mostra confirmacao verde
+quando o Gmail realmente aceitou todos os e-mails. Se continuar pendente, ele orienta verificar o
+email-worker.
+
 ## Receita Curta
 
 Quando tudo ja estiver configurado e voce so quiser atualizar:
@@ -238,7 +298,7 @@ docker compose up -d --build
 docker compose exec api alembic upgrade head
 docker compose exec web npx prisma migrate deploy
 docker compose exec web npm run prisma:seed
-docker compose restart api worker web web-worker whatsapp-realtime
+docker compose restart api worker email-worker web web-worker whatsapp-realtime
 docker compose ps
 ```
 

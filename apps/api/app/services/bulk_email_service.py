@@ -159,6 +159,14 @@ def get_ai_generation_batch(db: Session, batch_id: str, user: User | None = None
     return batch
 
 
+def get_bulk_send_batch(db: Session, batch_id: str, user: User | None = None) -> BulkSendBatch:
+    user = user or ensure_default_local_user(db)
+    batch = db.get(BulkSendBatch, batch_id)
+    if not batch or batch.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bulk batch not found")
+    return _attach_delivery_status(db, batch)
+
+
 def update_bulk_send_item(db: Session, batch_id: str, opportunity_id: str, payload: BulkSendItemUpdate, user: User | None = None) -> BulkSendBatch:
     user = user or ensure_default_local_user(db)
     batch = db.get(BulkSendBatch, batch_id)
@@ -195,6 +203,9 @@ def approve_bulk_send(db: Session, batch_id: str, user: User | None = None) -> B
 
     updated_items: list[dict[str, object]] = []
     for item in batch.items:
+        if item.get("send_request_id"):
+            updated_items.append(dict(item))
+            continue
         if item.get("is_skipped"):
             updated_items.append({**item, "outcome": "skipped_by_user", "reason": "Skipped during review."})
             continue
@@ -228,6 +239,24 @@ def approve_bulk_send(db: Session, batch_id: str, user: User | None = None) -> B
     db.add(batch)
     db.commit()
     db.refresh(batch)
+    return _attach_delivery_status(db, batch)
+
+
+def _attach_delivery_status(db: Session, batch: BulkSendBatch) -> BulkSendBatch:
+    request_ids = [str(item["send_request_id"]) for item in batch.items if item.get("send_request_id")]
+    requests = db.query(SendRequest).filter(SendRequest.id.in_(request_ids)).all() if request_ids else []
+    requests_by_id = {request.id: request for request in requests}
+    batch.items = [
+        {
+            **item,
+            "delivery_status": request.status if request else None,
+            "delivery_error_code": request.error_code if request else None,
+            "delivery_error_message": request.error_message if request else None,
+            "provider_message_id": request.provider_message_id if request else None,
+        }
+        for item in batch.items
+        for request in [requests_by_id.get(str(item.get("send_request_id")))]
+    ]
     return batch
 
 

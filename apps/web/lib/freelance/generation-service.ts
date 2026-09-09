@@ -75,6 +75,14 @@ function buildLeadContext({
       operatorNotes: lead.operatorNotes,
       classificationReasons: arrayFromJson(lead.classificationReasons)
     }),
+    portfolioExample: lead.niche?.portfolioExamples?.[0]
+      ? cleanObject({
+          projectName: lead.niche.portfolioExamples[0].projectName,
+          demoUrl: lead.niche.portfolioExamples[0].demoUrl,
+          repositoryUrl: lead.niche.portfolioExamples[0].repositoryUrl,
+          notes: lead.niche.portfolioExamples[0].notes
+        })
+      : undefined,
     source: cleanObject({
       sourceName: lead.sourceName,
       sourceUrl: lead.sourceUrl,
@@ -360,7 +368,11 @@ export async function generateCommercialMessage(scope: OwnerScope, payload: unkn
   const [lead, template, settings] = await Promise.all([
     freelanceRepositories.leads.findFirst({
       where: { id: input.leadId, userId: scope.userId },
-      include: { campaign: true, websiteAnalyses: true }
+      include: {
+        campaign: true,
+        websiteAnalyses: true,
+        niche: { include: { portfolioExamples: { where: { userId: scope.userId }, take: 1 } } }
+      }
     }),
     freelanceRepositories.templates.findFirst({
       where: { id: input.templateId, OR: [{ userId: scope.userId }, { userId: null }] }
