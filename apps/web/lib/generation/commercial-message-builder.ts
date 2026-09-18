@@ -8,10 +8,9 @@ import type {
 } from "@prisma/client";
 import {
   WHATSAPP_FIRST_CONTACT_CUSTOM_TEXT_MAX_LENGTH,
-  WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY,
-  WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY_EN,
   WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME,
-  WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME_EN
+  WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME_EN,
+  fitWhatsAppFirstContactTemplateVariables
 } from "@/lib/freelance/whatsapp-template-definition";
 
 export {
@@ -285,8 +284,6 @@ export function buildWhatsAppFirstContactTemplateDraft({
     (language === "pt-BR" ? "negocio local" : "local business");
   const templateName =
     language === "pt-BR" ? WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME : WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME_EN;
-  const templateBody =
-    language === "pt-BR" ? WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY : WHATSAPP_FIRST_CONTACT_TEMPLATE_BODY_EN;
   const city = lead.city?.trim() || (language === "pt-BR" ? "sua cidade" : "your city");
   const price = formattedCurrencyValue(
     language === "pt-BR" ? settings?.landingPagePrice : settings?.landingPagePriceUsd,
@@ -334,16 +331,18 @@ export function buildWhatsAppFirstContactTemplateDraft({
     )
   };
 
-  let message = templateBody;
-  for (const [key, value] of Object.entries(variables)) {
-    message = message.replaceAll(`{{${key}}}`, value);
+  const fitted = fitWhatsAppFirstContactTemplateVariables(language, variables);
+  if (!fitted.fits) {
+    throw new Error(
+      `WhatsApp first-contact template is ${fitted.length} characters after compaction; the Twilio limit is 1600. Shorten the demo URL or lead fields.`
+    );
   }
 
   return {
-    message,
+    message: fitted.message,
     templateName,
     templateLanguage: language,
-    templateVariables: variables
+    templateVariables: fitted.variables
   };
 }
 function localizedSystemTemplate(template: CommercialTemplate, language: TargetLanguage) {

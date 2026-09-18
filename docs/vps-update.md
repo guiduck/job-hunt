@@ -367,6 +367,31 @@ docker compose --env-file .env.local logs --tail 100 web web-worker
 Nao ha migration para essa alteracao. Os dois valores sem sufixo representam os templates atuais
 e substituem diretamente os SIDs anteriores.
 
+## Hotfix Twilio 21617
+
+O limite de 1.600 caracteres pertence ao Twilio Programmable Messaging e nao pode ser removido pela
+aplicacao. O app mantem o template completo e o link da demo, mas compacta o diagnostico livre e,
+quando necessario, contatos redundantes antes de enviar. A protecao tambem se aplica a lotes v2
+gerados antes do deploy.
+
+Esta alteracao nao muda banco, migration, Content SID ou `.env.local`. Preserve os SIDs aprovados
+atuais e atualize apenas os dois runtimes Freelance:
+
+```bash
+ssh root@216.158.236.156
+cd /srv/projects/job-hunt/job-hunt
+git status --short
+git pull origin master
+docker compose --env-file .env.local build web web-worker
+docker compose --env-file .env.local up -d --no-deps --force-recreate web web-worker
+docker compose --env-file .env.local ps web web-worker
+docker compose --env-file .env.local logs --tail 100 web web-worker
+curl -I https://freelance.gfig.space
+```
+
+Depois do deploy, abra novamente a revisao. Lotes antigos do portfolio v2 sao compactados no envio;
+para que o preview ja apareca com o texto final, gere um novo lote antes do teste.
+
 ## Corrigir Push Com Arquivos De Cache
 
 Arquivos de `.next/`, `node_modules/`, `.turbo/`, `.plasmo/`, `*.tsbuildinfo` e caches parecidos nao

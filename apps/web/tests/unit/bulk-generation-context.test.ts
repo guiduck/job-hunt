@@ -143,6 +143,34 @@ describe("bulk generation context", () => {
     expect(draft.message).toContain("https://clinic-demo.example.com");
   });
 
+  it("keeps the fully rendered first-contact template within Twilio's 1600-character limit", () => {
+    const demoUrl = `https://demo.example.com/${"portfolio-".repeat(12)}clinic`;
+    const draft = buildWhatsAppFirstContactTemplateDraft({
+      lead: {
+        ...(lead as unknown as Record<string, unknown>),
+        businessName: "Example Clinic With A Long Commercial Name Used For Outreach",
+        niche: {
+          portfolioExamples: [{ demoUrl, repositoryUrl: null }]
+        }
+      } as never,
+      settings: {
+        sellerName: "Guilherme",
+        companyWebsite: "https://gfig.space",
+        portfolioUrl: "https://portfolio.example.com",
+        sellerLinkedinUrl: "https://linkedin.com/in/example",
+        sellerEmail: "hello@example.com",
+        sellerWhatsapp: "+55 61 99999-9999"
+      } as never,
+      diagnosis: "A apresentação atual pode deixar dúvidas sobre serviços, diferenciais e formas de contato. ".repeat(20),
+      language: "pt-BR"
+    });
+
+    expect(draft.message.length).toBeLessThanOrEqual(1600);
+    expect(draft.templateVariables["10"]).toBe(demoUrl);
+    expect(draft.message).toContain(demoUrl);
+    expect(draft.templateVariables["6"].length).toBeLessThanOrEqual(240);
+  });
+
   it("maps a lead without a website to the predefined website service and evidence-based diagnosis", () => {
     const leadWithoutWebsite = {
       ...(lead as unknown as Record<string, unknown>),

@@ -1,4 +1,9 @@
 import { normalizeOutreachPhone } from "@/lib/freelance/phone-normalization";
+import {
+  WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME,
+  WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME_EN,
+  fitWhatsAppFirstContactTemplateVariables
+} from "@/lib/freelance/whatsapp-template-definition";
 import { scrubProviderPayload } from "./outreach-diagnostics";
 import type {
   ChannelReadiness,
@@ -36,6 +41,11 @@ function invalidTemplateVariables(variables: Record<string, string>) {
     .map(([key]) => key);
 
   return invalidKeys.length > 0 ? invalidKeys : undefined;
+}
+
+function isCurrentFirstContactTemplate(templateName?: string) {
+  return templateName === WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME ||
+    templateName === WHATSAPP_FIRST_CONTACT_TEMPLATE_NAME_EN;
 }
 
 function twilioAcceptedDiagnostic(providerStatus: string) {
@@ -96,6 +106,7 @@ export function createTwilioWhatsAppProvider(
           To: withWhatsappPrefix(normalizedTo)
         });
         const templateContentSid = selectTemplateContentSid(options, input);
+        let deliveredBody = input.message;
         if (input.templateVariables) {
           if (!templateContentSid) {
             const envName = input.templateLanguage === "en"
@@ -108,7 +119,24 @@ export function createTwilioWhatsAppProvider(
               diagnosticMessage: `Configure ${envName} before sending this first-contact template.`
             };
           }
-          const invalidKeys = invalidTemplateVariables(input.templateVariables);
+          let templateVariables = input.templateVariables;
+          if (isCurrentFirstContactTemplate(input.templateName)) {
+            const fitted = fitWhatsAppFirstContactTemplateVariables(
+              input.templateLanguage === "en" ? "en" : "pt-BR",
+              templateVariables
+            );
+            if (!fitted.fits) {
+              return {
+                status: "failed_send",
+                providerName: "twilio",
+                diagnosticCode: "whatsapp_message_too_long",
+                diagnosticMessage: `The rendered WhatsApp template is ${fitted.length} characters after safe compaction. Shorten the demo URL or lead fields before sending.`
+              };
+            }
+            templateVariables = fitted.variables;
+            deliveredBody = fitted.message;
+          }
+          const invalidKeys = invalidTemplateVariables(templateVariables);
           if (invalidKeys) {
             return {
               status: "failed_send",
@@ -118,7 +146,7 @@ export function createTwilioWhatsAppProvider(
             };
           }
           body.set("ContentSid", templateContentSid);
-          body.set("ContentVariables", JSON.stringify(input.templateVariables));
+          body.set("ContentVariables", JSON.stringify(templateVariables));
         } else {
           body.set("Body", input.message);
         }
@@ -146,6 +174,7 @@ export function createTwilioWhatsAppProvider(
           providerName: "twilio",
           providerMessageId: typeof payload.sid === "string" ? payload.sid : undefined,
           providerStatus,
+          deliveredBody,
           ...twilioAcceptedDiagnostic(providerStatus),
           safePayload: scrubProviderPayload(payload)
         };

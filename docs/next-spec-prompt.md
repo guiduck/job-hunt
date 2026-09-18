@@ -280,3 +280,12 @@ variable 10 and seller contact in variable 11), and current Twilio delivery-stat
 Preserve Redis as an internal-only Compose dependency addressed by `redis://redis:6379`. Do not
 publish container port `6379` on the VPS host; multiple projects may run independent Redis services
 on the same server. Keep public realtime traffic routed through Caddy `/ws` to host port `3001`.
+
+## Twilio Rendered-Length Invariant
+
+Preserve the Twilio Programmable Messaging ceiling of 1,600 characters for the fully rendered
+first-contact body. The approved PT/EN portfolio template copy and variable 10 demo URL must remain
+intact. Keep the free diagnosis concise, compact current and previously saved portfolio-v2
+variables before provider submission, and persist the exact submitted body in the inbox. Do not
+"remove" this guard: when required fields cannot fit, return the local
+`whatsapp_message_too_long` diagnostic before calling Twilio.

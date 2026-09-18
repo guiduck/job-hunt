@@ -1307,3 +1307,17 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - The first VPS build exposed a Docker Compose parallel-export race because three services targeted
   the same `opportunity-desk-web-worker:node22` image tag. Bootstrap, prospecting worker, realtime,
   shared worker and email worker now publish distinct tags while reusing deduplicated layers.
+
+## 2026-09-18 - Freelance Twilio 21617 Guard
+
+- Confirmed that error `21617` is Twilio's own 1,600-character limit for the fully rendered
+  Programmable Messaging body, not a removable UI limit.
+- Kept the approved 11-variable PT/EN portfolio templates and the complete niche demo URL.
+- Reduced the generated free diagnosis ceiling from 600 to 240 characters and added final rendered
+  body compaction.
+- Added send-time compaction for previously generated v2 batches, with an explicit local
+  `whatsapp_message_too_long` failure if required data still cannot fit.
+- Twilio-accepted compacted text is now saved back to the bulk item and inbox so review history
+  matches what was actually submitted.
+- No migration, Content SID replacement, or environment-variable change is required.
+- Validation: TypeScript passed and 17 focused unit tests passed.

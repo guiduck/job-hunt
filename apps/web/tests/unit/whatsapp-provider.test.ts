@@ -225,6 +225,55 @@ describe("whatsapp provider", () => {
     const body = request.body as URLSearchParams;
     expect(body.get("ContentSid")).toBe("HX_PT_CURRENT");
   });
+  it("compacts stored first-contact variables before Twilio renders a body over 1600 characters", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ sid: "SM_TEMPLATE_COMPACT", status: "queued" }), { status: 201 })
+    );
+    const provider = createTwilioWhatsAppProvider({
+      accountSid: "AC123",
+      authToken: "secret-token",
+      from: "+15555550000",
+      templateContentSid: "HX_PT_CURRENT",
+      dailyLimit: 500,
+      readiness: {
+        channel: "whatsapp",
+        providerName: "twilio",
+        status: "ready",
+        requiredEnvVars: [],
+        missingEnvVars: []
+      },
+      fetchImpl
+    });
+
+    const result = await provider.send({
+      to: "+15555550123",
+      message: "Old preview that predates safe compaction",
+      templateName: "primeiro_contato_site_portfolio_v2",
+      templateLanguage: "pt-BR",
+      templateVariables: {
+        "1": "Guilherme",
+        "2": "Example Clinic",
+        "3": "Clínica",
+        "4": "Brasília",
+        "5": "website institucional e apresentação dos serviços",
+        "6": "A presença online pode explicar melhor os serviços e facilitar novos contatos. ".repeat(20),
+        "7": "R$ 1.800",
+        "8": "15 dias",
+        "9": "6x sem juros",
+        "10": "https://clinic-demo.example.com",
+        "11": "https://gfig.space | https://portfolio.example.com | hello@example.com"
+      },
+      metadata: { userId: "user_1", batchId: "batch_1", itemId: "item_1", leadId: "lead_1" }
+    });
+
+    const request = fetchImpl.mock.calls[0]?.[1] as RequestInit;
+    const body = request.body as URLSearchParams;
+    const variables = JSON.parse(body.get("ContentVariables") ?? "{}") as Record<string, string>;
+    expect(result).toMatchObject({ status: "sent", deliveredBody: expect.any(String) });
+    expect(result.deliveredBody?.length).toBeLessThanOrEqual(1600);
+    expect(variables["6"].length).toBeLessThanOrEqual(240);
+    expect(variables["10"]).toBe("https://clinic-demo.example.com");
+  });
   it("blocks empty or multiline template variables before calling Twilio", async () => {
     const fetchImpl = vi.fn();
     const provider = createTwilioWhatsAppProvider({

@@ -150,6 +150,7 @@ async function persistDeliveryResult(input: {
       providerName: input.result.providerName,
       providerMessageId: input.result.providerMessageId,
       providerStatus: input.result.providerStatus,
+      message: sent && input.result.deliveredBody ? input.result.deliveredBody : undefined,
       providerErrorCode: sent ? null : input.result.diagnosticCode,
       providerErrorMessage: sent ? null : input.result.diagnosticMessage
     }

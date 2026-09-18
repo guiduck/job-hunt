@@ -56,6 +56,7 @@ export type DeliveryResult = {
   providerName: string;
   providerMessageId?: string;
   providerStatus?: string;
+  deliveredBody?: string;
   diagnosticCode?: string;
   diagnosticMessage?: string;
   retryAfter?: string;

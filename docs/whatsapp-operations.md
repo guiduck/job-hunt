@@ -83,8 +83,15 @@ human; inspect that message SID in Twilio before deciding whether to contact the
 
 The approved template uses variable `{{7}}` for the complete delivery timeline. Draft generation
 converts simple values such as `15 days`/`15 dias` to the selected template language. Drafts already
-generated before a localization fix must be regenerated; provider delivery uses the variables saved
-in each draft snapshot.
+generated before a localization fix should be regenerated when the displayed wording matters.
+
+The Twilio Programmable Messaging API rejects every fully rendered message above 1,600 characters
+with error `21617`. The app keeps the fixed PT/EN template and demo URL intact, limits the free
+diagnosis to 240 characters, and compacts saved v2 portfolio-template variables again immediately
+before delivery. This send-time protection also covers batches generated before the fix. The exact
+compacted body is persisted in the inbox after provider acceptance. If the body still cannot fit
+because a required field such as the demo URL is exceptionally large, delivery is blocked locally
+with `whatsapp_message_too_long` instead of submitting a request that Twilio will reject.
 
 
 ## Already-contacted semantics and GFig test reset

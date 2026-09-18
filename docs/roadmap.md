@@ -795,3 +795,12 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [ ] Monitor API RSS, container restart count, swap use, and kernel OOM events for seven days after deploy.
 - [ ] Split the Node prospecting/realtime runtime into a smaller package if worker-image transfer time
   becomes material on the VPS.
+
+## 2026-09-18 - Twilio First-Contact Length Guard
+
+- [x] Treat Twilio error 21617 as a provider-wide 1,600-character rendered-body ceiling.
+- [x] Preserve the approved PT/EN template copy and complete niche demo URL.
+- [x] Bound the free diagnosis to 240 characters and compact the complete rendered body before send.
+- [x] Apply the same compaction to saved portfolio-v2 batches created before the fix.
+- [x] Persist the exact compacted body accepted by Twilio in the WhatsApp inbox.
+- [x] Return a local actionable diagnostic when required fields still cannot fit.
