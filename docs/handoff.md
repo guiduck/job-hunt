@@ -1220,6 +1220,11 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - Production diagnosis found the shared worker exited on PostgreSQL AdminShutdown after a long
   372-candidate LinkedIn run. The shared lanes now isolate exceptions, and both worker containers
   use Docker restart unless-stopped.
+- Email delivery now runs exclusively in email-worker, so restarting the scraper worker cannot
+  release an unreviewed email backlog. The API runs two Uvicorn workers and recycles each after
+  1,000 requests by default so one process remains available during recycling.
+- API memory is configurable through API_MEMORY_LIMIT and defaults to 2560 MiB on the shared VPS;
+  the prior 1536 MiB cap was below the observed workload and could cause avoidable OOM restarts.
 
 ## 2026-09-09 - Explicit Service Copy And Dedicated Demo Link
 

@@ -320,6 +320,44 @@ O popup agora consulta GET /bulk-email/{batch_id} por 30 segundos e so mostra co
 quando o Gmail realmente aceitou todos os e-mails. Se continuar pendente, ele orienta verificar o
 email-worker.
 
+## Recuperar API Com Erro 502 Sem Liberar A Fila De E-Mail
+
+Enquanto houver e-mails antigos em approved, mantenha email-worker parado. Nas versoes atuais, o
+worker de scraping nao consome mais e-mail, portanto ele pode ser reiniciado separadamente.
+
+Antes de recriar, salve o diagnostico:
+
+~~~bash
+docker compose --env-file .env.local ps -a
+docker inspect opportunity_desk_api --format 'status={{.State.Status}} oom={{.State.OOMKilled}} exit={{.State.ExitCode}} restarts={{.RestartCount}} memory_limit={{.HostConfig.Memory}}'
+docker compose --env-file .env.local logs --since 2h --tail 300 api
+free -h
+dmesg -T | grep -Ei 'out of memory|oom|killed process' | tail -50
+~~~
+
+Recupere os servicos permanentes sem remover volumes e sem iniciar email-worker:
+
+~~~bash
+docker compose --env-file .env.local stop email-worker
+docker compose --env-file .env.local up -d postgres freelance-postgres redis
+docker compose --env-file .env.local up -d --build --force-recreate api worker web-bootstrap web web-worker whatsapp-realtime
+docker compose --env-file .env.local ps
+~~~
+
+Valide API local e publica antes de recarregar a extensao:
+
+~~~bash
+curl -fsS http://127.0.0.1:8000/health
+curl -fsS https://jobs-api.gfig.space/health
+caddy validate --config /etc/caddy/Caddyfile
+systemctl reload caddy
+~~~
+
+Nao deixe a API sem limite de memoria, pois ela poderia derrubar os outros projetos da VPS. O teto
+e configuravel por API_MEMORY_LIMIT e usa 2560 MiB por padrao. A API usa dois workers Uvicorn e
+reciclagem apos 1.000 requests por processo; alteracoes no Compose so passam a valer depois de
+force-recreate.
+
 ## Receita Curta
 
 Quando tudo ja estiver configurado e voce so quiser atualizar:

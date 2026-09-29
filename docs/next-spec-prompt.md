@@ -261,6 +261,8 @@ confirmation before the provider returns success. Future work may add queue metr
 without moving Gmail delivery back into long-running scraper loops.
 The next queue-hardening spec should add PostgreSQL SKIP LOCKED claims, bounded retry/backoff,
 dead-letter state, per-user fairness and quotas, idempotency keys, and queue age/health metrics.
+Email consumption must remain exclusive to email-worker; scraper workers must never drain it as a
+fallback.
 
 ## Next Candidate: Niche Portfolio Publishing And Outreach Controls
 

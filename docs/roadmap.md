@@ -744,6 +744,10 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Replace optimistic popup success with polling for actual Gmail acceptance.
 - [x] Keep worker lanes alive after transient database/task failures and restart containers after
   process or host interruption.
+- [x] Remove email consumption from the scraper worker and keep it exclusive to email-worker.
+- [x] Run two bounded-lifetime API processes to avoid planned recycling becoming a full API outage.
+- [x] Raise the configurable API memory ceiling from 1536 MiB to 2560 MiB while retaining host
+  protection and process recycling.
 - [ ] Add durable queue metrics and alerts if email volume grows beyond the current Postgres queue.
 
 ## 2026-09-03 - Freelance Portfolio By Niche

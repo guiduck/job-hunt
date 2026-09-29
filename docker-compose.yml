@@ -27,7 +27,7 @@ services:
     image: opportunity-desk-api:python312
     container_name: opportunity_desk_api
     restart: unless-stopped
-    mem_limit: 1536m
+    mem_limit: ${API_MEMORY_LIMIT:-2560m}
     working_dir: /app/apps/api
     env_file:
       - .env.local
@@ -51,10 +51,12 @@ services:
       PASSWORD_RESET_TOKEN_TTL_MINUTES: ${PASSWORD_RESET_TOKEN_TTL_MINUTES:-30}
       DEFAULT_LOCAL_USER_EMAIL: ${DEFAULT_LOCAL_USER_EMAIL:-local@example.com}
       DEFAULT_LOCAL_USER_DISPLAY_NAME: ${DEFAULT_LOCAL_USER_DISPLAY_NAME:-Local Operator}
-      API_MAX_REQUESTS_PER_PROCESS: ${API_MAX_REQUESTS_PER_PROCESS:-10000}
+      API_WORKERS: ${API_WORKERS:-2}
+      API_MAX_REQUESTS_PER_PROCESS: ${API_MAX_REQUESTS_PER_PROCESS:-1000}
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000
+             --workers $${API_WORKERS}
              --limit-max-requests $${API_MAX_REQUESTS_PER_PROCESS}"
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
