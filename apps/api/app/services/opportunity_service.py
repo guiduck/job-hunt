@@ -196,8 +196,7 @@ def get_opportunity(db: Session, opportunity_id: str, user: User | None = None) 
     return db.scalar(statement)
 
 
-def list_opportunities(
-    db: Session,
+def _build_opportunity_statement(
     opportunity_type: str | None = None,
     contact_channel: str | None = None,
     matched_keyword: str | None = None,
@@ -214,8 +213,12 @@ def list_opportunities(
     campaign_id: str | None = None,
     job_application_kind: str | None = None,
     user: User | None = None,
-) -> list[Opportunity]:
-    statement = select(Opportunity).options(selectinload(Opportunity.job_detail), selectinload(Opportunity.keyword_matches))
+    *,
+    load_relationships: bool = True,
+):
+    statement = select(Opportunity)
+    if load_relationships:
+        statement = statement.options(selectinload(Opportunity.job_detail), selectinload(Opportunity.keyword_matches))
     if user:
         statement = statement.where(Opportunity.user_id == user.id)
     needs_detail_join = any(
@@ -305,7 +308,48 @@ def list_opportunities(
     if run_id:
         statement = statement.where(JobSearchCandidate.run_id == run_id)
     # campaign_id is reserved for future campaign linkage; keep the accepted query parameter additive.
-    statement = statement.order_by(Opportunity.captured_at.asc() if sort_order == "oldest" else Opportunity.captured_at.desc())
+    captured_order = Opportunity.captured_at.asc() if sort_order == "oldest" else Opportunity.captured_at.desc()
+    statement = statement.order_by(captured_order, Opportunity.id.asc())
+    return statement
+
+
+def list_opportunities(
+    db: Session,
+    opportunity_type: str | None = None,
+    contact_channel: str | None = None,
+    matched_keyword: str | None = None,
+    min_score: int | None = None,
+    contact_available: bool | None = None,
+    job_stage: str | None = None,
+    review_status: str | None = None,
+    provider_status: str | None = None,
+    analysis_status: str | None = None,
+    send_status: str | None = None,
+    sort_order: str = "newest",
+    source_query: str | None = None,
+    run_id: str | None = None,
+    campaign_id: str | None = None,
+    job_application_kind: str | None = None,
+    user: User | None = None,
+) -> list[Opportunity]:
+    statement = _build_opportunity_statement(
+        opportunity_type=opportunity_type,
+        contact_channel=contact_channel,
+        matched_keyword=matched_keyword,
+        min_score=min_score,
+        contact_available=contact_available,
+        job_stage=job_stage,
+        review_status=review_status,
+        provider_status=provider_status,
+        analysis_status=analysis_status,
+        send_status=send_status,
+        sort_order=sort_order,
+        source_query=source_query,
+        run_id=run_id,
+        campaign_id=campaign_id,
+        job_application_kind=job_application_kind,
+        user=user,
+    )
     return list(db.scalars(statement).unique())
 
 
@@ -317,14 +361,35 @@ def list_opportunity_page(
     **filters,
 ) -> OpportunityPage:
     safe_page_size = max(1, min(page_size, 100))
-    all_items = list_opportunities(db, **filters)
-    total_items = len(all_items)
+    base_statement = _build_opportunity_statement(load_relationships=False, **filters)
+    filtered_ids = base_statement.order_by(None).with_only_columns(Opportunity.id, maintain_column_froms=True).distinct()
+    total_items = int(db.scalar(select(func.count()).select_from(filtered_ids.subquery())) or 0)
     total_pages = max(1, (total_items + safe_page_size - 1) // safe_page_size)
     safe_page = max(1, min(page, total_pages))
     start = (safe_page - 1) * safe_page_size
-    end = start + safe_page_size
+    sort_order = str(filters.get("sort_order") or "newest")
+    captured_order = Opportunity.captured_at.asc() if sort_order == "oldest" else Opportunity.captured_at.desc()
+    page_id_statement = (
+        base_statement.order_by(None)
+        .with_only_columns(Opportunity.id, Opportunity.captured_at, maintain_column_froms=True)
+        .distinct()
+        .order_by(captured_order, Opportunity.id.asc())
+        .offset(start)
+        .limit(safe_page_size)
+    )
+    page_ids = [row.id for row in db.execute(page_id_statement)]
+    if page_ids:
+        page_statement = (
+            select(Opportunity)
+            .options(selectinload(Opportunity.job_detail), selectinload(Opportunity.keyword_matches))
+            .where(Opportunity.id.in_(page_ids))
+            .order_by(captured_order, Opportunity.id.asc())
+        )
+        items = list(db.scalars(page_statement))
+    else:
+        items = []
     return OpportunityPage(
-        items=all_items[start:end],
+        items=items,
         page=safe_page,
         page_size=safe_page_size,
         total_items=total_items,

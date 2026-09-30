@@ -217,14 +217,20 @@ recriou os servicos alterados. Um segundo restart so adiciona indisponibilidade.
 
 Os servicos continuam sendo supervisionados pelo Docker Compose; nao instale PM2 para a API ou para
 o Next. Todos os servicos permanentes usam `restart: unless-stopped`, e os limites de memoria evitam
-que um unico processo consuma toda a VPS. A API tem limite de 1536 MiB e reciclagem graciosa a cada
-10.000 requisicoes. O valor pode ser alterado em `.env.local` por
-`API_MAX_REQUESTS_PER_PROCESS`, mas o padrao deve ser mantido ate haver medicao suficiente.
+que um unico processo consuma toda a VPS. A API tem limite configuravel por `API_MEMORY_LIMIT`, com
+padrao atual de 2560 MiB, dois processos Uvicorn e reciclagem graciosa a cada 1.000 requisicoes por
+processo. `API_WORKERS` e `API_MAX_REQUESTS_PER_PROCESS` podem ser alterados em `.env.local`, mas os
+padroes devem ser mantidos ate haver medicao suficiente.
 
 O incidente de 8 de setembro de 2026 foi um OOM real: o kernel matou `uvicorn` quando seu RSS
 anonimo chegou a aproximadamente 6,2 GiB. O caminho de gravacao de candidatos carregava todos os
 textos e JSONs da busca a cada novo candidato apenas para recalcular contadores; agora consulta
 somente quatro colunas pequenas de status.
+
+Em 30 de setembro foi identificado um segundo caminho de crescimento: a listagem paginada de jobs
+carregava todos os registros e relacionamentos correspondentes para a memoria e somente depois
+recortava a pagina em Python. A API agora calcula o total no banco, seleciona apenas os IDs da pagina
+com `LIMIT/OFFSET` e carrega detalhes somente desses IDs.
 
 Comandos seguros de diagnostico:
 
@@ -233,6 +239,7 @@ free -h
 docker stats --no-stream
 journalctl -k --since "7 days ago" --no-pager | grep -Ei "oom|out of memory|killed process" | tail -n 60
 docker inspect -f '{{.Name}} restarts={{.RestartCount}} oom={{.State.OOMKilled}} status={{.State.Status}} exit={{.State.ExitCode}}' $(docker ps -aq)
+journalctl -u caddy --since "30 minutes ago" --no-pager | tail -200
 ```
 
 Depois de recriar um container, `RestartCount=0` e `OOMKilled=false` descrevem apenas a instancia

@@ -808,3 +808,11 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Apply the same compaction to saved portfolio-v2 batches created before the fix.
 - [x] Persist the exact compacted body accepted by Twilio in the WhatsApp inbox.
 - [x] Return a local actionable diagnostic when required fields still cannot fit.
+
+## 2026-09-30 - Full-Time API Query Memory
+
+- [x] Move opportunities page slicing from Python object materialization into SQL pagination.
+- [x] Count filtered opportunities without loading full text/JSON records.
+- [x] Add a regression check that paginated requests issue a database-level `LIMIT`.
+- [ ] Correlate a production 502 with Caddy, container restart and kernel OOM evidence.
+- [ ] Deploy the pagination fix and monitor API RSS/restarts across repeated dashboard/jobs loads.

@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from sqlalchemy import event
 
 from tests.integration.test_job_opportunity_storage import sample_payload
 
@@ -40,7 +41,7 @@ def test_keyword_filter_searches_contact_email(client: TestClient, auth_headers:
     assert body[0]["job_detail"]["contact_email"] == "apply@example.com"
 
 
-def test_paginated_filters_preserve_search_and_sort(client: TestClient, auth_headers: dict[str, str]) -> None:
+def test_paginated_filters_preserve_search_and_sort(client: TestClient, auth_headers: dict[str, str], db_session) -> None:
     for index in range(3):
         payload = sample_payload()
         payload["title"] = f"React Engineer {index}"
@@ -54,10 +55,19 @@ def test_paginated_filters_preserve_search_and_sort(client: TestClient, auth_hea
         payload["job_detail"]["contact_email"] = f"jobs{index}@example.com"
         client.post("/opportunities", json=payload, headers=auth_headers)
 
-    first_page = client.get(
-        "/opportunities?opportunity_type=job&keyword=React&page=1&page_size=2&sort_order=oldest",
-        headers=auth_headers,
-    )
+    statements: list[str] = []
+
+    def capture_sql(_connection, _cursor, statement, _parameters, _context, _executemany) -> None:
+        statements.append(statement)
+
+    event.listen(db_session.bind, "before_cursor_execute", capture_sql)
+    try:
+        first_page = client.get(
+            "/opportunities?opportunity_type=job&keyword=React&page=1&page_size=2&sort_order=oldest",
+            headers=auth_headers,
+        )
+    finally:
+        event.remove(db_session.bind, "before_cursor_execute", capture_sql)
     second_page = client.get(
         "/opportunities?opportunity_type=job&keyword=React&page=2&page_size=2&sort_order=oldest",
         headers=auth_headers,
@@ -75,6 +85,7 @@ def test_paginated_filters_preserve_search_and_sort(client: TestClient, auth_hea
     assert first_body["total_pages"] == 2
     assert first_body["has_next"] is True
     assert len(first_body["items"]) == 2
+    assert any("SELECT DISTINCT opportunities.id" in statement and "LIMIT" in statement for statement in statements)
 
     second_body = second_page.json()
     assert second_body["page"] == 2

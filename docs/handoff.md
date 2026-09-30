@@ -1326,3 +1326,16 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
   matches what was actually submitted.
 - No migration, Content SID replacement, or environment-variable change is required.
 - Validation: TypeScript passed and 17 focused unit tests passed.
+
+## 2026-09-30 - Full-Time Jobs SQL Pagination
+
+- Identified another repeatable API memory risk behind jobs/dashboard 502 reports: the paginated
+  opportunities endpoint loaded every matching opportunity, job detail and keyword match into the
+  Uvicorn process before slicing one page in Python.
+- Moved total calculation and page selection into PostgreSQL with `COUNT(DISTINCT id)` and a
+  bounded ID query using `LIMIT/OFFSET`; relationship loading now applies only to the selected page.
+- Added deterministic ID ordering for rows with equal capture timestamps and a regression assertion
+  that the paginated query contains a database-level `LIMIT`.
+- Validation: 12 focused opportunity filter, pagination, metrics and contract tests passed.
+- Production confirmation still requires correlating a fresh 502 with API/container, Caddy and
+  kernel OOM logs before deploying this patch.
