@@ -232,6 +232,11 @@ carregava todos os registros e relacionamentos correspondentes para a memoria e 
 recortava a pagina em Python. A API agora calcula o total no banco, seleciona apenas os IDs da pagina
 com `LIMIT/OFFSET` e carrega detalhes somente desses IDs.
 
+O mesmo diagnostico mostrou `--workers: not found` e `--limit-max-requests: not found`: quebras de
+linha no comando Compose faziam o shell iniciar um Uvicorn simples e interpretar as opcoes seguintes
+como comandos independentes. O Compose agora usa um bloco de shell explicito com `exec`; valide os
+logs de inicio procurando o processo pai e dois workers, sem mensagens `not found`.
+
 Comandos seguros de diagnostico:
 
 ```bash

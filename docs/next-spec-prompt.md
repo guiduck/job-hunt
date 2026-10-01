@@ -271,6 +271,8 @@ must not materialize all matching opportunities, descriptions, evidence or keywo
 the API process. Counts must remain aggregate SQL queries, page selection must remain bounded with
 `LIMIT/OFFSET` (or a cursor-based successor), and relationship loading must apply only to IDs in the
 selected page. Add query-count and production RSS/restart observability before increasing page size.
+Keep lane-specific dashboard metrics distinct: a valid zero for email jobs or email-unsent must not
+fall back to the generic unsent opportunity total.
 
 ## Next Candidate: Niche Portfolio Publishing And Outreach Controls
 

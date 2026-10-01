@@ -53,11 +53,16 @@ services:
       DEFAULT_LOCAL_USER_DISPLAY_NAME: ${DEFAULT_LOCAL_USER_DISPLAY_NAME:-Local Operator}
       API_WORKERS: ${API_WORKERS:-2}
       API_MAX_REQUESTS_PER_PROCESS: ${API_MAX_REQUESTS_PER_PROCESS:-1000}
-    command: >
-      sh -c "alembic upgrade head &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000
-             --workers $${API_WORKERS}
-             --limit-max-requests $${API_MAX_REQUESTS_PER_PROCESS}"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        alembic upgrade head &&
+        exec uvicorn app.main:app \
+          --host 0.0.0.0 \
+          --port 8000 \
+          --workers "$${API_WORKERS}" \
+          --limit-max-requests "$${API_MAX_REQUESTS_PER_PROCESS}"
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     healthcheck:

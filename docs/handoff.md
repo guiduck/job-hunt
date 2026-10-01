@@ -1339,3 +1339,9 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
 - Validation: 12 focused opportunity filter, pagination, metrics and contract tests passed.
 - Production confirmation still requires correlating a fresh 502 with API/container, Caddy and
   kernel OOM logs before deploying this patch.
+- Production diagnostics then confirmed the process was killed after reaching roughly 1.9 GiB and
+  had already restarted twice. They also exposed a Compose command-folding bug: Uvicorn options were
+  executed as separate shell commands, leaving one process without request recycling. The API
+  command now uses an explicit shell script with `exec`, two workers and the configured request cap.
+- Fixed dashboard email counters using logical-OR fallback, which incorrectly replaced a legitimate
+  zero email count with the generic unsent count (for example, displaying 229 instead of 0).

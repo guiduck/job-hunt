@@ -814,5 +814,7 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Move opportunities page slicing from Python object materialization into SQL pagination.
 - [x] Count filtered opportunities without loading full text/JSON records.
 - [x] Add a regression check that paginated requests issue a database-level `LIMIT`.
-- [ ] Correlate a production 502 with Caddy, container restart and kernel OOM evidence.
+- [x] Correlate a production 502 with container restart and process-killed evidence.
+- [x] Fix Compose command parsing so Uvicorn worker count and request recycling are applied.
+- [x] Preserve zero-valued email metrics instead of falling back to generic unsent totals.
 - [ ] Deploy the pagination fix and monitor API RSS/restarts across repeated dashboard/jobs loads.
