@@ -26,6 +26,7 @@ import type {
   JobSearchPreferenceUpdate,
   JobSearchCandidate,
   JobSearchRun,
+  JobSearchRunCount,
   JobSearchRunCreate,
   LinkedInJobsExternalCandidateCreate,
   LinkedInJobsExternalCandidateResult,
@@ -263,6 +264,10 @@ export function bulkDeleteOpportunities(payload: OpportunityBulkDeleteRequest, o
 
 export function listJobSearchRuns(options?: RequestOptions) {
   return request<JobSearchRun[]>("/job-search-runs?limit=20", {}, options)
+}
+
+export function getJobSearchRunCount(options?: RequestOptions) {
+  return request<JobSearchRunCount>("/job-search-runs/count", {}, options)
 }
 
 export function listLinkedInSearchHistory(options?: RequestOptions) {

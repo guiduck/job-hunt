@@ -5,20 +5,38 @@ from app.api.dependencies.auth import current_user
 from app.api.errors import bad_request, conflict, not_found
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.job_search_run import CareerPageSearchRunCreate, CuratedCareerSource, CuratedExternalSourceResponse, JobSearchCandidate, JobSearchKind, JobSearchRun, JobSearchRunCreate, LinkedInJobsExternalCandidateCreate, LinkedInJobsExternalCandidateResult, LinkedInJobsExternalComplete, LinkedInJobsExternalProgressUpdate, LinkedInJobsExternalRunCreate, SearchHistoryResponse
+from app.schemas.job_search_run import (
+    CareerPageSearchRunCreate,
+    CuratedCareerSource,
+    CuratedExternalSourceResponse,
+    JobSearchCandidate,
+    JobSearchKind,
+    JobSearchRun,
+    JobSearchRunCount,
+    JobSearchRunCreate,
+    JobSearchRunSummary,
+    LinkedInJobsExternalCandidateCreate,
+    LinkedInJobsExternalCandidateResult,
+    LinkedInJobsExternalComplete,
+    LinkedInJobsExternalProgressUpdate,
+    LinkedInJobsExternalRunCreate,
+    SearchHistoryResponse,
+)
 from app.schemas.opportunity import Opportunity
 from app.services.career_page_sources import list_curated_career_sources
 from app.services.job_search_run_service import (
     complete_linkedin_jobs_external_run,
+    count_job_search_runs,
     create_career_page_search_run,
     create_linkedin_jobs_external_run,
     create_job_search_run,
     get_latest_job_search_run,
     get_job_search_run,
     get_linkedin_search_history,
-    record_linkedin_jobs_external_candidate,
     list_candidates,
+    list_job_search_run_summaries,
     list_job_search_runs,
+    record_linkedin_jobs_external_candidate,
     update_linkedin_jobs_external_run,
 )
 from app.services.opportunity_service import get_opportunity
@@ -142,6 +160,41 @@ def list_runs(
     user: User = Depends(current_user),
 ) -> list[JobSearchRun]:
     return list_job_search_runs(db, status, limit, provider_status, analysis_status, ai_filter_status, user=user)
+
+
+@router.get("/count", response_model=JobSearchRunCount)
+def count_runs(
+    status: str | None = Query(default=None),
+    provider_status: str | None = Query(default=None),
+    analysis_status: str | None = Query(default=None),
+    ai_filter_status: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> JobSearchRunCount:
+    return JobSearchRunCount(
+        count=count_job_search_runs(db, status, provider_status, analysis_status, ai_filter_status, user=user)
+    )
+
+
+@router.get("/summaries", response_model=list[JobSearchRunSummary])
+def list_run_summaries(
+    status: str | None = Query(default=None),
+    provider_status: str | None = Query(default=None),
+    analysis_status: str | None = Query(default=None),
+    ai_filter_status: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> list[JobSearchRunSummary]:
+    return list_job_search_run_summaries(
+        db,
+        status,
+        limit,
+        provider_status,
+        analysis_status,
+        ai_filter_status,
+        user=user,
+    )
 
 
 

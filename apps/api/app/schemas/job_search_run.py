@@ -398,6 +398,30 @@ class JobSearchRun(BaseModel):
     updated_at: datetime
 
 
+class JobSearchRunCount(BaseModel):
+    count: int = Field(ge=0)
+
+
+class JobSearchRunSummary(BaseModel):
+    """Compact run representation for list screens and polling clients."""
+
+    id: str
+    search_kind: JobSearchKind = JobSearchKind.LINKEDIN
+    status: JobSearchRunStatus
+    requested_keywords: list[str] = Field(default_factory=list)
+    search_query: str | None = None
+    search_sort_order: SearchSortOrder = SearchSortOrder.RECENT
+    inspected_count: int = 0
+    accepted_count: int = 0
+    rejected_count: int = 0
+    duplicate_count: int = 0
+    provider_status: ProviderStatus = ProviderStatus.NOT_STARTED
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
 
 class SearchHistoryRun(BaseModel):
     id: str

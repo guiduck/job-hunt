@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 from app.models.job_search_run import JobSearchKind, JobSearchRun, JobSearchRunStatus
@@ -83,3 +84,52 @@ def test_linkedin_search_history_excludes_career_page_and_keeps_unknown_raw_coun
     react_query = next(item for item in body["query_aggregates"] if item["value"] == "react python")
     assert react_query["total_raw_linkedin_results"] is None
     assert react_query["average_raw_linkedin_results"] is None
+
+
+def test_lightweight_run_queries_do_not_select_heavy_payload_columns(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    db_session: Session,
+) -> None:
+    created = client.post(
+        "/job-search-runs",
+        json={
+            "keywords": ["python", "react"],
+            "search_query": "python react",
+            "collection_source_types": ["provided_public_content"],
+            "collection_inputs": [
+                {
+                    "source_type": "provided_public_content",
+                    "provided_text": "large source evidence " * 500,
+                }
+            ],
+        },
+        headers=auth_headers,
+    )
+    assert created.status_code == 202
+
+    statements: list[str] = []
+
+    def capture_sql(_connection, _cursor, statement, _parameters, _context, _executemany) -> None:
+        statements.append(statement)
+
+    event.listen(db_session.bind, "before_cursor_execute", capture_sql)
+    try:
+        count_response = client.get("/job-search-runs/count", headers=auth_headers)
+        summary_response = client.get("/job-search-runs/summaries", headers=auth_headers)
+        history_response = client.get("/job-search-runs/linkedin/history?limit=1&q=react", headers=auth_headers)
+    finally:
+        event.remove(db_session.bind, "before_cursor_execute", capture_sql)
+
+    assert count_response.json() == {"count": 1}
+    assert len(summary_response.json()) == 1
+    assert len(history_response.json()["runs"]) == 1
+
+    run_queries = [statement for statement in statements if "FROM job_search_runs" in statement]
+    assert run_queries
+    assert any("count(job_search_runs.id)" in statement.lower() for statement in run_queries)
+    assert any("LIMIT" in statement for statement in run_queries)
+    assert all("source_diagnostics" not in statement for statement in run_queries)
+    assert all("provider_metadata" not in statement for statement in run_queries)
+    assert all("provided_text" not in statement for statement in run_queries)
+    assert all("linkedin_collection_inputs" not in statement for statement in run_queries)

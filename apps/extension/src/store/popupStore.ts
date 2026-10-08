@@ -13,6 +13,7 @@ import {
   deleteFieldAssistantActivation as apiDeleteFieldAssistantActivation,
   disconnectGoogleOAuth,
   getCurrentUser,
+  getJobSearchRunCount,
   getBulkEmail,
   getJobSearchPreference,
   getLatestCareerPageRun,
@@ -27,7 +28,6 @@ import {
   listEmailHistory,
   listEmailTemplates,
   listExternalJobSources,
-  listJobSearchRuns,
   listLinkedInSearchHistory,
   listOpportunityPage,
   listResumes,
@@ -929,9 +929,9 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         }
       }
       set({ loading: !cachedPage, error: null })
-      const [opportunityPage, runs, dashboardMetrics, searchHistory, curatedCareerSources, latestCareerPageRun] = await Promise.all([
+      const [opportunityPage, runCount, dashboardMetrics, searchHistory, curatedCareerSources, latestCareerPageRun] = await Promise.all([
         listOpportunityPage(pageFilters),
-        listJobSearchRuns(),
+        getJobSearchRunCount(),
         getOpportunityMetrics(),
         listLinkedInSearchHistory().catch(() => get().searchHistory),
         listExternalJobSources().catch(() => get().curatedCareerSources),
@@ -951,7 +951,7 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         {
           opportunityPage,
           dashboardMetrics,
-          runsCount: runs.length
+          runsCount: runCount.count
         }
       )
       set({
@@ -970,13 +970,13 @@ export const usePopupStore = create<PopupState>((set, get) => ({
         latestCareerPageRun,
         careerPagePolling: Boolean(latestCareerPageRun && CAREER_PAGE_BUSY_STATUSES.has(latestCareerPageRun.status)),
         filters: { ...pageFilters, page: opportunityPage.page, page_size: opportunityPage.page_size },
-        runsCount: runs.length
+        runsCount: runCount.count
       })
       const selectedOpportunityId = loadPersistedPopupState().selectedOpportunityId
       if (selectedOpportunityId && !get().selectedOpportunity) {
         await get().openDetail(selectedOpportunityId).catch(() => persistPopupState({ selectedOpportunityId: null }))
       }
-      console.info("[Opportunity Desk] refreshData finished", { opportunities: opportunityPage.items.length, runs: runs.length })
+      console.info("[Opportunity Desk] refreshData finished", { opportunities: opportunityPage.items.length, runs: runCount.count })
     } catch (error) {
       console.info("[Opportunity Desk] refreshData failed", describeError(error))
       if (isUnauthorized(error)) {

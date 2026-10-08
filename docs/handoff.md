@@ -1345,3 +1345,22 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
   command now uses an explicit shell script with `exec`, two workers and the configured request cap.
 - Fixed dashboard email counters using logical-OR fallback, which incorrectly replaced a legitimate
   zero email count with the generic unsent count (for example, displaying 229 instead of 0).
+
+## 2026-10-08 - Recurring Full-Time API OOM Hardening
+
+- Production evidence tied recurring `502` responses to cgroup OOM kills of Uvicorn children inside
+  the 2560 MiB API container; two workers could independently grow until their combined RSS crossed
+  the container ceiling while the supervisor kept the container itself running.
+- Added owner-scoped `GET /job-search-runs/count` and `GET /job-search-runs/summaries`. The existing
+  full list/detail contracts remain unchanged for compatibility.
+- Changed the extension dashboard refresh to fetch only the count instead of serializing 20 complete
+  runs and lazily loading `collection_inputs.provided_text`.
+- Changed LinkedIn search history to select explicit lightweight columns, filter/limit visible rows
+  in SQL, and avoid materializing full ORM runs with large diagnostics/provider JSON.
+- Changed Compose defaults to one Uvicorn worker with graceful recycling every 100 requests while
+  retaining the 2560 MiB container ceiling. Production `.env.local` must use the same values and the
+  API container must be force-recreated for them to apply.
+- No database migration is required. Focused API tests passed (7), including SQL-shape regression
+  coverage; extension TypeScript and production build passed. The complete API run passed 196 tests;
+  23 legacy tests still fail because they call protected endpoints without auth headers and receive
+  the expected `401`, outside this memory-hardening change.

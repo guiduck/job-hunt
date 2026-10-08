@@ -745,7 +745,7 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Keep worker lanes alive after transient database/task failures and restart containers after
   process or host interruption.
 - [x] Remove email consumption from the scraper worker and keep it exclusive to email-worker.
-- [x] Run two bounded-lifetime API processes to avoid planned recycling becoming a full API outage.
+- [x] Run bounded-lifetime API processes and keep worker count aligned with measured VPS memory.
 - [x] Raise the configurable API memory ceiling from 1536 MiB to 2560 MiB while retaining host
   protection and process recycling.
 - [ ] Add durable queue metrics and alerts if email volume grows beyond the current Postgres queue.
@@ -817,4 +817,9 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Correlate a production 502 with container restart and process-killed evidence.
 - [x] Fix Compose command parsing so Uvicorn worker count and request recycling are applied.
 - [x] Preserve zero-valued email metrics instead of falling back to generic unsent totals.
-- [ ] Deploy the pagination fix and monitor API RSS/restarts across repeated dashboard/jobs loads.
+- [x] Add count and compact-summary run endpoints without breaking the complete historical contract.
+- [x] Stop the extension dashboard from downloading complete runs and collection evidence for a count.
+- [x] Project only required LinkedIn history columns and apply its visible-run limit in SQL.
+- [x] Lower the shared-VPS default to one API worker recycled every 100 requests after repeated OOMs.
+- [ ] Deploy the pagination/run-query fixes and monitor API RSS, worker recycling and OOM events for
+  seven days across repeated dashboard/jobs/history loads.

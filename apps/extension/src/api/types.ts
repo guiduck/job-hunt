@@ -349,6 +349,10 @@ export type JobSearchRun = {
   error_message: string | null
 }
 
+export type JobSearchRunCount = {
+  count: number
+}
+
 
 export type SearchHistoryRun = {
   id: string

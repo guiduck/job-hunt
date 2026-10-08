@@ -81,7 +81,8 @@ FREELANCE_GOOGLE_AUTH_SUCCESS_REDIRECT_URL=https://freelance.gfig.space/auth/goo
 TWILIO_WEBHOOK_BASE_URL=https://freelance.gfig.space
 TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID=HX87b32be62ddc6b41889cd859aaf574e2
 TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN=HX7eb26809469ce00dc40fa188dd95c856
-API_MAX_REQUESTS_PER_PROCESS=10000
+API_WORKERS=1
+API_MAX_REQUESTS_PER_PROCESS=100
 ```
 
 Preserve the existing `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and
@@ -218,9 +219,10 @@ recriou os servicos alterados. Um segundo restart so adiciona indisponibilidade.
 Os servicos continuam sendo supervisionados pelo Docker Compose; nao instale PM2 para a API ou para
 o Next. Todos os servicos permanentes usam `restart: unless-stopped`, e os limites de memoria evitam
 que um unico processo consuma toda a VPS. A API tem limite configuravel por `API_MEMORY_LIMIT`, com
-padrao atual de 2560 MiB, dois processos Uvicorn e reciclagem graciosa a cada 1.000 requisicoes por
-processo. `API_WORKERS` e `API_MAX_REQUESTS_PER_PROCESS` podem ser alterados em `.env.local`, mas os
-padroes devem ser mantidos ate haver medicao suficiente.
+padrao atual de 2560 MiB, um processo Uvicorn e reciclagem graciosa a cada 100 requisicoes. Os logs de
+8 de outubro de 2026 mostraram que dois processos Python dentro do mesmo cgroup conseguiam somar mais
+que esse teto e eram mortos pelo kernel. `API_WORKERS` e `API_MAX_REQUESTS_PER_PROCESS` podem ser
+alterados em `.env.local`, mas mantenha `1` e `100` ate pelo menos sete dias de medicao sem novo OOM.
 
 O incidente de 8 de setembro de 2026 foi um OOM real: o kernel matou `uvicorn` quando seu RSS
 anonimo chegou a aproximadamente 6,2 GiB. O caminho de gravacao de candidatos carregava todos os
@@ -235,7 +237,32 @@ com `LIMIT/OFFSET` e carrega detalhes somente desses IDs.
 O mesmo diagnostico mostrou `--workers: not found` e `--limit-max-requests: not found`: quebras de
 linha no comando Compose faziam o shell iniciar um Uvicorn simples e interpretar as opcoes seguintes
 como comandos independentes. O Compose agora usa um bloco de shell explicito com `exec`; valide os
-logs de inicio procurando o processo pai e dois workers, sem mensagens `not found`.
+logs de inicio procurando um worker, reciclagens limpas e nenhuma mensagem `not found`.
+
+O incidente recorrente de 8 de outubro tambem apontou o dashboard para endpoints de runs. O popup
+agora usa `GET /job-search-runs/count` em vez de baixar 20 runs completos com inputs/evidencias. Para
+listas, prefira `GET /job-search-runs/summaries`; deixe `GET /job-search-runs` e o detalhe por ID para
+consumidores que realmente precisam do contrato completo. O historico LinkedIn seleciona somente as
+colunas exibidas e limita a lista recente no SQL.
+
+Para aplicar especificamente esse hardening na VPS, atualize as variaveis antes de recriar a API:
+
+```bash
+cd /srv/projects/job-hunt/job-hunt
+git pull --ff-only origin master
+if grep -q '^API_WORKERS=' .env.local; then sed -i 's/^API_WORKERS=.*/API_WORKERS=1/' .env.local; else printf '\nAPI_WORKERS=1\n' >> .env.local; fi
+if grep -q '^API_MAX_REQUESTS_PER_PROCESS=' .env.local; then sed -i 's/^API_MAX_REQUESTS_PER_PROCESS=.*/API_MAX_REQUESTS_PER_PROCESS=100/' .env.local; else printf 'API_MAX_REQUESTS_PER_PROCESS=100\n' >> .env.local; fi
+docker compose --env-file .env.local build api
+docker compose --env-file .env.local up -d --no-deps --force-recreate api
+docker compose --env-file .env.local ps api
+docker compose --env-file .env.local logs --tail=120 api
+curl -fsS http://127.0.0.1:8000/health
+curl -fsS https://jobs-api.gfig.space/health
+docker stats --no-stream opportunity_desk_api
+```
+
+Nao ha migration de banco nesse hardening. A extensao instalada no Chrome tambem precisa ser
+recompilada e recarregada para trocar a chamada antiga pelo endpoint de contagem.
 
 Comandos seguros de diagnostico:
 
@@ -366,9 +393,8 @@ systemctl reload caddy
 ~~~
 
 Nao deixe a API sem limite de memoria, pois ela poderia derrubar os outros projetos da VPS. O teto
-e configuravel por API_MEMORY_LIMIT e usa 2560 MiB por padrao. A API usa dois workers Uvicorn e
-reciclagem apos 1.000 requests por processo; alteracoes no Compose so passam a valer depois de
-force-recreate.
+e configuravel por API_MEMORY_LIMIT e usa 2560 MiB por padrao. A API usa um worker Uvicorn e
+reciclagem apos 100 requests; alteracoes no Compose so passam a valer depois de force-recreate.
 
 ## Receita Curta
 

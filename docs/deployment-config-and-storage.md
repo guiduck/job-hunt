@@ -139,6 +139,19 @@ Quando houver planos/assinaturas, limites devem vir de regra de produto no banco
 assinatura ou plano. Variavel de ambiente global nao e boa fonte para isso porque mistura todos os
 usuarios e ambientes.
 
+## Memoria Da API Na VPS
+
+O Compose mantem `API_MEMORY_LIMIT=2560m`, `API_WORKERS=1` e
+`API_MAX_REQUESTS_PER_PROCESS=100` como defaults conservadores para a VPS compartilhada. O limite
+protege os outros servicos; um unico worker evita que dois heaps Python concorram dentro do mesmo
+cgroup; a reciclagem limita crescimento residual entre requisicoes.
+
+Clientes que precisam apenas do total de buscas devem usar `GET /job-search-runs/count`. Listas
+compactas devem usar `GET /job-search-runs/summaries`. O endpoint historico `GET /job-search-runs`
+continua disponivel por compatibilidade, mas inclui o contrato completo e nao deve ser usado em
+polling/dashboard. Depois do deploy, acompanhe RSS, swap, logs do Caddy e eventos OOM por sete dias
+antes de considerar mais workers ou um intervalo maior de reciclagem.
+
 ## Checklist antes de subir em Render
 
 - Criar Postgres gerenciado e configurar `DATABASE_URL`.

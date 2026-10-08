@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 import json
 import re
 
-from sqlalchemy import select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.job_search_run import (
@@ -19,7 +19,19 @@ from app.models.job_search_run import (
 )
 from app.models.opportunity import ContactChannelType
 from app.models.user import User
-from app.schemas.job_search_run import CareerPageSearchRunCreate, JobSearchRunCreate, LinkedInJobsExternalCandidateCreate, LinkedInJobsExternalCandidateResult, LinkedInJobsExternalComplete, LinkedInJobsExternalProgressUpdate, LinkedInJobsExternalRunCreate, SearchAggregate, SearchHistoryResponse, SearchHistoryRun
+from app.schemas.job_search_run import (
+    CareerPageSearchRunCreate,
+    JobSearchRunCreate,
+    JobSearchRunSummary,
+    LinkedInJobsExternalCandidateCreate,
+    LinkedInJobsExternalCandidateResult,
+    LinkedInJobsExternalComplete,
+    LinkedInJobsExternalProgressUpdate,
+    LinkedInJobsExternalRunCreate,
+    SearchAggregate,
+    SearchHistoryResponse,
+    SearchHistoryRun,
+)
 from app.schemas.opportunity import JobDetailCreate, OpportunityCreate
 from app.core.config import get_settings
 from app.services.auth_service import ensure_default_local_user
@@ -519,6 +531,67 @@ def list_job_search_runs(
     return list(db.scalars(statement))
 
 
+def count_job_search_runs(
+    db: Session,
+    status: str | None = None,
+    provider_status: str | None = None,
+    analysis_status: str | None = None,
+    ai_filter_status: str | None = None,
+    user: User | None = None,
+) -> int:
+    statement = select(func.count(JobSearchRun.id))
+    if user:
+        statement = statement.where(JobSearchRun.user_id == user.id)
+    if status:
+        statement = statement.where(JobSearchRun.status == status)
+    if provider_status:
+        statement = statement.where(JobSearchRun.provider_status == provider_status)
+    if analysis_status:
+        statement = statement.where(JobSearchRun.analysis_status == analysis_status)
+    if ai_filter_status:
+        statement = statement.where(JobSearchRun.ai_filter_status == ai_filter_status)
+    return int(db.scalar(statement) or 0)
+
+
+def list_job_search_run_summaries(
+    db: Session,
+    status: str | None = None,
+    limit: int = 20,
+    provider_status: str | None = None,
+    analysis_status: str | None = None,
+    ai_filter_status: str | None = None,
+    user: User | None = None,
+) -> list[JobSearchRunSummary]:
+    statement = select(
+        JobSearchRun.id,
+        JobSearchRun.search_kind,
+        JobSearchRun.status,
+        JobSearchRun.requested_keywords,
+        JobSearchRun.search_query,
+        JobSearchRun.search_sort_order,
+        JobSearchRun.inspected_count,
+        JobSearchRun.accepted_count,
+        JobSearchRun.rejected_count,
+        JobSearchRun.duplicate_count,
+        JobSearchRun.provider_status,
+        JobSearchRun.started_at,
+        JobSearchRun.completed_at,
+        JobSearchRun.created_at,
+        JobSearchRun.updated_at,
+    ).order_by(JobSearchRun.created_at.desc()).limit(limit)
+    if user:
+        statement = statement.where(JobSearchRun.user_id == user.id)
+    if status:
+        statement = statement.where(JobSearchRun.status == status)
+    if provider_status:
+        statement = statement.where(JobSearchRun.provider_status == provider_status)
+    if analysis_status:
+        statement = statement.where(JobSearchRun.analysis_status == analysis_status)
+    if ai_filter_status:
+        statement = statement.where(JobSearchRun.ai_filter_status == ai_filter_status)
+    return [JobSearchRunSummary.model_validate(row._mapping) for row in db.execute(statement)]
+
+
 def get_job_search_run(db: Session, run_id: str, user: User | None = None) -> JobSearchRun | None:
     statement = (
         select(JobSearchRun)
@@ -550,6 +623,48 @@ def get_latest_job_search_run(
 
 
 @dataclass
+class _HistoryRunRecord:
+    id: str
+    status: str
+    search_query: str | None
+    requested_keywords: list[str]
+    search_sort_order: str
+    raw_linkedin_result_count: int | None
+    raw_linkedin_result_count_source: str | None
+    inspected_count: int
+    accepted_count: int
+    rejected_count: int
+    duplicate_count: int
+    ai_filter_inspected_count: int
+    ai_filter_passed_count: int
+    ai_filter_rejected_count: int
+    ai_filter_fallback_count: int
+    ai_filter_failed_count: int
+    ai_filter_skipped_count: int
+    provider_status: str
+    error_message: str | None
+    provider_error_message: str | None
+    provider_error_code: str | None
+    stop_reason: str | None
+    started_at: datetime | None
+    completed_at: datetime | None
+    created_at: datetime
+
+
+@dataclass
+class _AggregateRunRecord:
+    search_query: str | None
+    requested_keywords: list[str]
+    raw_linkedin_result_count: int | None
+    accepted_count: int
+    rejected_count: int
+    duplicate_count: int
+    started_at: datetime | None
+    completed_at: datetime | None
+    created_at: datetime
+
+
+@dataclass
 class _AggregateBucket:
     value: str
     run_count: int = 0
@@ -560,7 +675,7 @@ class _AggregateBucket:
     duplicate_count: int = 0
     latest_run_at: datetime | None = None
 
-    def add_run(self, run: JobSearchRun) -> None:
+    def add_run(self, run: _AggregateRunRecord) -> None:
         self.run_count += 1
         if run.raw_linkedin_result_count is not None:
             self.total_raw += run.raw_linkedin_result_count
@@ -587,21 +702,21 @@ class _AggregateBucket:
         )
 
 
-def _safe_diagnostic_message(run: JobSearchRun) -> str | None:
+def _safe_diagnostic_message(run: _HistoryRunRecord) -> str | None:
     message = run.error_message or run.provider_error_message or run.provider_error_code or run.stop_reason
     if not message:
         return None
     return str(message)[:500]
 
 
-def _query_label(run: JobSearchRun) -> str:
+def _query_label(run: _AggregateRunRecord) -> str:
     query = (run.search_query or "").strip()
     if query:
         return query.lower()
     return " ".join(run.requested_keywords or []).strip().lower()
 
 
-def _keyword_tokens(run: JobSearchRun) -> list[str]:
+def _keyword_tokens(run: _AggregateRunRecord) -> list[str]:
     raw_terms = list(run.requested_keywords or [])
     if not raw_terms and run.search_query:
         raw_terms = re.split(r"[\s,;]+", run.search_query)
@@ -640,23 +755,67 @@ def get_linkedin_search_history(
     user: User | None = None,
 ) -> SearchHistoryResponse:
     user = user or ensure_default_local_user(db)
-    statement = (
-        select(JobSearchRun)
-        .where(JobSearchRun.user_id == user.id, JobSearchRun.search_kind == JobSearchKind.LINKEDIN.value)
-        .order_by(JobSearchRun.created_at.desc())
+    history_columns = (
+        JobSearchRun.id,
+        JobSearchRun.status,
+        JobSearchRun.search_query,
+        JobSearchRun.requested_keywords,
+        JobSearchRun.search_sort_order,
+        JobSearchRun.raw_linkedin_result_count,
+        JobSearchRun.raw_linkedin_result_count_source,
+        JobSearchRun.inspected_count,
+        JobSearchRun.accepted_count,
+        JobSearchRun.rejected_count,
+        JobSearchRun.duplicate_count,
+        JobSearchRun.ai_filter_inspected_count,
+        JobSearchRun.ai_filter_passed_count,
+        JobSearchRun.ai_filter_rejected_count,
+        JobSearchRun.ai_filter_fallback_count,
+        JobSearchRun.ai_filter_failed_count,
+        JobSearchRun.ai_filter_skipped_count,
+        JobSearchRun.provider_status,
+        JobSearchRun.error_message,
+        JobSearchRun.provider_error_message,
+        JobSearchRun.provider_error_code,
+        JobSearchRun.stop_reason,
+        JobSearchRun.started_at,
+        JobSearchRun.completed_at,
+        JobSearchRun.created_at,
+    )
+    history_statement = select(*history_columns).where(
+        JobSearchRun.user_id == user.id,
+        JobSearchRun.search_kind == JobSearchKind.LINKEDIN.value,
+    )
+    aggregate_statement = select(
+        JobSearchRun.search_query,
+        JobSearchRun.requested_keywords,
+        JobSearchRun.raw_linkedin_result_count,
+        JobSearchRun.accepted_count,
+        JobSearchRun.rejected_count,
+        JobSearchRun.duplicate_count,
+        JobSearchRun.started_at,
+        JobSearchRun.completed_at,
+        JobSearchRun.created_at,
+    ).where(
+        JobSearchRun.user_id == user.id,
+        JobSearchRun.search_kind == JobSearchKind.LINKEDIN.value,
     )
     if status:
-        statement = statement.where(JobSearchRun.status == status)
+        history_statement = history_statement.where(JobSearchRun.status == status)
+        aggregate_statement = aggregate_statement.where(JobSearchRun.status == status)
 
-    all_runs = list(db.scalars(statement))
     query_filter = q.strip().lower() if q else ""
-    visible_runs = [
-        run
-        for run in all_runs
-        if not query_filter
-        or query_filter in (run.search_query or "").lower()
-        or any(query_filter in keyword.lower() for keyword in (run.requested_keywords or []))
-    ]
+    if query_filter:
+        history_statement = history_statement.where(
+            or_(
+                func.lower(func.coalesce(JobSearchRun.search_query, "")).contains(query_filter, autoescape=True),
+                func.lower(cast(JobSearchRun.requested_keywords, String)).contains(query_filter, autoescape=True),
+            )
+        )
+    history_statement = history_statement.order_by(JobSearchRun.created_at.desc()).limit(limit)
+
+    visible_runs = [_HistoryRunRecord(*row) for row in db.execute(history_statement)]
+    aggregate_runs = [_AggregateRunRecord(*row) for row in db.execute(aggregate_statement)]
 
     history_runs = [
         SearchHistoryRun(
@@ -683,12 +842,12 @@ def get_linkedin_search_history(
             completed_at=run.completed_at,
             created_at=run.created_at,
         )
-        for run in visible_runs[:limit]
+        for run in visible_runs
     ]
 
     query_buckets: dict[str, _AggregateBucket] = {}
     keyword_buckets: dict[str, _AggregateBucket] = {}
-    for run in all_runs:
+    for run in aggregate_runs:
         query_label = _query_label(run)
         if query_label:
             query_buckets.setdefault(query_label, _AggregateBucket(query_label)).add_run(run)

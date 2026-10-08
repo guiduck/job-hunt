@@ -10,6 +10,16 @@ Spec 018 has its automated implementation complete. The next product/spec decisi
 ## Prompt
 Create the next spec only after manual smoke observations are recorded. If LinkedIn Jobs external search works reliably, specify polishing/history drilldown for external runs. If direct URL or DOM inspection is fragile, specify hardening for LinkedIn Jobs navigation selectors, fallback click-path, and operator recovery controls. Keep `apps/web`/Freelance out of scope.
 
+## Full-Time API Memory Invariant
+
+Preserve the lightweight run-query split introduced after the recurring VPS OOM incident:
+dashboard/polling consumers use `GET /job-search-runs/count`, compact list consumers use
+`GET /job-search-runs/summaries`, and only explicit detail/full-contract flows may load collection
+inputs or large diagnostics. LinkedIn history must keep database-level limiting and explicit column
+projection. Keep the shared-VPS baseline at one Uvicorn worker recycled every 100 requests until
+seven days of production RSS/OOM measurements justify increasing concurrency. No migration is
+required for this hardening.
+
 ## Freelance WhatsApp Plain Text Note
 Recent web hotfix: generated `Freelance` commercial messages for WhatsApp must be plain chat text. Preserve the rule that WhatsApp output should not use Markdown links, should not ask the lead to contact via WhatsApp because the thread is already WhatsApp, and should ask them to reply here.
 
