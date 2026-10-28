@@ -8,15 +8,16 @@ import {
 
 type ApifyPlace = {
   title?: string;
-  name?: string;
-  categoryName?: string;
+  type?: string;
+  types?: string[];
   address?: string;
-  phone?: string;
+  phoneNumber?: string;
   website?: string;
-  url?: string;
   placeId?: string;
-  totalScore?: number;
-  reviewsCount?: number;
+  cid?: string;
+  rating?: number;
+  ratingCount?: number;
+  error_message?: string;
 };
 
 function buildSearchQuery(input: FreelanceMapsSearchInput) {
@@ -31,19 +32,19 @@ function mapPlace(input: FreelanceMapsSearchInput, place: ApifyPlace): Normalize
     providerName: "apify_google_maps",
     sourceQuery,
     sourceName: "Apify Google Maps Scraper",
-    sourceUrl: place.url,
-    sourceIdentifier: place.placeId,
-    businessName: place.title ?? place.name ?? "Unknown business",
-    category: place.categoryName,
-    address: place.address,
+    sourceUrl: place.cid ? `https://www.google.com/maps?cid=${place.cid}` : undefined,
+    sourceIdentifier: place.placeId ?? undefined,
+    businessName: place.title ?? "Unknown business",
+    category: place.type ?? place.types?.[0] ?? undefined,
+    address: place.address ?? undefined,
     country: input.country,
     region: input.region,
     city: input.city,
-    phone: place.phone,
-    websiteUrl: place.website,
-    rating: place.totalScore,
-    reviewCount: place.reviewsCount,
-    rawEvidence: `${place.title ?? place.name ?? "Business"} from Apify result for "${sourceQuery}"`,
+    phone: place.phoneNumber ?? undefined,
+    websiteUrl: place.website ?? undefined,
+    rating: place.rating ?? undefined,
+    reviewCount: place.ratingCount ?? undefined,
+    rawEvidence: `${place.title ?? "Business"} from Apify result for "${sourceQuery}"`,
     rawProviderPayload: place as Record<string, unknown>
   });
 }
@@ -60,15 +61,14 @@ export function createApifyGoogleMapsProvider(): FreelanceMapsProvider {
       let response: Response;
       try {
         response = await fetch(
-          `https://api.apify.com/v2/acts/compass~google-maps-scraper/run-sync-get-dataset-items?token=${config.apifyToken}`,
+          `https://api.apify.com/v2/acts/johnvc~google-maps-places-api/run-sync-get-dataset-items?token=${config.apifyToken}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              searchStringsArray: [buildSearchQuery(input)],
-              maxCrawledPlacesPerSearch: input.maxResults,
-              language: input.marketScope === "BR" ? "pt-BR" : "en",
-              scrapePlaceDetailPage: true
+              searchTerms: [buildSearchQuery(input)],
+              maxResultsPerSearch: Math.max(input.maxResults, 20),
+              language: input.marketScope === "BR" ? "pt-BR" : "en"
             })
           }
         );
@@ -90,7 +90,12 @@ export function createApifyGoogleMapsProvider(): FreelanceMapsProvider {
       }
 
       const items = (await response.json()) as ApifyPlace[];
-      return items.slice(0, input.maxResults).map((place) => mapPlace(input, place));
+      const places = items.filter((item) => !item.error_message);
+      const errorRow = items.find((item) => item.error_message);
+      if (places.length === 0 && errorRow) {
+        throw new Error(`Apify Google Maps run returned an error: ${errorRow.error_message}`);
+      }
+      return places.slice(0, input.maxResults).map((place) => mapPlace(input, place));
     }
   };
 }
