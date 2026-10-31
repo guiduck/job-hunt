@@ -81,8 +81,8 @@ FREELANCE_GOOGLE_AUTH_SUCCESS_REDIRECT_URL=https://freelance.gfig.space/auth/goo
 TWILIO_WEBHOOK_BASE_URL=https://freelance.gfig.space
 TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID=HX87b32be62ddc6b41889cd859aaf574e2
 TWILIO_WHATSAPP_TEMPLATE_CONTENT_SID_EN=HX7eb26809469ce00dc40fa188dd95c856
-API_WORKERS=1
-API_MAX_REQUESTS_PER_PROCESS=100
+API_WORKERS=2
+API_MAX_REQUESTS_PER_PROCESS=250
 ```
 
 Preserve the existing `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and
@@ -218,11 +218,13 @@ recriou os servicos alterados. Um segundo restart so adiciona indisponibilidade.
 
 Os servicos continuam sendo supervisionados pelo Docker Compose; nao instale PM2 para a API ou para
 o Next. Todos os servicos permanentes usam `restart: unless-stopped`, e os limites de memoria evitam
-que um unico processo consuma toda a VPS. A API tem limite configuravel por `API_MEMORY_LIMIT`, com
-padrao atual de 2560 MiB, um processo Uvicorn e reciclagem graciosa a cada 100 requisicoes. Os logs de
-8 de outubro de 2026 mostraram que dois processos Python dentro do mesmo cgroup conseguiam somar mais
-que esse teto e eram mortos pelo kernel. `API_WORKERS` e `API_MAX_REQUESTS_PER_PROCESS` podem ser
-alterados em `.env.local`, mas mantenha `1` e `100` ate pelo menos sete dias de medicao sem novo OOM.
+que um unico processo consuma toda a VPS. A API mantem `API_MEMORY_LIMIT=2560m`. Os logs de 25 de
+outubro mostraram novos OOMs ao servir `GET /job-search-runs?limit=20`: a rota carregava tambem os
+textos de `linkedin_collection_inputs` dos 20 runs antes de concluir a resposta. A rota historica
+agora seleciona IDs e transmite um run completo por vez, preservando o contrato JSON. O Compose
+volta a usar dois workers com reciclagem apos 250 requests por worker para que a troca de um deles
+nao derrube o unico processo da API. Se `API_WORKERS=1`, a reciclagem e desativada. Monitore o RSS
+dos dois workers juntos dentro do teto de 2560 MiB e os eventos OOM apos o deploy.
 
 O incidente de 8 de setembro de 2026 foi um OOM real: o kernel matou `uvicorn` quando seu RSS
 anonimo chegou a aproximadamente 6,2 GiB. O caminho de gravacao de candidatos carregava todos os
@@ -243,15 +245,16 @@ O incidente recorrente de 8 de outubro tambem apontou o dashboard para endpoints
 agora usa `GET /job-search-runs/count` em vez de baixar 20 runs completos com inputs/evidencias. Para
 listas, prefira `GET /job-search-runs/summaries`; deixe `GET /job-search-runs` e o detalhe por ID para
 consumidores que realmente precisam do contrato completo. O historico LinkedIn seleciona somente as
-colunas exibidas e limita a lista recente no SQL.
+colunas exibidas e limita a lista recente no SQL. A extensao antiga ainda pode chamar a rota
+completa; a API nao deve depender exclusivamente da atualizacao do cliente para evitar um OOM.
 
 Para aplicar especificamente esse hardening na VPS, atualize as variaveis antes de recriar a API:
 
 ```bash
 cd /srv/projects/job-hunt/job-hunt
 git pull --ff-only origin master
-if grep -q '^API_WORKERS=' .env.local; then sed -i 's/^API_WORKERS=.*/API_WORKERS=1/' .env.local; else printf '\nAPI_WORKERS=1\n' >> .env.local; fi
-if grep -q '^API_MAX_REQUESTS_PER_PROCESS=' .env.local; then sed -i 's/^API_MAX_REQUESTS_PER_PROCESS=.*/API_MAX_REQUESTS_PER_PROCESS=100/' .env.local; else printf 'API_MAX_REQUESTS_PER_PROCESS=100\n' >> .env.local; fi
+if grep -q '^API_WORKERS=' .env.local; then sed -i 's/^API_WORKERS=.*/API_WORKERS=2/' .env.local; else printf '\nAPI_WORKERS=2\n' >> .env.local; fi
+if grep -q '^API_MAX_REQUESTS_PER_PROCESS=' .env.local; then sed -i 's/^API_MAX_REQUESTS_PER_PROCESS=.*/API_MAX_REQUESTS_PER_PROCESS=250/' .env.local; else printf 'API_MAX_REQUESTS_PER_PROCESS=250\n' >> .env.local; fi
 docker compose --env-file .env.local build api
 docker compose --env-file .env.local up -d --no-deps --force-recreate api
 docker compose --env-file .env.local ps api
@@ -263,6 +266,11 @@ docker stats --no-stream opportunity_desk_api
 
 Nao ha migration de banco nesse hardening. A extensao instalada no Chrome tambem precisa ser
 recompilada e recarregada para trocar a chamada antiga pelo endpoint de contagem.
+
+Depois da recriacao, use `docker top opportunity_desk_api` para verificar o processo supervisor e
+dois workers Uvicorn. Observe `docker stats --no-stream opportunity_desk_api`, o journal do kernel e
+os erros `502` do Caddy durante cargas reais; um `health` 200 isolado nao comprova estabilidade.
+Nao reinicie Postgres, web ou email-worker para aplicar apenas esta alteracao da API.
 
 Comandos seguros de diagnostico:
 

@@ -508,7 +508,7 @@ def create_career_page_search_run(db: Session, payload: CareerPageSearchRunCreat
     return run
 
 
-def list_job_search_runs(
+def list_job_search_run_ids(
     db: Session,
     status: str | None = None,
     limit: int = 20,
@@ -516,8 +516,8 @@ def list_job_search_runs(
     analysis_status: str | None = None,
     ai_filter_status: str | None = None,
     user: User | None = None,
-) -> list[JobSearchRun]:
-    statement = select(JobSearchRun).order_by(JobSearchRun.created_at.desc()).limit(limit)
+) -> list[str]:
+    statement = select(JobSearchRun.id).order_by(JobSearchRun.created_at.desc()).limit(limit)
     if user:
         statement = statement.where(JobSearchRun.user_id == user.id)
     if status:

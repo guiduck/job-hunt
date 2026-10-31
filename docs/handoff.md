@@ -1364,3 +1364,22 @@ Manual validation after a 15-page run showed visible external `Candidatar-se` bu
   coverage; extension TypeScript and production build passed. The complete API run passed 196 tests;
   23 legacy tests still fail because they call protected endpoints without auth headers and receive
   the expected `401`, outside this memory-hardening change.
+
+## 2026-10-31 - Full-Time API Run List OOM Follow-up
+
+- VPS logs from October 25 confirmed two cgroup OOM kills at the 2560 MiB API ceiling while Caddy
+  served `GET /job-search-runs?limit=20`; PostgreSQL was loading `linkedin_collection_inputs`
+  including `provided_text` when its client disappeared. The API container had restarted 94 times.
+- The complete list contract remains a JSON array of full runs, but the implementation now selects
+  bounded run IDs first and streams one fully validated run at a time using a short DB session.
+  Count and summaries remain the preferred endpoints for dashboards and polling.
+- Compose defaults are two Uvicorn workers and 250 requests per worker within the unchanged 2560 MiB
+  cgroup. Recycling is disabled when `API_WORKERS=1` so the sole process cannot deliberately take
+  down the API. Production `.env.local` must be changed from the old `1`/`100` overrides before
+  recreating only the API container.
+- Production verification remains required: exercise an old full-list client and the new count
+  endpoint, inspect Caddy 502s, worker RSS, container restarts, and kernel OOM events. Do not call
+  the incident closed after a single successful request.
+- Local validation: 12 focused API contract/integration/unit tests passed; `docker compose config
+  --services` passed. Docker Desktop runtime was unavailable locally, so the two-worker process
+  lifecycle and memory ceiling still require VPS verification.

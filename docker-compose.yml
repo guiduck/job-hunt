@@ -51,13 +51,17 @@ services:
       PASSWORD_RESET_TOKEN_TTL_MINUTES: ${PASSWORD_RESET_TOKEN_TTL_MINUTES:-30}
       DEFAULT_LOCAL_USER_EMAIL: ${DEFAULT_LOCAL_USER_EMAIL:-local@example.com}
       DEFAULT_LOCAL_USER_DISPLAY_NAME: ${DEFAULT_LOCAL_USER_DISPLAY_NAME:-Local Operator}
-      API_WORKERS: ${API_WORKERS:-1}
-      API_MAX_REQUESTS_PER_PROCESS: ${API_MAX_REQUESTS_PER_PROCESS:-100}
+      API_WORKERS: ${API_WORKERS:-2}
+      API_MAX_REQUESTS_PER_PROCESS: ${API_MAX_REQUESTS_PER_PROCESS:-250}
     command:
       - /bin/sh
       - -c
       - |
         alembic upgrade head &&
+        if [ "$${API_WORKERS}" -eq 1 ]; then
+          echo "API_WORKERS=1: request recycling disabled to keep the sole API process available"
+          exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+        fi
         exec uvicorn app.main:app \
           --host 0.0.0.0 \
           --port 8000 \

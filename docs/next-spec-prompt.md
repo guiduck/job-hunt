@@ -311,3 +311,12 @@ intact. Keep the free diagnosis concise, compact current and previously saved po
 variables before provider submission, and persist the exact submitted body in the inbox. Do not
 "remove" this guard: when required fields cannot fit, return the local
 `whatsapp_message_too_long` diagnostic before calling Twilio.
+
+## Next Full-Time API Reliability Spec
+
+`/speckit-specify` a follow-up for measurable API memory and availability guarantees on the shared
+VPS. Preserve the complete `GET /job-search-runs` JSON contract and owner scoping while keeping
+its memory bounded by one run at a time; use `/count` and `/summaries` for polling. Define an
+automated load test with large LinkedIn `collection_inputs`, RSS and cgroup memory measurements,
+Caddy 502 and kernel OOM alerts, worker-recycle checks, and a rollback procedure. Do not treat a
+healthy response after a restart as proof that the 502 incident is resolved.

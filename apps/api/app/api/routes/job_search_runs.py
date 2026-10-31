@@ -1,5 +1,8 @@
+from collections.abc import Iterator
+
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy.orm import Session
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.dependencies.auth import current_user
 from app.api.errors import bad_request, conflict, not_found
@@ -35,7 +38,7 @@ from app.services.job_search_run_service import (
     get_linkedin_search_history,
     list_candidates,
     list_job_search_run_summaries,
-    list_job_search_runs,
+    list_job_search_run_ids,
     record_linkedin_jobs_external_candidate,
     update_linkedin_jobs_external_run,
 )
@@ -158,8 +161,28 @@ def list_runs(
     limit: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
-) -> list[JobSearchRun]:
-    return list_job_search_runs(db, status, limit, provider_status, analysis_status, ai_filter_status, user=user)
+) -> StreamingResponse:
+    run_ids = list_job_search_run_ids(db, status, limit, provider_status, analysis_status, ai_filter_status, user=user)
+    user_id = user.id
+    session_factory = sessionmaker(bind=db.get_bind())
+
+    def stream_runs() -> Iterator[str]:
+        yield "["
+        first = True
+        for run_id in run_ids:
+            with session_factory() as run_db:
+                run = get_job_search_run(run_db, run_id)
+                if run is None or run.user_id != user_id:
+                    continue
+                payload = JobSearchRun.model_validate(run).model_dump_json()
+            del run
+            if not first:
+                yield ","
+            yield payload
+            first = False
+        yield "]"
+
+    return StreamingResponse(stream_runs(), media_type="application/json")
 
 
 @router.get("/count", response_model=JobSearchRunCount)

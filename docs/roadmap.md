@@ -823,3 +823,14 @@ The Freelance web app now exposes the exact PT/EN Twilio templates in the operat
 - [x] Lower the shared-VPS default to one API worker recycled every 100 requests after repeated OOMs.
 - [ ] Deploy the pagination/run-query fixes and monitor API RSS, worker recycling and OOM events for
   seven days across repeated dashboard/jobs/history loads.
+
+## 2026-10-31 - Full-Time API Availability Follow-up
+
+- [x] Preserve the full legacy run-list JSON contract while streaming one run at a time instead of
+  materializing all selected runs and their `provided_text` in the API heap.
+- [x] Stop recycling the sole API process when configured with one worker; default to two workers
+  with per-worker request recycling under the existing memory ceiling.
+- [ ] Deploy the API-only fix with `API_WORKERS=2` and `API_MAX_REQUESTS_PER_PROCESS=250` in the VPS
+  `.env.local`, then verify behavior with both current and stale extension clients.
+- [ ] Monitor total API cgroup memory, kernel OOM events, Caddy 502s, and worker replacement over
+  seven days before considering a higher memory ceiling.
